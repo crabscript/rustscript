@@ -1,5 +1,8 @@
+main = {SOI ~ program ~ EOI}
+
 program = _{ (seq ~ expr?) | expr }
-seq = { expr_stmt ~ (expr_stmt)* }
+
+seq = _{ expr_stmt ~ (expr_stmt)* }
 expr = @{ (ASCII_DIGIT)+ }
 expr_stmt = { expr ~ SEMICOLON}
 

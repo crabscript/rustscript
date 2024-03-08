@@ -1,0 +1,7 @@
+program = _{ (expr_stmt)+ ~ (expr_stmt | expression) }
+expression = { (ASCII_DIGIT)+ }
+expr_stmt = { expression ~ SEMICOLON}
+
+SEMICOLON = { ";" }
+WHITESPACE = _{ (" " | NEWLINE)+}
+COMMENT = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }

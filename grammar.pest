@@ -1,7 +1,8 @@
-program = _{ (expr_stmt)+ ~ (expr_stmt | expression) }
-expression = { (ASCII_DIGIT)+ }
-expr_stmt = { expression ~ SEMICOLON}
+program = _{ (seq ~ expr?) | expr }
+seq = { expr_stmt ~ (expr_stmt)* }
+expr = @{ (ASCII_DIGIT)+ }
+expr_stmt = { expr ~ SEMICOLON}
 
-SEMICOLON = { ";" }
+SEMICOLON = _{ ";" }
 WHITESPACE = _{ (" " | NEWLINE)+}
 COMMENT = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }

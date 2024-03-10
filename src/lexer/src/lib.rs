@@ -84,6 +84,9 @@ pub enum Token {
     #[token("%")]
     Percent,
 
+    #[token("let")]
+    Let,
+
     #[regex(r#"[a-zA-Z_][a-zA-Z0-9_]*"#, |lex| lex.slice().to_owned())]
     Ident(String),
 
@@ -113,7 +116,7 @@ mod test {
 
     #[test]
     fn test_bool() {
-        let mut lexer = Token::lexer("true false");
+        let mut lexer = Token::lexer("true\n\tfalse");
         assert_eq!(
             Token::Bool(true),
             lexer.next().unwrap().expect("Expected token")
@@ -138,6 +141,18 @@ mod test {
             Token::Integer(-42),
             Token::Integer(-1234567890),
         ];
+
+        for e in expected {
+            assert_eq!(e, tokens.next().unwrap().expect("Expected token"));
+        }
+    }
+
+    #[test]
+    fn test_lexer_number_leading_zero() {
+        let input = "02 003 00401.02";
+        let mut tokens = Token::lexer(input);
+
+        let expected = [Token::Integer(2), Token::Integer(3), Token::Float(401.02)];
 
         for e in expected {
             assert_eq!(e, tokens.next().unwrap().expect("Expected token"));
@@ -267,7 +282,7 @@ mod test {
             Token::Ident("_john".to_string()),
             Token::Ident("_".to_string()),
             Token::Ident("fn".to_string()),
-            Token::Ident("let".to_string()),
+            Token::Let,
             Token::Ident("mut".to_string()),
             Token::Ident("continue".to_string()),
             Token::Ident("break".to_string()),
@@ -280,15 +295,19 @@ mod test {
 
     #[test]
     fn test_normal_code_1() {
-        let input = r#"let x = 42;"#;
+        let input = r#"let x = 42; let y = 4.0;"#;
         let mut lexer = Token::lexer(input);
 
         let expected = vec![
-            Token::Ident("let".to_string()),
+            Token::Let,
             Token::Ident("x".to_string()),
             Token::Eq,
             Token::Integer(42),
             Token::Semi,
+            Token::Let,
+            Token::Ident("y".to_string()),
+            Token::Eq,
+            Token::Float(4.0),
         ];
 
         for e in expected {
@@ -350,6 +369,20 @@ mod test {
             Token::Ident("y".to_string()),
             Token::Semi,
             Token::CloseBrace,
+        ];
+
+        for e in expected {
+            assert_eq!(e, lexer.next().unwrap().expect("Expected token"));
+        }
+    }
+
+    #[test]
+    fn test_nonsense_input() {
+        let input = "  frij34ij33 \n \t wrjijeritj  ";
+        let mut lexer = Token::lexer(input);
+        let expected = vec![
+            Token::Ident(String::from("frij34ij33")),
+            Token::Ident(String::from("wrjijeritj")),
         ];
 
         for e in expected {

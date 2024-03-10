@@ -1,29 +1,32 @@
 use std::fmt::Display;
 
 use lexer::Token;
-use logos::{Lexer, Logos};
+use logos::Lexer;
 
 
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
-
-enum Expr {
+#[derive(Debug, PartialEq)]
+pub enum Expr {
     Integer(i64)
 }
 
-enum Decl {
-    ExprStmt(Expr)
+// Later: LetStmt, IfStmt, FnDef, etc.
+#[derive(Debug, PartialEq)]
+pub enum Decl {
+    ExprStmt(Expr),
+    Block
 }
 
 // Last expression is value of program semantics (else Unit type)
 // Program is either one declaration or a sequence of declarations with optional last expression
     // Decl is there to avoid needing to do recursive Seq for a bunch of stmts in order
+// Seq is for top level. Use Decl::Block for block scoping
+#[derive(Debug, PartialEq)]
 pub enum ASTNode {
     Decl,
-    Seq(Vec<ASTNode>, Option<Expr>)
+    Seq(Vec<Decl>, Option<Expr>)
 }
 
+#[derive(Debug, PartialEq)]
 pub struct ParseError {
     msg:String
 }
@@ -53,19 +56,64 @@ impl <'inp> Parser<'inp> {
         }
     }
 
-    pub fn parse(self)->Result<ASTNode, ParseError> {
-        Ok(ASTNode::Decl)
+    // Assume input is valid: no double semi or double expr. semicolon means prev_tok has a value
+    pub fn parse(mut self)->Result<ASTNode, ParseError> {
+        let mut decls:Vec<Decl> = vec![];
+        let mut prev_tok:Option<Token> = None;
+        
+
+        for tok_res in self.lexer.into_iter() {
+            let tok = tok_res.expect("Expect token");
+            // if prev_tok.is_none() {
+            //     prev_tok.replace(tok.clone());
+            //     continue;
+            // }
+
+            match tok {
+                Token::Integer(_) => {
+                    if prev_tok.is_some() {
+                        return Err(ParseError::new("Consecutive expressions not allowed"))
+                    }
+                    prev_tok.replace(tok);
+                },
+                Token::Semi => {
+                    let tok = prev_tok.clone().expect("Expected expression before semicolon");
+                    match tok {
+                        Token::Integer(val) => decls.push(Decl::ExprStmt(Expr::Integer(val))),
+                        _ => return Err(ParseError::new("Unexpected token type"))
+                    }
+                    prev_tok.take();
+                    
+                },
+                _ => {}
+            }
+        }
+
+        let mut ret_expr:Option<Expr> = None;
+        if let Some(tok) = prev_tok {
+            match tok {
+                Token::Integer(val) => { 
+                    ret_expr.replace(Expr::Integer(val));
+                },
+                _ => return Err(ParseError::new("Unexpected token type"))
+            }
+        }
+
+        Ok(ASTNode::Seq(decls, ret_expr))
     }
 
 }
 
 #[cfg(test)]
 mod tests {
+    use logos::Logos;
+
+    use super::*;
     #[test]
-    fn can_lex() {
-        let m = String::from("20; 30");
-        let res = lexer::lex(m.as_str());
-        let res = res.collect::<Vec<_>>();
-        dbg!(res);
+    fn can_parse_ints() {
+        let inp = " 20 ";
+        let lex = Token::lexer(inp);
+        let parser = Parser::new(lex);
+        let res = parser.parse();
     }
 }

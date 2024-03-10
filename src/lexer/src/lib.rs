@@ -1,4 +1,4 @@
-use logos::Logos;
+use logos::{Lexer, Logos};
 
 #[derive(Debug, Logos, PartialEq)]
 #[logos(skip r"[ \t\r\n\f]+")]
@@ -106,6 +106,10 @@ pub enum Token {
       stripped.to_owned()
   })]
     String(String),
+}
+
+pub fn lex<'a>(input:&'a str)->Lexer<'a,Token> {
+    Token::lexer(input)
 }
 
 #[cfg(test)]

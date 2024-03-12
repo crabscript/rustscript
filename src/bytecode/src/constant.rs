@@ -25,6 +25,39 @@ impl From<bool> for Value {
     }
 }
 
+impl TryFrom<Value> for i64 {
+    type Error = &'static str;
+
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        match value {
+            Value::Int(i) => Ok(i),
+            _ => Err("Value is not an integer"),
+        }
+    }
+}
+
+impl TryFrom<Value> for f64 {
+    type Error = &'static str;
+
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        match value {
+            Value::Float(f) => Ok(f),
+            _ => Err("Value is not a float"),
+        }
+    }
+}
+
+impl TryFrom<Value> for bool {
+    type Error = &'static str;
+
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        match value {
+            Value::Bool(b) => Ok(b),
+            _ => Err("Value is not a bool"),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

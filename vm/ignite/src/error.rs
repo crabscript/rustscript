@@ -11,6 +11,9 @@ pub enum VmError {
     #[error("bad type: expected {expected}, found {found}")]
     BadType { expected: String, found: String },
 
+    #[error("bad argument: {0}")]
+    IllegalArgument(String),
+
     #[error("unimplemented")]
     Unimplemented,
 

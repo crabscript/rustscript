@@ -18,6 +18,10 @@ pub enum BinOp {
     Lt,
     /// Equality comparison of two values of the same type (bool or int or float or string)
     Eq,
+    /// Logical AND of two values of the same type (bool)
+    And,
+    /// Logical OR of two values of the same type (bool)
+    Or,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]

@@ -1,7 +1,6 @@
-#![allow(dead_code)]
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum Value {
     Int(i64),
     Float(f64),

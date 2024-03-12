@@ -118,4 +118,18 @@ mod tests {
 
         assert_eq!(result, Value::Bool(false));
     }
+
+    #[test]
+    fn test_longer_unop_chain() {
+        let instrs = vec![
+            ByteCode::LDC(Value::Int(42)),
+            ByteCode::UNOP(bytecode::UnOp::Neg),
+            ByteCode::UNOP(bytecode::UnOp::Neg),
+            ByteCode::UNOP(bytecode::UnOp::Neg),
+        ];
+        let rt = Runtime::new(instrs);
+        let result = run(rt).unwrap();
+
+        assert_eq!(result, Value::Int(-42));
+    }
 }

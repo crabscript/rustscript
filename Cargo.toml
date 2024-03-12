@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "compiler/oxidate",
     "vm/ignite",
+    "src/bytecode",
     "src/types",
     "src/lexer",
     "src/parser",

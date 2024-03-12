@@ -41,12 +41,12 @@ impl Runtime {
                         };
                         self.stack.push(result);
                     }
-                    _ => {
-                        return Err(VmError::BadType {
-                            expected: "int or float".to_string(),
-                            found: format!("{:?}", val),
-                        }
-                        .into())
+                    Value::Bool(b) => {
+                        let result = match op {
+                            bytecode::UnOp::Not => Value::Bool(!b),
+                            _ => return Err(VmError::Unimplemented.into()),
+                        };
+                        self.stack.push(result);
                     }
                 }
             }
@@ -105,5 +105,17 @@ mod tests {
         let result = run(rt).unwrap();
 
         assert_eq!(result, Value::Float(-42.0));
+    }
+
+    #[test]
+    fn test_unop_not_bool() {
+        let instrs = vec![
+            ByteCode::LDC(Value::Bool(true)),
+            ByteCode::UNOP(bytecode::UnOp::Not),
+        ];
+        let rt = Runtime::new(instrs);
+        let result = run(rt).unwrap();
+
+        assert_eq!(result, Value::Bool(false));
     }
 }

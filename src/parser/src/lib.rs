@@ -8,7 +8,7 @@ use logos::Lexer;
 #[derive(Debug, PartialEq)]
 pub enum Expr {
     Integer(i64),
-    Float(i64),
+    Float(f64),
     Bool(bool),
 }
 
@@ -100,51 +100,6 @@ impl<'inp> Parser<'inp> {
         }
     }
 
-    // Assume input is valid: no double semi or double expr. semicolon means prev_tok has a value
-    // pub fn parse(mut self) -> Result<Program, ParseError> {
-    //     let mut decls: Vec<Decl> = vec![];
-    //     let mut prev_tok: Option<Token> = None;
-
-    //     for tok_res in self.lexer.into_iter() {
-    //         let tok = tok_res.expect("Expect token");
-
-    //         match tok {
-    //             Token::Integer(_) => {
-    //                 if prev_tok.is_some() {
-    //                     return Err(ParseError::new("Consecutive expressions not allowed"));
-    //                 }
-    //                 prev_tok.replace(tok);
-    //             }
-    //             Token::Semi => {
-    //                 let tok = prev_tok
-    //                     .clone()
-    //                     .expect("Expected expression before semicolon");
-    //                 match tok {
-    //                     Token::Integer(val) => decls.push(Decl::ExprStmt(Expr::Integer(val))),
-    //                     _ => return Err(ParseError::new("Unexpected token type")),
-    //                 }
-    //                 prev_tok.take();
-    //             }
-    //             _ => unimplemented!()
-    //         }
-    //     }
-
-    //     let mut ret_expr: Option<Expr> = None;
-    //     if let Some(tok) = prev_tok {
-    //         match tok {
-    //             Token::Integer(val) => {
-    //                 ret_expr.replace(Expr::Integer(val));
-    //             }
-    //             _ => return Err(ParseError::new("Unexpected token type")),
-    //         }
-    //     }
-
-    //     Ok(Program {
-    //         decls,
-    //         last_expr: ret_expr,
-    //     })
-    // }
-
     // expect peek to be semicolon
     fn expect_semicolon(&mut self) -> Result<(), ParseError> {
         let err = Err(ParseError::new("Expected semicolon"));
@@ -154,9 +109,9 @@ impl<'inp> Parser<'inp> {
             err
         } else {
             let pk = pk
-                .expect("Expect lexer to succeed")
+                .expect("Peek has something")
                 .as_ref()
-                .expect("Peek has something");
+                .expect("Expect lexer to suceed");
             match pk {
                 Token::Semi => Ok(()),
                 _ => err,
@@ -164,6 +119,7 @@ impl<'inp> Parser<'inp> {
         }
     }
 
+    // Store current lexer token as prev_tok and move up lexer 
     fn advance(&mut self) {
         if let Some(val) = self.lexer.peek() {
             self.prev_tok
@@ -180,10 +136,13 @@ impl<'inp> Parser<'inp> {
             .expect("prev_tok should not be empty");
         match prev_tok {
             Token::Integer(val) => Ok(Expr::Integer(*val)),
+            Token::Float(val) => Ok(Expr::Float(*val)),
+            Token::Bool(val) => Ok(Expr::Bool(*val)),
             _ => unimplemented!(),
         }
     }
 
+    // Program is a sequence of declarations
     fn parse_decl(&mut self) -> Result<(), ParseError> {
         let val = self.parse_expr()?;
         self.decls.push(Decl::ExprStmt(val));
@@ -206,7 +165,7 @@ impl<'inp> Parser<'inp> {
         let mut last_expr: Option<Expr> = None;
         if let Some(ref val) = self.prev_tok {
             match val {
-                Token::Integer(_) => {
+                Token::Integer(_) | Token::Float(_) | Token::Bool(_) => {
                     let v = self.parse_expr()?;
                     last_expr.replace(v);
                 }
@@ -254,11 +213,27 @@ mod tests {
         test_parse(" 20 ;30; \n40 \n ", "20;30;40"); // two exprstmt + expr
     }
 
-    // #[test]
-    // fn test_parse_floats() {
-    //     test_parse(" 2.2\n ", "2.2"); // expr only
-    //     test_parse(" 2.23\n ", "2.23;"); // expr only
-    // }
+    #[test]
+    fn test_parse_floats() {
+        test_parse(" 2.2\n ", "2.2"); 
+        test_parse(" 2.23\n ", "2.23");
+        test_parse(" 2.23; 4.5\n ", "2.23;4.5");
+        test_parse(" 2.23; 4.5; 4.6\n ", "2.23;4.5;4.6");
+    }
+
+    #[test]
+    fn test_parse_bools() {
+        test_parse("true\n ", "true");
+        test_parse("true; false\n ", "true;false"); 
+        test_parse("true; false; true;\n ", "true;false;true;"); 
+        test_parse("true; false; true; false\n ", "true;false;true;false"); 
+    }
+
+    #[test]
+    fn test_parse_mixed() {
+        test_parse("true; 2; 4.5; false; 200; 7.289; 90; true", "true;2;4.5;false;200;7.289;90;true");
+        test_parse("true; 2; 4.5; false; 200; 7.289; 90; true; 2.1;", "true;2;4.5;false;200;7.289;90;true;2.1;")
+    }
 
     #[test]
     fn test_errs_for_consecutive_exprs() {

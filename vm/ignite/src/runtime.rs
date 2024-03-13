@@ -22,17 +22,23 @@ impl Runtime {
 }
 
 pub fn run(mut rt: Runtime) -> Result<Runtime> {
-    while rt.pc < rt.instrs.len() {
+    loop {
         let instr = rt.instrs[rt.pc].clone();
         rt.pc += 1;
-        execute(&mut rt, instr)?;
+
+        let is_done = execute(&mut rt, instr)?;
+        if is_done {
+            break;
+        }
     }
 
     Ok(rt)
 }
 
-pub fn execute(rt: &mut Runtime, instr: ByteCode) -> Result<()> {
+/// Execute a single instruction
+pub fn execute(rt: &mut Runtime, instr: ByteCode) -> Result<bool> {
     match instr {
+        ByteCode::DONE => return Ok(true),
         ByteCode::LDC(val) => micro_code::ldc(rt, val)?,
         ByteCode::POP => micro_code::pop(rt)?,
         ByteCode::UNOP(op) => micro_code::unop(rt, op)?,
@@ -40,7 +46,7 @@ pub fn execute(rt: &mut Runtime, instr: ByteCode) -> Result<()> {
         ByteCode::JOF(pc) => micro_code::jof(rt, pc)?,
         ByteCode::GOTO(pc) => micro_code::goto(rt, pc)?,
     }
-    Ok(())
+    Ok(false)
 }
 
 #[cfg(test)]
@@ -54,10 +60,11 @@ mod tests {
             ByteCode::POP,
             ByteCode::ldc(42),
             ByteCode::POP,
+            ByteCode::DONE,
         ];
         let rt = Runtime::new(instrs);
         let rt = run(rt).unwrap();
-        assert_eq!(rt.pc, 4);
+        assert_eq!(rt.pc, 5);
 
         let rt = Runtime::new(vec![
             ByteCode::ldc(false),
@@ -65,26 +72,29 @@ mod tests {
             ByteCode::ldc(()),
             ByteCode::ldc(()),
             ByteCode::ldc(()),
+            ByteCode::DONE,
         ]);
         let rt = run(rt).unwrap();
-        assert_eq!(rt.pc, 5);
+        assert_eq!(rt.pc, 6);
 
         let rt = Runtime::new(vec![
             ByteCode::ldc(42),
             ByteCode::ldc(true),
             ByteCode::JOF(123),
+            ByteCode::DONE,
         ]);
         let rt = run(rt).unwrap();
-        assert_eq!(rt.pc, 3);
+        assert_eq!(rt.pc, 4);
 
         let rt = Runtime::new(vec![
-            ByteCode::ldc(42),
+            ByteCode::GOTO(5),
+            ByteCode::POP, // This will panic since there is no value on the stack
             ByteCode::POP,
-            ByteCode::ldc(42),
             ByteCode::POP,
-            ByteCode::GOTO(123),
+            ByteCode::POP,
+            ByteCode::DONE,
         ]);
         let rt = run(rt).unwrap();
-        assert_eq!(rt.pc, 123);
+        assert_eq!(rt.pc, 6);
     }
 }

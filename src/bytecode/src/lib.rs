@@ -8,6 +8,7 @@ mod operator;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum ByteCode {
+    DONE,
     LDC(Value),
     POP,
     BINOP(BinOp),

@@ -114,7 +114,7 @@ impl<'inp> Parser<'inp> {
                     }
                     prev_tok.take();
                 }
-                _ => {}
+                _ => unimplemented!()
             }
         }
 
@@ -147,12 +147,31 @@ mod tests {
         assert_eq!(res.to_string(), expected);
     }
 
+    fn test_parse_err(inp:&str, exp_err:&str, contains:bool) {
+        let lex = Token::lexer(inp);
+        let parser = Parser::new(lex);
+        let res = parser.parse().expect_err("Should err");
+
+        if contains {
+            assert!(res.to_string().contains(exp_err))
+        } else {
+            assert_eq!(res.to_string(), exp_err);
+        }
+        
+    }
+
     #[test]
-    fn can_parse_ints() {
+    fn test_parse_ints() {
         test_parse(" 20\n ", "20"); // expr only
         test_parse(" 20;\n ", "20;"); // one exprstmt
         test_parse(" 20 ;30 \n ", "20;30"); // exprstmt, expr
         test_parse(" 20 ;30; \n ", "20;30;"); // exprstmt, exprsmt
         test_parse(" 20 ;30; \n40 \n ", "20;30;40"); // two exprstmt + expr
+
+    }
+
+    #[test]
+    fn test_errs_for_consecutive_exprs() {
+        test_parse_err("20 30", "Consecutive expressions not allowed", true);
     }
 }

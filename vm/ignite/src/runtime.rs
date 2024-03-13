@@ -52,6 +52,7 @@ pub fn execute(rt: &mut Runtime, instr: ByteCode) -> Result<bool> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bytecode::{BinOp, UnOp};
 
     #[test]
     fn test_pc() {
@@ -68,33 +69,68 @@ mod tests {
 
         let rt = Runtime::new(vec![
             ByteCode::ldc(false),
-            ByteCode::JOF(5),
-            ByteCode::ldc(()),
-            ByteCode::ldc(()),
-            ByteCode::ldc(()),
-            ByteCode::DONE,
-        ]);
-        let rt = run(rt).unwrap();
-        assert_eq!(rt.pc, 6);
-
-        let rt = Runtime::new(vec![
-            ByteCode::ldc(42),
-            ByteCode::ldc(true),
-            ByteCode::JOF(123),
+            ByteCode::JOF(3),
+            ByteCode::POP, // This will panic since there is no value on the stack
             ByteCode::DONE,
         ]);
         let rt = run(rt).unwrap();
         assert_eq!(rt.pc, 4);
 
         let rt = Runtime::new(vec![
-            ByteCode::GOTO(5),
+            ByteCode::ldc(true),
+            ByteCode::JOF(3), // jump to pop instruction
+            ByteCode::DONE,
             ByteCode::POP, // This will panic since there is no value on the stack
-            ByteCode::POP,
-            ByteCode::POP,
-            ByteCode::POP,
             ByteCode::DONE,
         ]);
         let rt = run(rt).unwrap();
-        assert_eq!(rt.pc, 6);
+        assert_eq!(rt.pc, 3);
+
+        let rt = Runtime::new(vec![
+            ByteCode::GOTO(2),
+            ByteCode::POP, // This will panic since there is no value on the stack
+            ByteCode::DONE,
+        ]);
+        let rt = run(rt).unwrap();
+        assert_eq!(rt.pc, 3);
+    }
+
+    #[test]
+    fn test_arithmetic() {
+        // 42 + 42
+        let instrs = vec![
+            ByteCode::ldc(42),
+            ByteCode::ldc(42),
+            ByteCode::BINOP(BinOp::Add),
+            ByteCode::DONE,
+        ];
+        let rt = Runtime::new(instrs);
+        let rt = run(rt).unwrap();
+        assert_eq!(rt.stack, vec![Value::Int(84)]);
+
+        // -(42 - 123)
+        let instrs = vec![
+            ByteCode::ldc(42),
+            ByteCode::ldc(123),
+            ByteCode::BINOP(BinOp::Sub),
+            ByteCode::UNOP(UnOp::Neg),
+            ByteCode::DONE,
+        ];
+        let rt = Runtime::new(instrs);
+        let rt = run(rt).unwrap();
+        assert_eq!(rt.stack, vec![Value::Int(81)]);
+
+        // (2 * 3) > 9
+        let instrs = vec![
+            ByteCode::ldc(2),
+            ByteCode::ldc(3),
+            ByteCode::BINOP(BinOp::Mul),
+            ByteCode::ldc(9),
+            ByteCode::BINOP(BinOp::Gt),
+            ByteCode::DONE,
+        ];
+        let rt = Runtime::new(instrs);
+        let rt = run(rt).unwrap();
+        assert_eq!(rt.stack, vec![Value::Bool(false)]);
     }
 }

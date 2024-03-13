@@ -8,6 +8,9 @@ pub enum VmError {
     #[error("stack underflow")]
     StackUnderflow,
 
+    #[error("pc out of bounds: {0}")]
+    PcOutOfBounds(usize),
+
     #[error("bad type: expected {expected}, found {found}")]
     BadType { expected: String, found: String },
 

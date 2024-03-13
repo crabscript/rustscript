@@ -44,7 +44,8 @@ pub fn pop(rt: &mut Runtime) -> Result<()> {
 ///
 /// # Errors
 ///
-/// If the operation is not supported for the type of the value on the stack.
+/// If the stack is empty or the operation is not supported for
+/// the type of the value on the stack.
 pub fn unop(rt: &mut Runtime, op: UnOp) -> Result<()> {
     let val = rt.stack.pop().ok_or(VmError::StackUnderflow)?;
 
@@ -96,7 +97,8 @@ pub fn unop(rt: &mut Runtime, op: UnOp) -> Result<()> {
 ///
 /// # Errors
 ///
-/// If the operation is not supported for the types of the values on the stack.
+/// If the stack has fewer than two values or the operation is not supported
+/// for the types of the values on the stack.
 pub fn binop(rt: &mut Runtime, op: BinOp) -> Result<()> {
     let rhs = rt.stack.pop().ok_or(VmError::StackUnderflow)?;
     let lhs = rt.stack.pop().ok_or(VmError::StackUnderflow)?;
@@ -166,7 +168,7 @@ pub fn binop(rt: &mut Runtime, op: BinOp) -> Result<()> {
 ///
 /// # Errors
 ///
-/// If the top of the stack is not a boolean.
+/// If the stack is empty or the top of the stack is not a boolean.
 pub fn jof(rt: &mut Runtime, pc: usize) -> Result<()> {
     let cond = rt.stack.pop().ok_or(VmError::StackUnderflow)?;
 

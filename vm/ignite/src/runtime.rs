@@ -1,4 +1,4 @@
-use crate::micro_code;
+use crate::{micro_code, VmError};
 use anyhow::Result;
 use bytecode::{self, ByteCode, Value};
 
@@ -35,7 +35,11 @@ impl Runtime {
 /// If an error occurs during execution.
 pub fn run(mut rt: Runtime) -> Result<Runtime> {
     loop {
-        let instr = rt.instrs[rt.pc].clone();
+        let instr = rt
+            .instrs
+            .get(rt.pc)
+            .ok_or(VmError::PcOutOfBounds(rt.pc))?
+            .clone();
         rt.pc += 1;
 
         let is_done = execute(&mut rt, instr)?;
@@ -58,6 +62,10 @@ pub fn run(mut rt: Runtime) -> Result<Runtime> {
 /// # Returns
 ///
 /// Whether the program is done executing.
+///
+/// # Errors
+///
+/// If an error occurs during execution.
 pub fn execute(rt: &mut Runtime, instr: ByteCode) -> Result<bool> {
     match instr {
         ByteCode::DONE => return Ok(true),

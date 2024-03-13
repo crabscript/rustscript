@@ -60,23 +60,31 @@ mod tests {
         assert_eq!(rt.pc, 4);
 
         let rt = Runtime::new(vec![
-            ByteCode::ldc(42),
             ByteCode::ldc(false),
-            ByteCode::JOF(0),
+            ByteCode::JOF(5),
+            ByteCode::ldc(()),
+            ByteCode::ldc(()),
+            ByteCode::ldc(()),
         ]);
         let rt = run(rt).unwrap();
-        assert_eq!(rt.pc, 0);
+        assert_eq!(rt.pc, 5);
 
         let rt = Runtime::new(vec![
             ByteCode::ldc(42),
             ByteCode::ldc(true),
-            ByteCode::JOF(0),
+            ByteCode::JOF(123),
         ]);
         let rt = run(rt).unwrap();
         assert_eq!(rt.pc, 3);
 
-        let rt = Runtime::new(vec![ByteCode::ldc(42), ByteCode::POP, ByteCode::GOTO(0)]);
+        let rt = Runtime::new(vec![
+            ByteCode::ldc(42),
+            ByteCode::POP,
+            ByteCode::ldc(42),
+            ByteCode::POP,
+            ByteCode::GOTO(123),
+        ]);
         let rt = run(rt).unwrap();
-        assert_eq!(rt.pc, 0);
+        assert_eq!(rt.pc, 123);
     }
 }

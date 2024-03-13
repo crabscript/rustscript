@@ -107,12 +107,12 @@ pub fn binop(rt: &mut Runtime, op: BinOp) -> Result<()> {
     Ok(())
 }
 
-pub fn jof(rt: &mut Runtime, offset: usize) -> Result<()> {
+pub fn jof(rt: &mut Runtime, pc: usize) -> Result<()> {
     let cond = rt.stack.pop().ok_or(VmError::StackUnderflow)?;
 
     if let Value::Bool(b) = cond {
         if !b {
-            rt.pc = offset;
+            rt.pc = pc;
         }
 
         Ok(())
@@ -121,8 +121,8 @@ pub fn jof(rt: &mut Runtime, offset: usize) -> Result<()> {
     }
 }
 
-pub fn goto(rt: &mut Runtime, offset: usize) -> Result<()> {
-    rt.pc = offset;
+pub fn goto(rt: &mut Runtime, pc: usize) -> Result<()> {
+    rt.pc = pc;
     Ok(())
 }
 

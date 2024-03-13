@@ -52,10 +52,14 @@ pub struct Program {
 
 impl Display for Program {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let decls = self.decls.iter().map(|d| format!("{};",d)).collect::<String>();
+        let decls = self
+            .decls
+            .iter()
+            .map(|d| format!("{};", d))
+            .collect::<String>();
         let expr = match &self.last_expr {
             Some(expr) => expr.to_string(),
-            None => String::from("")
+            None => String::from(""),
         };
 
         write!(f, "{}{}", decls, expr)
@@ -83,13 +87,17 @@ impl Display for ParseError {
 
 pub struct Parser<'inp> {
     decls: Vec<Decl>,
-    prev_tok:Option<Token>,
+    prev_tok: Option<Token>,
     lexer: Peekable<Lexer<'inp, Token>>,
 }
 
 impl<'inp> Parser<'inp> {
     pub fn new<'src>(lexer: Lexer<'src, Token>) -> Parser<'src> {
-        Parser { decls:vec![], prev_tok:None, lexer: lexer.peekable() }
+        Parser {
+            decls: vec![],
+            prev_tok: None,
+            lexer: lexer.peekable(),
+        }
     }
 
     // Assume input is valid: no double semi or double expr. semicolon means prev_tok has a value
@@ -99,7 +107,7 @@ impl<'inp> Parser<'inp> {
 
     //     for tok_res in self.lexer.into_iter() {
     //         let tok = tok_res.expect("Expect token");
-    
+
     //         match tok {
     //             Token::Integer(_) => {
     //                 if prev_tok.is_some() {
@@ -138,55 +146,54 @@ impl<'inp> Parser<'inp> {
     // }
 
     // expect peek to be semicolon
-    fn expect_semicolon(&mut self)->Result<(), ParseError> {
-        let err = Err(ParseError::new("Expected semicolon")); 
+    fn expect_semicolon(&mut self) -> Result<(), ParseError> {
+        let err = Err(ParseError::new("Expected semicolon"));
         let pk = self.lexer.peek();
 
         if pk.is_none() {
             err
         } else {
-            let pk = pk.expect("Expect lexer to succeed").as_ref().expect("Peek has something");
+            let pk = pk
+                .expect("Expect lexer to succeed")
+                .as_ref()
+                .expect("Peek has something");
             match pk {
                 Token::Semi => Ok(()),
-                _ => err
+                _ => err,
             }
         }
     }
 
     fn advance(&mut self) {
         if let Some(val) = self.lexer.peek() {
-            self.prev_tok.replace(val.clone().expect("Expect lexer to succeed"));
+            self.prev_tok
+                .replace(val.clone().expect("Expect lexer to succeed"));
             self.lexer.next();
         }
     }
 
-    fn parse_atomic(&mut self)->Result<(), ParseError> {
-        dbg!("atomic:", &self.prev_tok);
-        
-        Ok(())
-
-    }   
-
-    fn parse_expr(&mut self)->Result<(), ParseError>  {
-        let prev_tok = self.prev_tok.as_ref().expect("prev_tok should not be empty");
+    // So that we can reuse this for last expr
+    fn parse_expr(&mut self) -> Result<Expr, ParseError> {
+        let prev_tok = self
+            .prev_tok
+            .as_ref()
+            .expect("prev_tok should not be empty");
         match prev_tok {
-            Token::Integer(_) | Token::Float(_) | Token::Bool(_) => {
-                self.parse_atomic()?
-            },
-            _ => unimplemented!()
+            Token::Integer(val) => Ok(Expr::Integer(*val)),
+            _ => unimplemented!(),
         }
-
-        Ok(())
     }
 
-    fn parse_decl(&mut self)->Result<(), ParseError> {
-        self.parse_expr()?;
+    fn parse_decl(&mut self) -> Result<(), ParseError> {
+        let val = self.parse_expr()?;
+        self.decls.push(Decl::ExprStmt(val));
+
         self.expect_semicolon()?; // invariant: after parsing previous leave peek at where semicolon would be
         self.advance(); // should be called once done (consume semicolon)
         Ok(())
     }
 
-    pub fn parse(mut self)->Result<Program,ParseError> {
+    pub fn parse(mut self) -> Result<Program, ParseError> {
         self.advance();
 
         while let Some(_) = self.lexer.peek() {
@@ -196,29 +203,37 @@ impl<'inp> Parser<'inp> {
             self.advance();
         }
 
-        let last_expr:Option<Expr> = None;
-        Ok(
-            Program {
-                decls: self.decls,
-                last_expr
+        let mut last_expr: Option<Expr> = None;
+        if let Some(ref val) = self.prev_tok {
+            match val {
+                Token::Integer(_) => {
+                    let v = self.parse_expr()?;
+                    last_expr.replace(v);
+                }
+                _ => (),
             }
-        )
+        }
+
+        Ok(Program {
+            decls: self.decls,
+            last_expr,
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use logos::Logos;
     use super::*;
+    use logos::Logos;
 
-    fn test_parse(inp:&str, expected:&str) {
+    fn test_parse(inp: &str, expected: &str) {
         let lex = Token::lexer(inp);
         let parser = Parser::new(lex);
         let res = parser.parse().expect("Should parse");
         assert_eq!(res.to_string(), expected);
     }
 
-    fn test_parse_err(inp:&str, exp_err:&str, contains:bool) {
+    fn test_parse_err(inp: &str, exp_err: &str, contains: bool) {
         let lex = Token::lexer(inp);
         let parser = Parser::new(lex);
         let res = parser.parse().expect_err("Should err");
@@ -228,13 +243,6 @@ mod tests {
         } else {
             assert_eq!(res.to_string(), exp_err);
         }
-    }
-
-    #[test]
-    fn play() {
-        let mut lexer = Token::lexer("20; 30;");
-        let p = Parser::new(lexer);
-        dbg!(p.parse());
     }
 
     #[test]
@@ -254,6 +262,6 @@ mod tests {
 
     #[test]
     fn test_errs_for_consecutive_exprs() {
-        test_parse_err("20 30", "Consecutive expressions not allowed", true);
+        test_parse_err("20 30", "Expected semicolon", true);
     }
 }

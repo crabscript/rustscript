@@ -21,9 +21,9 @@ pub enum Decl {
     // Decl is there to avoid needing to do recursive Seq for a bunch of stmts in order
 // Seq is for top level. Use Decl::Block for block scoping
 #[derive(Debug, PartialEq)]
-pub enum ASTNode {
-    Decl,
-    Seq(Vec<Decl>, Option<Expr>)
+pub struct Program {
+    decls:Vec<Decl>,
+    last_expr: Option<Expr>
 }
 
 #[derive(Debug, PartialEq)]
@@ -57,7 +57,7 @@ impl <'inp> Parser<'inp> {
     }
 
     // Assume input is valid: no double semi or double expr. semicolon means prev_tok has a value
-    pub fn parse(mut self)->Result<ASTNode, ParseError> {
+    pub fn parse(mut self)->Result<Program, ParseError> {
         let mut decls:Vec<Decl> = vec![];
         let mut prev_tok:Option<Token> = None;
         
@@ -99,7 +99,7 @@ impl <'inp> Parser<'inp> {
             }
         }
 
-        Ok(ASTNode::Seq(decls, ret_expr))
+        Ok(Program { decls, last_expr: ret_expr })
     }
 
 }

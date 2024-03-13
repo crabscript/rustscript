@@ -2,16 +2,49 @@ use crate::{runtime::Runtime, VmError};
 use anyhow::Result;
 use bytecode::{self, BinOp, UnOp, Value};
 
+/// Loads a constant value onto the stack.
+///
+/// # Arguments
+///
+/// * `rt` - The runtime to load the constant onto.
+///
+/// * `val` - The value to load onto the stack.
+///
+/// # Errors
+///
+/// Infallible.
 pub fn ldc(rt: &mut Runtime, val: Value) -> Result<()> {
     rt.stack.push(val);
     Ok(())
 }
 
+/// Pops a value off the stack.
+///
+/// # Arguments
+///
+/// * `rt` - The runtime to pop the value off of.
+///
+/// # Errors
+///
+/// If the stack is empty.
 pub fn pop(rt: &mut Runtime) -> Result<()> {
     rt.stack.pop().ok_or(VmError::StackUnderflow)?;
     Ok(())
 }
 
+/// Executes a unary operation on the top of the stack.
+/// It pops the value off the top of the stack, applies the
+/// operation, and pushes the result back onto the stack.
+///
+/// # Arguments
+///
+/// * `rt` - The runtime to execute the operation on.
+///
+/// * `op` - The operation to execute.
+///
+/// # Errors
+///
+/// If the operation is not supported for the type of the value on the stack.
 pub fn unop(rt: &mut Runtime, op: UnOp) -> Result<()> {
     let val = rt.stack.pop().ok_or(VmError::StackUnderflow)?;
 
@@ -48,6 +81,22 @@ pub fn unop(rt: &mut Runtime, op: UnOp) -> Result<()> {
     Ok(())
 }
 
+/// Executes a binary operation on the top two values of the stack.
+/// It pops the two values off the top of the stack, applies the
+/// operation, and pushes the result back onto the stack.
+/// Note the top of the stack is the right-hand side of the operation.
+/// The second-to-top of the stack is the left-hand side of the operation.
+/// The two values must be of the same type.
+///
+/// # Arguments
+///
+/// * `rt` - The runtime to execute the operation on.
+///
+/// * `op` - The operation to execute.
+///
+/// # Errors
+///
+/// If the operation is not supported for the types of the values on the stack.
 pub fn binop(rt: &mut Runtime, op: BinOp) -> Result<()> {
     let rhs = rt.stack.pop().ok_or(VmError::StackUnderflow)?;
     let lhs = rt.stack.pop().ok_or(VmError::StackUnderflow)?;
@@ -107,6 +156,17 @@ pub fn binop(rt: &mut Runtime, op: BinOp) -> Result<()> {
     Ok(())
 }
 
+/// Jumps to the given program counter if the top of the stack is false.
+///
+/// # Arguments
+///
+/// * `rt` - The runtime to execute the operation on.
+///
+/// * `pc` - The program counter to jump to.
+///
+/// # Errors
+///
+/// If the top of the stack is not a boolean.
 pub fn jof(rt: &mut Runtime, pc: usize) -> Result<()> {
     let cond = rt.stack.pop().ok_or(VmError::StackUnderflow)?;
 
@@ -121,6 +181,17 @@ pub fn jof(rt: &mut Runtime, pc: usize) -> Result<()> {
     }
 }
 
+/// Jumps to the given program counter.
+///
+/// # Arguments
+///
+/// * `rt` - The runtime to execute the operation on.
+///
+/// * `pc` - The program counter to jump to.
+///
+/// # Errors
+///
+/// Infallible.
 pub fn goto(rt: &mut Runtime, pc: usize) -> Result<()> {
     rt.pc = pc;
     Ok(())

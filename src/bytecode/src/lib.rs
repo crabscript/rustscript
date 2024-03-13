@@ -6,6 +6,7 @@ mod constant;
 mod error;
 mod operator;
 
+/// The bytecode instructions that the VM can execute.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum ByteCode {
     DONE,

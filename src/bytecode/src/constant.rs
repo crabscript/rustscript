@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::ByteCodeError;
 
+/// The primitive values that can be stored in the stack.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum Value {
     Unit,
@@ -165,8 +166,7 @@ mod tests {
 
     #[test]
     fn test_from_unit() {
-        let unit_value: () = ();
-        let value: Value = unit_value.into();
+        let value: Value = ().into();
         assert_eq!(value, Value::Unit);
     }
 

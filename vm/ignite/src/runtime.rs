@@ -1,7 +1,6 @@
+use crate::micro_code;
 use anyhow::Result;
 use bytecode::{self, ByteCode, Value};
-
-use crate::micro_code;
 
 /// The runtime for each thread of execution.
 #[derive(Debug, Default)]
@@ -21,6 +20,19 @@ impl Runtime {
     }
 }
 
+/// Run the program until it is done.
+///
+/// # Arguments
+///
+/// * `rt` - The runtime to run.
+///
+/// # Returns
+///
+/// The runtime after the program has finished executing.
+///
+/// # Errors
+///
+/// If an error occurs during execution.
 pub fn run(mut rt: Runtime) -> Result<Runtime> {
     loop {
         let instr = rt.instrs[rt.pc].clone();
@@ -35,7 +47,17 @@ pub fn run(mut rt: Runtime) -> Result<Runtime> {
     Ok(rt)
 }
 
-/// Execute a single instruction
+/// Execute a single instruction, returning whether the program is done.
+///
+/// # Arguments
+///
+/// * `rt` - The runtime to execute the instruction on.
+///
+/// * `instr` - The instruction to execute.
+///
+/// # Returns
+///
+/// Whether the program is done executing.
 pub fn execute(rt: &mut Runtime, instr: ByteCode) -> Result<bool> {
     match instr {
         ByteCode::DONE => return Ok(true),

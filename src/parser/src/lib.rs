@@ -1,4 +1,3 @@
-use std::any::Any;
 use std::fmt::Display;
 use std::iter::Peekable;
 
@@ -161,32 +160,40 @@ impl<'inp> Parser<'inp> {
         }
     }
 
-    fn parse_atomic(&mut self) {
+    fn parse_atomic(&mut self)->Result<(), ParseError> {
         dbg!("atomic:", &self.prev_tok);
+        
+        Ok(())
+
     }   
 
-    fn parse_decl(&mut self) {
-        dbg!(&self.prev_tok);
-        dbg!(&self.lexer.peek());
-
+    fn parse_expr(&mut self)->Result<(), ParseError>  {
         let prev_tok = self.prev_tok.as_ref().expect("prev_tok should not be empty");
         match prev_tok {
             Token::Integer(_) | Token::Float(_) | Token::Bool(_) => {
-                self.parse_atomic()
+                self.parse_atomic()?
             },
             _ => unimplemented!()
         }
+
+        Ok(())
+    }
+
+    fn parse_decl(&mut self)->Result<(), ParseError> {
+        self.parse_expr()?;
+        self.expect_semicolon()?; // invariant: after parsing previous leave peek at where semicolon would be
         self.advance(); // should be called once done (consume semicolon)
+        Ok(())
     }
 
     pub fn parse(mut self)->Result<Program,ParseError> {
         self.advance();
 
         while let Some(_) = self.lexer.peek() {
-            self.parse_decl();
+            self.parse_decl()?;
+
             // need to call lexer.next() at least once somewhere so the loop breaks
             self.advance();
-            // break;
         }
 
         let last_expr:Option<Expr> = None;
@@ -225,9 +232,9 @@ mod tests {
 
     #[test]
     fn play() {
-        let mut lexer = Token::lexer("20;");
+        let mut lexer = Token::lexer("20; 30;");
         let p = Parser::new(lexer);
-        p.parse();
+        dbg!(p.parse());
     }
 
     #[test]

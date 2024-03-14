@@ -31,9 +31,6 @@ pub fn binop(rt: &mut Runtime, op: BinOp) -> Result<()> {
             };
             rt.stack.push(result);
         }
-        (Value::Unit, _) | (_, Value::Unit) => {
-            return Err(VmError::IllegalArgument("unit not supported".to_string()).into())
-        }
         (Value::Int(lhs), Value::Int(rhs)) => {
             let result = match op {
                 BinOp::Add => Value::Int(lhs + rhs),  // Addition

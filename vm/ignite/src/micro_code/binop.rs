@@ -1,4 +1,4 @@
-use crate::{runtime::Runtime, VmError};
+use crate::{Runtime, VmError};
 use anyhow::Result;
 use bytecode::{BinOp, Value};
 
@@ -82,7 +82,7 @@ pub fn binop(rt: &mut Runtime, op: BinOp) -> Result<()> {
 mod tests {
     use super::*;
     use crate::micro_code::ldc;
-    use crate::runtime::Runtime;
+    use crate::Runtime;
     use bytecode::{BinOp, Value};
 
     #[test]

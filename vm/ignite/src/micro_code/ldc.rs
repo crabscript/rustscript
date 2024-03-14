@@ -1,4 +1,4 @@
-use crate::runtime::Runtime;
+use crate::Runtime;
 use anyhow::Result;
 use bytecode::Value;
 
@@ -21,7 +21,7 @@ pub fn ldc(rt: &mut Runtime, val: Value) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::runtime::Runtime;
+    use crate::Runtime;
     use bytecode::Value;
 
     #[test]

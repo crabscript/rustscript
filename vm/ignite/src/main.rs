@@ -1,7 +1,6 @@
-use anyhow::Result;
-
 pub use crate::error::*;
-use crate::runtime::Runtime;
+pub use crate::runtime::Runtime;
+use anyhow::Result;
 
 mod error;
 mod micro_code;

@@ -1,4 +1,4 @@
-use crate::{runtime::Runtime, VmError};
+use crate::{Runtime, VmError};
 use anyhow::Result;
 use bytecode::Value;
 
@@ -31,7 +31,7 @@ pub fn jof(rt: &mut Runtime, pc: usize) -> Result<()> {
 mod tests {
     use super::*;
     use crate::micro_code::ldc;
-    use crate::runtime::Runtime;
+    use crate::Runtime;
     use bytecode::Value;
 
     #[test]

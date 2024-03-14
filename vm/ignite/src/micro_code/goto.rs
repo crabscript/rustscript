@@ -1,4 +1,4 @@
-use crate::runtime::Runtime;
+use crate::Runtime;
 use anyhow::Result;
 
 /// Jumps to the given program counter.
@@ -20,7 +20,7 @@ pub fn goto(rt: &mut Runtime, pc: usize) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::runtime::Runtime;
+    use crate::Runtime;
 
     #[test]
     fn test_goto() {

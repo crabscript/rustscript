@@ -24,40 +24,61 @@ pub fn binop(rt: &mut Runtime, op: BinOp) -> Result<()> {
     let lhs = rt.stack.pop().ok_or(VmError::StackUnderflow)?;
 
     match (lhs, rhs) {
+        (Value::Unit, Value::Unit) => {
+            let result = match op {
+                BinOp::Eq => Value::Bool(true),
+                _ => return Err(VmError::IllegalArgument("unit not supported".to_string()).into()),
+            };
+            rt.stack.push(result);
+        }
         (Value::Unit, _) | (_, Value::Unit) => {
             return Err(VmError::IllegalArgument("unit not supported".to_string()).into())
         }
         (Value::Int(lhs), Value::Int(rhs)) => {
             let result = match op {
-                BinOp::Add => Value::Int(lhs + rhs),
-                BinOp::Sub => Value::Int(lhs - rhs),
-                BinOp::Mul => Value::Int(lhs * rhs),
-                BinOp::Div => Value::Int(lhs / rhs),
-                BinOp::Mod => Value::Int(lhs % rhs),
-                BinOp::Gt => Value::Bool(lhs > rhs),
-                BinOp::Lt => Value::Bool(lhs < rhs),
-                BinOp::Eq => Value::Bool(lhs == rhs),
-                _ => return Err(VmError::IllegalArgument("int not supported".to_string()).into()),
+                BinOp::Add => Value::Int(lhs + rhs),  // Addition
+                BinOp::Sub => Value::Int(lhs - rhs),  // Subtraction
+                BinOp::Mul => Value::Int(lhs * rhs),  // Multiplication
+                BinOp::Div => Value::Int(lhs / rhs),  // Division
+                BinOp::Mod => Value::Int(lhs % rhs),  // Modulus
+                BinOp::Gt => Value::Bool(lhs > rhs),  // Greater Than
+                BinOp::Lt => Value::Bool(lhs < rhs),  // Less Than
+                BinOp::Eq => Value::Bool(lhs == rhs), // Equality
+                BinOp::And => {
+                    return Err(VmError::IllegalArgument("float not supported".to_string()).into())
+                }
+                BinOp::Or => {
+                    return Err(VmError::IllegalArgument("float not supported".to_string()).into())
+                }
             };
             rt.stack.push(result);
         }
         (Value::Float(lhs), Value::Float(rhs)) => {
             let result = match op {
-                BinOp::Add => Value::Float(lhs + rhs),
-                BinOp::Sub => Value::Float(lhs - rhs),
-                BinOp::Mul => Value::Float(lhs * rhs),
-                BinOp::Div => Value::Float(lhs / rhs),
-                BinOp::Gt => Value::Bool(lhs > rhs),
-                BinOp::Lt => Value::Bool(lhs < rhs),
-                BinOp::Eq => Value::Bool(lhs == rhs),
-                _ => return Err(VmError::IllegalArgument("float not supported".to_string()).into()),
+                BinOp::Add => Value::Float(lhs + rhs), // Addition
+                BinOp::Sub => Value::Float(lhs - rhs), // Subtraction
+                BinOp::Mul => Value::Float(lhs * rhs), // Multiplication
+                BinOp::Div => Value::Float(lhs / rhs), // Division
+                BinOp::Gt => Value::Bool(lhs > rhs),   // Greater Than
+                BinOp::Lt => Value::Bool(lhs < rhs),   // Less Than
+                BinOp::Eq => Value::Bool(lhs == rhs),  // Equality
+                BinOp::Or => {
+                    return Err(VmError::IllegalArgument("float not supported".to_string()).into())
+                }
+                BinOp::And => {
+                    return Err(VmError::IllegalArgument("float not supported".to_string()).into())
+                }
+                BinOp::Mod => {
+                    return Err(VmError::IllegalArgument("float not supported".to_string()).into())
+                }
             };
             rt.stack.push(result);
         }
         (Value::Bool(lhs), Value::Bool(rhs)) => {
             let result = match op {
-                BinOp::And => Value::Bool(lhs && rhs),
-                BinOp::Or => Value::Bool(lhs || rhs),
+                BinOp::And => Value::Bool(lhs && rhs), // Logical And
+                BinOp::Or => Value::Bool(lhs || rhs),  // Logical Or
+                BinOp::Eq => Value::Bool(lhs == rhs),  // Equality
                 _ => return Err(VmError::IllegalArgument("bool not supported".to_string()).into()),
             };
             rt.stack.push(result);

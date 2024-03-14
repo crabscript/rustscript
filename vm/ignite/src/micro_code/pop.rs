@@ -50,5 +50,8 @@ mod tests {
         ldc(&mut rt, Value::Unit).unwrap();
         pop(&mut rt).unwrap();
         assert_eq!(rt.stack.pop().unwrap(), Value::String("remember".into()));
+
+        let mut empty_rt = Runtime::new(vec![]);
+        assert!(pop(&mut empty_rt).is_err());
     }
 }

@@ -26,20 +26,20 @@ pub fn unop(rt: &mut Runtime, op: UnOp) -> Result<()> {
         Value::Int(i) => {
             let result = match op {
                 UnOp::Neg => Value::Int(-i), // Negation
-                UnOp::Not => Value::Int(!i), // Logical negation
+                UnOp::Not => Value::Int(!i), // Bitwise Not
             };
             rt.stack.push(result);
         }
         Value::Float(f) => {
             let result = match op {
-                UnOp::Neg => Value::Float(-f),
+                UnOp::Neg => Value::Float(-f), // Negation
                 _ => return Err(VmError::IllegalArgument("float not supported".to_string()).into()),
             };
             rt.stack.push(result);
         }
         Value::Bool(b) => {
             let result = match op {
-                UnOp::Not => Value::Bool(!b),
+                UnOp::Not => Value::Bool(!b), // Logical Not
                 _ => return Err(VmError::IllegalArgument("bool not supported".to_string()).into()),
             };
             rt.stack.push(result);

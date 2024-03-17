@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 mod constant;
 mod error;
+mod io;
 mod operator;
 
 /// The bytecode instructions that the VM can execute.

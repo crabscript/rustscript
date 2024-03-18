@@ -4,12 +4,17 @@ use serde::{Deserialize, Serialize};
 
 mod constant;
 mod error;
+mod io;
 mod operator;
+
+pub type Symbol = String;
 
 /// The bytecode instructions that the VM can execute.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum ByteCode {
     DONE,
+    ASSIGN(Symbol),
+    LD(Symbol),
     LDC(Value),
     POP,
     BINOP(BinOp),

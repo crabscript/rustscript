@@ -5,6 +5,9 @@ pub enum VmError {
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
 
+    #[error("symbol not found: {0}")]
+    SymbolNotFound(String),
+
     #[error("stack underflow")]
     StackUnderflow,
 

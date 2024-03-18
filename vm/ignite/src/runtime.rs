@@ -1,11 +1,13 @@
-use crate::{micro_code, VmError};
+use crate::{frame::Frame, micro_code, VmError};
 use anyhow::Result;
 use bytecode::{self, ByteCode, Value};
+use std::{cell::RefCell, rc::Rc};
 
 /// The runtime for each thread of execution.
 #[derive(Debug, Default)]
 pub struct Runtime {
-    pub stack: Vec<Value>,
+    pub frame: Rc<RefCell<Frame>>,
+    pub operand_stack: Vec<Value>,
     pub instrs: Vec<ByteCode>,
     pub pc: usize,
 }
@@ -13,7 +15,8 @@ pub struct Runtime {
 impl Runtime {
     pub fn new(instrs: Vec<ByteCode>) -> Self {
         Runtime {
-            stack: Vec::new(),
+            frame: Frame::new_wrapped(),
+            operand_stack: Vec::new(),
             instrs,
             ..Default::default()
         }
@@ -69,6 +72,8 @@ pub fn run(mut rt: Runtime) -> Result<Runtime> {
 pub fn execute(rt: &mut Runtime, instr: ByteCode) -> Result<bool> {
     match instr {
         ByteCode::DONE => return Ok(true),
+        ByteCode::ASSIGN(sym) => micro_code::assign(rt, sym)?,
+        ByteCode::LD(sym) => micro_code::ld(rt, sym)?,
         ByteCode::LDC(val) => micro_code::ldc(rt, val)?,
         ByteCode::POP => micro_code::pop(rt)?,
         ByteCode::UNOP(op) => micro_code::unop(rt, op)?,
@@ -136,7 +141,7 @@ mod tests {
         ];
         let rt = Runtime::new(instrs);
         let rt = run(rt).unwrap();
-        assert_eq!(rt.stack, vec![Value::Int(84)]);
+        assert_eq!(rt.operand_stack, vec![Value::Int(84)]);
 
         // -(42 - 123)
         let instrs = vec![
@@ -148,7 +153,7 @@ mod tests {
         ];
         let rt = Runtime::new(instrs);
         let rt = run(rt).unwrap();
-        assert_eq!(rt.stack, vec![Value::Int(81)]);
+        assert_eq!(rt.operand_stack, vec![Value::Int(81)]);
 
         // (2 * 3) > 9
         let instrs = vec![
@@ -161,6 +166,29 @@ mod tests {
         ];
         let rt = Runtime::new(instrs);
         let rt = run(rt).unwrap();
-        assert_eq!(rt.stack, vec![Value::Bool(false)]);
+        assert_eq!(rt.operand_stack, vec![Value::Bool(false)]);
+    }
+
+    #[test]
+    fn test_assignment() {
+        let instrs = vec![
+            ByteCode::ldc(42),
+            ByteCode::ASSIGN("x".to_string()),
+            ByteCode::ldc(43),
+            ByteCode::ASSIGN("y".to_string()),
+            ByteCode::ldc(44),
+            ByteCode::ASSIGN("x".to_string()),
+            ByteCode::DONE,
+        ];
+        let rt = Runtime::new(instrs);
+        let rt = run(rt).unwrap();
+        assert_eq!(
+            rt.frame.borrow().get(&"x".to_string()),
+            Some(Value::Int(44))
+        );
+        assert_eq!(
+            rt.frame.borrow().get(&"y".to_string()),
+            Some(Value::Int(43))
+        );
     }
 }

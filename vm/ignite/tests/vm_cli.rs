@@ -4,9 +4,11 @@ use bytecode::ByteCode;
 use predicates::prelude::*;
 use std::process::Command;
 
+const IGNITE_BINARY: &str = "ignite";
+
 #[test]
 fn file_doesnt_exist() -> Result<()> {
-    let mut cmd = Command::cargo_bin("ignite")?;
+    let mut cmd = Command::cargo_bin(IGNITE_BINARY)?;
 
     cmd.arg("test/file/doesnt/exist");
     cmd.assert()
@@ -18,7 +20,7 @@ fn file_doesnt_exist() -> Result<()> {
 
 #[test]
 fn file_not_o2() -> Result<()> {
-    let mut cmd = Command::cargo_bin("ignite")?;
+    let mut cmd = Command::cargo_bin(IGNITE_BINARY)?;
 
     cmd.arg("Cargo.toml");
     cmd.assert()
@@ -30,7 +32,7 @@ fn file_not_o2() -> Result<()> {
 
 #[test]
 fn run_simple_program() -> Result<()> {
-    let mut cmd = Command::cargo_bin("ignite")?;
+    let mut cmd = Command::cargo_bin(IGNITE_BINARY)?;
 
     let bytecode = vec![
         ByteCode::ldc(42),

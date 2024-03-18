@@ -43,5 +43,6 @@ fn main() -> Result<()> {
 
     let rt = Runtime::new(bytecode_vec);
     runtime::run(rt)?;
+
     Ok(())
 }

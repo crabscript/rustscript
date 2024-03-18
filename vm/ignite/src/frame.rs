@@ -16,9 +16,9 @@ impl Frame {
         }
     }
 
-    /// Take ownership of the frame and wrap it in a `Rc<RefCell<Frame>>`.
-    pub fn wrapped(self) -> Rc<RefCell<Self>> {
-        Rc::new(RefCell::new(self))
+    /// Create a wrapped frame with no parent, i.e. the root frame.
+    pub fn new_wrapped() -> Rc<RefCell<Self>> {
+        Rc::new(RefCell::new(Frame::new()))
     }
 
     /// Set the parent of the frame.
@@ -39,6 +39,7 @@ impl Frame {
         }
     }
 
+    /// Set the value of a symbol in the frame.
     pub fn set(&mut self, sym: impl Into<Symbol>, val: impl Into<Value>) {
         self.env.insert(sym.into(), val.into());
     }
@@ -50,19 +51,19 @@ mod tests {
 
     #[test]
     fn test_frame() {
-        let mut frame = Frame::new();
-        frame.set("x", 42);
-        assert_eq!(frame.get(&"x".to_string()), Some(Value::Int(42)));
+        let frame = Frame::new_wrapped();
+        frame.borrow_mut().set("x", 42);
+        assert_eq!(frame.borrow().get(&"x".to_string()), Some(Value::Int(42)));
     }
 
     #[test]
     fn test_frame_with_parent() {
-        let mut parent = Frame::new();
-        parent.set("x", 42);
-        let mut frame = Frame::new();
-        frame.set_parent(parent.wrapped());
-        frame.set("y", 43);
-        assert_eq!(frame.get(&"x".to_string()), Some(Value::Int(42)));
-        assert_eq!(frame.get(&"y".to_string()), Some(Value::Int(43)));
+        let parent = Frame::new_wrapped();
+        parent.borrow_mut().set("x", 42);
+        let frame = Frame::new_wrapped();
+        frame.borrow_mut().set_parent(parent);
+        frame.borrow_mut().set("y", 43);
+        assert_eq!(frame.borrow().get(&"x".to_string()), Some(Value::Int(42)));
+        assert_eq!(frame.borrow().get(&"y".to_string()), Some(Value::Int(43)));
     }
 }

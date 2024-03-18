@@ -1,11 +1,12 @@
 use crate::{frame::Frame, micro_code, VmError};
 use anyhow::Result;
 use bytecode::{self, ByteCode, Value};
+use std::{cell::RefCell, rc::Rc};
 
 /// The runtime for each thread of execution.
 #[derive(Debug, Default)]
 pub struct Runtime {
-    pub frame: Frame,
+    pub frame: Rc<RefCell<Frame>>,
     pub operand_stack: Vec<Value>,
     pub instrs: Vec<ByteCode>,
     pub pc: usize,
@@ -14,7 +15,7 @@ pub struct Runtime {
 impl Runtime {
     pub fn new(instrs: Vec<ByteCode>) -> Self {
         Runtime {
-            frame: Frame::new(),
+            frame: Frame::new_wrapped(),
             operand_stack: Vec::new(),
             instrs,
             ..Default::default()
@@ -181,7 +182,13 @@ mod tests {
         ];
         let rt = Runtime::new(instrs);
         let rt = run(rt).unwrap();
-        assert_eq!(rt.frame.get(&"x".to_string()), Some(Value::Int(44)));
-        assert_eq!(rt.frame.get(&"y".to_string()), Some(Value::Int(43)));
+        assert_eq!(
+            rt.frame.borrow().get(&"x".to_string()),
+            Some(Value::Int(44))
+        );
+        assert_eq!(
+            rt.frame.borrow().get(&"y".to_string()),
+            Some(Value::Int(43))
+        );
     }
 }

@@ -15,7 +15,7 @@ use bytecode::Symbol;
 /// If the stack is empty.
 pub fn assign(rt: &mut Runtime, sym: Symbol) -> Result<()> {
     let val = rt.operand_stack.pop().ok_or(VmError::StackUnderflow)?;
-    rt.frame.set(sym, val);
+    rt.frame.borrow_mut().set(sym, val);
     Ok(())
 }
 
@@ -30,20 +30,29 @@ mod tests {
         let mut rt = Runtime::new(vec![]);
         rt.operand_stack.push(Value::Int(42));
         assign(&mut rt, "x".to_string()).unwrap();
-        assert_eq!(rt.frame.get(&"x".to_string()), Some(Value::Int(42)));
+        assert_eq!(
+            rt.frame.borrow().get(&"x".to_string()),
+            Some(Value::Int(42))
+        );
     }
 
     #[test]
     fn test_assign_with_parent() {
-        let mut parent = Frame::new();
-        parent.set("x", 42);
+        let parent = Frame::new_wrapped();
+        parent.borrow_mut().set("x", 42);
         let mut rt = Runtime::new(vec![]);
-        let mut frame = Frame::new();
-        frame.set_parent(parent.wrapped());
+        let frame = Frame::new_wrapped();
+        frame.borrow_mut().set_parent(parent);
         rt.frame = frame;
         rt.operand_stack.push(Value::Int(43));
         assign(&mut rt, "y".to_string()).unwrap();
-        assert_eq!(rt.frame.get(&"x".to_string()), Some(Value::Int(42)));
-        assert_eq!(rt.frame.get(&"y".to_string()), Some(Value::Int(43)));
+        assert_eq!(
+            rt.frame.borrow().get(&"x".to_string()),
+            Some(Value::Int(42))
+        );
+        assert_eq!(
+            rt.frame.borrow().get(&"y".to_string()),
+            Some(Value::Int(43))
+        );
     }
 }

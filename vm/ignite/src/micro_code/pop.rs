@@ -11,7 +11,7 @@ use anyhow::Result;
 ///
 /// If the stack is empty.
 pub fn pop(rt: &mut Runtime) -> Result<()> {
-    rt.stack.pop().ok_or(VmError::StackUnderflow)?;
+    rt.operand_stack.pop().ok_or(VmError::StackUnderflow)?;
     Ok(())
 }
 
@@ -27,7 +27,7 @@ mod tests {
         let mut rt = Runtime::new(vec![]);
         ldc(&mut rt, Value::Unit).unwrap();
         pop(&mut rt).unwrap();
-        assert_eq!(rt.stack.len(), 0);
+        assert_eq!(rt.operand_stack.len(), 0);
 
         let vals = vec![
             Value::Unit,
@@ -44,12 +44,15 @@ mod tests {
         for _ in 0..val_len {
             pop(&mut rt).unwrap();
         }
-        assert_eq!(rt.stack.len(), 0);
+        assert_eq!(rt.operand_stack.len(), 0);
 
         ldc(&mut rt, Value::String("remember".into())).unwrap();
         ldc(&mut rt, Value::Unit).unwrap();
         pop(&mut rt).unwrap();
-        assert_eq!(rt.stack.pop().unwrap(), Value::String("remember".into()));
+        assert_eq!(
+            rt.operand_stack.pop().unwrap(),
+            Value::String("remember".into())
+        );
 
         let mut empty_rt = Runtime::new(vec![]);
         assert!(pop(&mut empty_rt).is_err());

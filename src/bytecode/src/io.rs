@@ -1,4 +1,3 @@
-#![allow(dead_code)] // TODO: remove this line once the module is used
 use super::ByteCode;
 use anyhow::Result;
 use std::io::{Read, Write};
@@ -45,7 +44,6 @@ pub fn read_bytecode<R: Read>(reader: &mut R) -> Result<Vec<ByteCode>> {
 #[cfg(test)]
 mod tests {
     use super::super::*;
-    use super::*;
 
     #[test]
     fn test_deterministic_serialization() {

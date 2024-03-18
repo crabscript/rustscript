@@ -17,7 +17,6 @@ pub fn ld(rt: &mut Runtime, sym: Symbol) -> Result<()> {
     let val = rt
         .frame
         .get(&sym)
-        .cloned()
         .ok_or_else(|| VmError::SymbolNotFound(sym.clone()))?;
     rt.operand_stack.push(val);
     Ok(())
@@ -26,6 +25,7 @@ pub fn ld(rt: &mut Runtime, sym: Symbol) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Frame;
     use bytecode::Value;
 
     #[test]
@@ -38,10 +38,12 @@ mod tests {
 
     #[test]
     fn test_ld_with_parent() {
-        let mut parent = crate::frame::Frame::new(None);
+        let mut parent = Frame::new();
         parent.set("x", 42);
         let mut rt = Runtime::new(vec![]);
-        rt.frame = crate::frame::Frame::new(Some(Box::new(parent)));
+        let mut frame = Frame::new();
+        frame.set_parent(parent.wrapped());
+        rt.frame = frame;
         ld(&mut rt, "x".to_string()).unwrap();
         assert_eq!(rt.operand_stack.pop(), Some(Value::Int(42)));
     }

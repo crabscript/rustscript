@@ -14,7 +14,7 @@ pub struct Runtime {
 impl Runtime {
     pub fn new(instrs: Vec<ByteCode>) -> Self {
         Runtime {
-            frame: Frame::new(None),
+            frame: Frame::new(),
             operand_stack: Vec::new(),
             instrs,
             ..Default::default()
@@ -181,7 +181,7 @@ mod tests {
         ];
         let rt = Runtime::new(instrs);
         let rt = run(rt).unwrap();
-        assert_eq!(rt.frame.get(&"x".to_string()), Some(&Value::Int(44)));
-        assert_eq!(rt.frame.get(&"y".to_string()), Some(&Value::Int(43)));
+        assert_eq!(rt.frame.get(&"x".to_string()), Some(Value::Int(44)));
+        assert_eq!(rt.frame.get(&"y".to_string()), Some(Value::Int(43)));
     }
 }

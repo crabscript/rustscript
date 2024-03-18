@@ -30,18 +30,20 @@ mod tests {
         let mut rt = Runtime::new(vec![]);
         rt.operand_stack.push(Value::Int(42));
         assign(&mut rt, "x".to_string()).unwrap();
-        assert_eq!(rt.frame.get(&"x".to_string()), Some(&Value::Int(42)));
+        assert_eq!(rt.frame.get(&"x".to_string()), Some(Value::Int(42)));
     }
 
     #[test]
     fn test_assign_with_parent() {
-        let mut parent = Frame::new(None);
+        let mut parent = Frame::new();
         parent.set("x", 42);
         let mut rt = Runtime::new(vec![]);
-        rt.frame = Frame::new(Some(Box::new(parent)));
+        let mut frame = Frame::new();
+        frame.set_parent(parent.wrapped());
+        rt.frame = frame;
         rt.operand_stack.push(Value::Int(43));
         assign(&mut rt, "y".to_string()).unwrap();
-        assert_eq!(rt.frame.get(&"x".to_string()), Some(&Value::Int(42)));
-        assert_eq!(rt.frame.get(&"y".to_string()), Some(&Value::Int(43)));
+        assert_eq!(rt.frame.get(&"x".to_string()), Some(Value::Int(42)));
+        assert_eq!(rt.frame.get(&"y".to_string()), Some(Value::Int(43)));
     }
 }

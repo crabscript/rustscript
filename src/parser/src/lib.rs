@@ -34,6 +34,18 @@ pub enum BinOpType {
     Div
 }
 
+impl BinOpType {
+    pub fn from_token(token: &Token) -> Result<BinOpType, ParseError> {
+        match token {
+            Token::Plus => Ok(Self::Add),
+            Token::Minus =>Ok(Self::Sub),
+            Token::Star => Ok(Self::Mul),
+            Token::Slash => Ok(Self::Div),
+            _ => Err(ParseError::new(&format!("Expected infix operator but got: {}", token.to_string())))
+        }
+    }
+}
+
 impl Display for BinOpType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let chr = match self {
@@ -271,12 +283,10 @@ impl<'inp> Parser<'inp> {
     /* Precedence */
 
     // Return (left bp, right bp)
-    fn get_infix_bp(token: &Token) -> Result<(u8, u8), ParseError> {
-        match token {
-            Token::Plus | Token::Minus => Ok((1,2)),
-            Token::Star | Token::Slash => Ok((3,4)),
-            _ => Err(ParseError::new(&format!("Expected infix operator but got: '{}'", token.to_string())))
-
+    fn get_infix_bp(binop:&BinOpType) -> (u8, u8) {
+        match binop {
+            BinOpType::Add | BinOpType::Sub => (1,2),
+            BinOpType::Mul | BinOpType::Div => (3,4),
         }
     }
 
@@ -301,7 +311,8 @@ impl<'inp> Parser<'inp> {
             .clone()
             .expect("Lexer should not fail");
 
-            let (l_bp, r_bp) = Parser::get_infix_bp(&tok)?;
+            let binop = BinOpType::from_token(&tok)?;
+            let (l_bp, r_bp) = Parser::get_infix_bp(&binop);
             self.advance();
             if l_bp < min_bp {
                 break;

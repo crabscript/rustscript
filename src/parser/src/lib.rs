@@ -244,7 +244,7 @@ impl<'inp> Parser<'inp> {
         match token {
             Token::Plus | Token::Minus => Ok((1,2)),
             Token::Star | Token::Slash => Ok((3,4)),
-            _ => Err(ParseError::new(&format!("Not an infix operator: '{}'", token.to_string())))
+            _ => Err(ParseError::new(&format!("Expected infix operator but got: '{}'", token.to_string())))
 
         }
     }
@@ -253,12 +253,28 @@ impl<'inp> Parser<'inp> {
     // Return as Decl for consistency
     fn parse_expr(&mut self, min_bp:u8) -> Result<Decl, ParseError> {
         let prev_tok = self.expect_prev_tok()?;
-        match prev_tok {
+        let lhs = match prev_tok {
             Token::Integer(val) => Ok(ExprStmt(Expr::Integer(*val))),
             Token::Float(val) => Ok(ExprStmt(Expr::Float(*val))),
             Token::Bool(val) => Ok(ExprStmt(Expr::Bool(*val))),
             _ => Err(ParseError::new(&format!("Unexpected token - not an expression: '{}'", prev_tok.to_string())))
+        }?;
+
+        loop {
+            if self.lexer.peek().is_none() || self.is_peek_token_type(Token::Semi) || self.is_peek_token_type(Token::CloseBrace) {
+                break;
+            }
+            
+            let tok = self.lexer.peek()
+            .expect("Should have token")
+            .clone()
+            .expect("Lexer should not fail");
+
+            let (l_bp, r_bp) = Parser::get_infix_bp(&tok)?;
         }
+
+
+        Ok(lhs)
     }
 
     // Parses and returns a declaration. At this stage "declaration" includes values, let assignments, fn declarations, etc
@@ -327,7 +343,8 @@ mod tests {
         let lex = Token::lexer(inp);
         let parser = Parser::new(lex);
         let res = parser.parse().expect("Should parse");
-        // assert_eq!(res.to_string(), expected);
+        // dbg!(&res);
+        assert_eq!(res.to_string(), expected);
     }
 
     fn test_parse_err(inp: &str, exp_err: &str, contains: bool) {
@@ -386,17 +403,17 @@ mod tests {
     #[test]
     fn test_parse_let() {
         test_parse("let x = 2;", "let x = 2;");
-        test_parse("let x = 2; let y = 3;", "let x = 2; let y = 3;"); // both treated as decls
-        test_parse("let x = 2; let y = 3; 30;", "let x = 2; let y = 3; 30;"); // 30 is decl
-        test_parse("let x = 2; let y = 3; 30", "let x = 2; let y = 3; 30");  // 30 is expr
+        test_parse("let x = 2; let y = 3;", "let x = 2;let y = 3;"); // both treated as decls
+        test_parse("let x = 2; let y = 3; 30;", "let x = 2;let y = 3;30;"); // 30 is decl
+        test_parse("let x = 2; let y = 3; 30", "let x = 2;let y = 3;30");  // 30 is expr
 
-        test_parse("let x = 2; let y = 3; 30; 40; 50", "let x = 2; let y = 3; 30; 40; 50");
-        test_parse("let x = 2; let y = 3; 30; 40; 50; let z = 60;", "let x = 2; let y = 3; 30; 40; 50; let z = 60;");
+        test_parse("let x = 2; let y = 3; 30; 40; 50", "let x = 2;let y = 3;30;40;50");
+        test_parse("let x = 2; let y = 3; 30; 40; 50; let z = 60;", "let x = 2;let y = 3;30;40;50;let z = 60;");
 
-        test_parse("let x = 2; let y = 3; 30; 40; 50; let z = 60; true", "let x = 2; let y = 3; 30; 40; 50; let z = 60; true");
+        test_parse("let x = 2; let y = 3; 30; 40; 50; let z = 60; true", "let x = 2;let y = 3;30;40;50;let z = 60;true");
 
-        // other types
-        test_parse("let x = true; let y = 200; let z = 2.2; 3.14159", "let x = true; let y = 200; let z = 2.2; 3.14159");
+        // // other types
+        test_parse("let x = true; let y = 200; let z = 2.2; 3.14159", "let x = true;let y = 200;let z = 2.2;3.14159");
     }
 
     #[test]
@@ -412,6 +429,6 @@ mod tests {
 
     #[test]
     fn test_errs_for_consecutive_exprs() {
-        test_parse_err("20 30", "Expected semicolon", true);
+        test_parse_err("20 30", "infix operator", true);
     }
 }

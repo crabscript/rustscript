@@ -271,6 +271,15 @@ impl<'inp> Parser<'inp> {
             .expect("Lexer should not fail");
 
             let (l_bp, r_bp) = Parser::get_infix_bp(&tok)?;
+            self.advance();
+            if l_bp < min_bp {
+                break;
+            }
+
+            self.advance();
+            let rhs = self.parse_expr(r_bp)?;
+
+            dbg!(&lhs, rhs);
         }
 
 
@@ -430,5 +439,10 @@ mod tests {
     #[test]
     fn test_errs_for_consecutive_exprs() {
         test_parse_err("20 30", "infix operator", true);
+    }
+
+    #[test]
+    fn test_parse_binop() {
+        test_parse("2+3;", "2+3;");
     }
 }

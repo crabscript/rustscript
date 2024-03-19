@@ -190,6 +190,14 @@ impl<'inp> Parser<'inp> {
         }
     }
 
+    // Expect prev_tok to be there (helper method)
+    fn expect_prev_tok(&self)->Result<&Token, ParseError>{
+        match &self.prev_tok {
+            Some(tok) => Ok(&tok),
+            None => Err(ParseError::new("Expected previous token"))
+        }
+    }
+
     // Pass in self.lexer.peek() => get String out for Ident, String in quotes
     fn string_from_ident(token: Option<&Result<Token, ()>>) -> String {
         let tok = token.unwrap();
@@ -209,7 +217,7 @@ impl<'inp> Parser<'inp> {
 
         // dbg!(self.lexer.peek(), &self.prev_tok);
         
-        let expr = self.parse_expr()?;
+        let expr = self.parse_decl()?;
         
 
         // Error if assigning to an actual declaration (let, fn)
@@ -229,17 +237,23 @@ impl<'inp> Parser<'inp> {
         Ok(LetStmt(stmt))
     }
 
-    // Parses and returns an expression. At this stage "expression" includes values, let assignments, fn declarations, etc
-        // Because treatment of something as an expression can vary based on whether it is last value or not, whether semicolon comes after, etc.
+    // Parses and returns an expression (something that is definitely an expression)
     fn parse_expr(&mut self) -> Result<Decl, ParseError> {
-        let prev_tok = self
-            .prev_tok
-            .as_ref()
-            .expect("prev_tok should not be empty");
+        let prev_tok = self.expect_prev_tok()?;
         match prev_tok {
             Token::Integer(val) => Ok(ExprStmt(Expr::Integer(*val))),
             Token::Float(val) => Ok(ExprStmt(Expr::Float(*val))),
             Token::Bool(val) => Ok(ExprStmt(Expr::Bool(*val))),
+            _ => Err(ParseError::new(&format!("Unexpected token - not an expression: '{}'", prev_tok.to_string())))
+        }
+    }
+
+    // Parses and returns a declaration. At this stage "declaration" includes values, let assignments, fn declarations, etc
+        // Because treatment of something as an expression can vary based on whether it is last value or not, whether semicolon comes after, etc.
+    fn parse_decl(&mut self) -> Result<Decl, ParseError> {
+        let prev_tok = self.expect_prev_tok()?;
+        match prev_tok {
+            Token::Integer(_) | Token::Float(_) | Token::Bool(_) => self.parse_expr(),
             Token::Let => self.parse_let(),
             _ => Err(ParseError::new(&format!("Unexpected token: '{}'", prev_tok.to_string()))),
         }
@@ -252,7 +266,7 @@ impl<'inp> Parser<'inp> {
         while let Some(_) = self.lexer.peek() {
             self.advance();
 
-            let expr = self.parse_expr()?;
+            let expr = self.parse_decl()?;
 
             // end of block: lexer empty OR curly brace (TODO add curly later)
             if self.lexer.peek().is_none() || self.is_peek_token_type(Token::CloseBrace) {

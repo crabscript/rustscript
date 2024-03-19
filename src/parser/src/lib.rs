@@ -416,9 +416,9 @@ mod tests {
 
     #[test] 
     fn play() {
-        let mut lex = Token::lexer("}");
-        let mut p = Parser::new(lex);
-        dbg!(p.is_peek_token_type(Token::CloseBrace));
+        let mut lex = Token::lexer("2-3");
+        let v = lex.collect::<Vec<_>>();
+        dbg!(v);
     }
 
     #[test]
@@ -495,6 +495,10 @@ mod tests {
 
         test_parse("2*3+4; 2+4*3; 20/200*2", "((2*3)+4);(2+(4*3));((20/200)*2)");
 
+        test_parse("2-3", "(2-3)");
+        test_parse("2-3+4/5*6", "((2-3)+((4/5)*6))");
+        test_parse("2-3+4/5*6-8+9; 2+2;", "((((2-3)+((4/5)*6))-8)+9);(2+2);");
 
+        test_parse("let x = 2+3*4-5; 300", "let x = ((2+(3*4))-5);300");
     }
 }

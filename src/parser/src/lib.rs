@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::fmt::{write, Display};
 use std::iter::Peekable;
 use std::rc::Rc;
 
@@ -26,6 +26,33 @@ macro_rules! expect_token_body {
     }};
 }
 
+#[derive(Debug)]
+pub enum BinOpType {
+    Add,
+    Sub,
+    Mul,
+    Div
+}
+
+impl Display for BinOpType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let chr = match self {
+            BinOpType::Add => "+",
+            BinOpType::Sub => "-",
+            BinOpType::Mul => "*",
+            BinOpType::Div => "/",
+        };
+        write!(f, "{}", chr)
+    }
+}
+
+// #[derive(Debug)]
+// pub struct BinOp {
+//     op_type: BinOpType,
+//     left: Expr,
+//     right: Expr
+// }
+
 
 // Different from bytecode Value because values on op stack might be different (e.g fn call)
 #[derive(Debug)]
@@ -33,6 +60,7 @@ pub enum Expr {
     Integer(i64),
     Float(f64),
     Bool(bool),
+    BinOpExpr(BinOpType, Box<Expr>, Box<Expr>),
     Block(BlockSeq) // expr can be a block
 }
 
@@ -42,7 +70,10 @@ impl Display for Expr {
             Expr::Integer(val) => val.to_string(),
             Expr::Float(val) => val.to_string(),
             Expr::Bool(val) => val.to_string(),
-            Expr::Block(seq) => seq.to_string()
+            Expr::BinOpExpr(op, lhs, rhs) => {
+                format!("{}{}{}", lhs, op, rhs)
+            },
+            Expr::Block(seq) => seq.to_string(),
         };
 
         write!(f, "{}", string)

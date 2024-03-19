@@ -241,7 +241,7 @@ impl<'inp> Parser<'inp> {
             Token::Float(val) => Ok(ExprStmt(Expr::Float(*val))),
             Token::Bool(val) => Ok(ExprStmt(Expr::Bool(*val))),
             Token::Let => self.parse_let(),
-            _ => unimplemented!(),
+            _ => Err(ParseError::new(&format!("Unexpected token: '{}'", prev_tok.to_string()))),
         }
     }
 
@@ -378,6 +378,9 @@ mod tests {
         test_parse_err("let x 2", "Expected '='", true);
         test_parse_err("let x = 2", "Expected semicolon", true);
         test_parse_err("let x = let y = 3;", "Can't assign", true);
+        test_parse_err(";", "Unexpected token", true);
+        test_parse_err("=", "Unexpected token", true);
+
     }
 
     #[test]

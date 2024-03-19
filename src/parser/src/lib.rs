@@ -237,8 +237,21 @@ impl<'inp> Parser<'inp> {
         Ok(LetStmt(stmt))
     }
 
+    /* Precedence */
+
+    // Return (left bp, right bp)
+    fn get_infix_bp(token: &Token) -> Result<(u8, u8), ParseError> {
+        match token {
+            Token::Plus | Token::Minus => Ok((1,2)),
+            Token::Star | Token::Slash => Ok((3,4)),
+            _ => Err(ParseError::new(&format!("Not an infix operator: '{}'", token.to_string())))
+
+        }
+    }
+
     // Parses and returns an expression (something that is definitely an expression)
-    fn parse_expr(&mut self) -> Result<Decl, ParseError> {
+    // Return as Decl for consistency
+    fn parse_expr(&mut self, min_bp:u8) -> Result<Decl, ParseError> {
         let prev_tok = self.expect_prev_tok()?;
         match prev_tok {
             Token::Integer(val) => Ok(ExprStmt(Expr::Integer(*val))),
@@ -253,7 +266,7 @@ impl<'inp> Parser<'inp> {
     fn parse_decl(&mut self) -> Result<Decl, ParseError> {
         let prev_tok = self.expect_prev_tok()?;
         match prev_tok {
-            Token::Integer(_) | Token::Float(_) | Token::Bool(_) => self.parse_expr(),
+            Token::Integer(_) | Token::Float(_) | Token::Bool(_) => self.parse_expr(0),
             Token::Let => self.parse_let(),
             _ => Err(ParseError::new(&format!("Unexpected token: '{}'", prev_tok.to_string()))),
         }

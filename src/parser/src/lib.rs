@@ -4,10 +4,11 @@ use std::iter::Peekable;
 use lexer::Token;
 use logos::Lexer;
 
+// To expect token types that have a value inside (for Ident and primitives)
 macro_rules! expect_token_body {
-    ($token:ident, $expected:expr) => {{
+    ($peek:expr, $token:ident, $expected:expr) => {{
         let err = Err(ParseError::new(concat!("Expected ", $expected)));
-        let pk = self.lexer.peek();
+        let pk = $peek;
 
         if pk.is_none() {
             err
@@ -17,7 +18,7 @@ macro_rules! expect_token_body {
                 .as_ref()
                 .expect("Expect lexer to succeed");
             match pk {
-                Token::$token => Ok(()),
+                Token::$token(_) => Ok(()),
                 _ => err,
             }
         }
@@ -111,6 +112,7 @@ pub struct Parser<'inp> {
     lexer: Peekable<Lexer<'inp, Token>>,
 }
 
+use Decl::*;
 impl<'inp> Parser<'inp> {
     pub fn new<'src>(lexer: Lexer<'src, Token>) -> Parser<'src> {
         Parser {
@@ -132,33 +134,51 @@ impl<'inp> Parser<'inp> {
             }
         }
     }
- 
-    // expect peek to be semicolon
-    fn expect_semicolon(&mut self) -> Result<(), ParseError> {
-        let err = Err(ParseError::new("Expected semicolon"));
-        let pk = self.lexer.peek();
 
-        if pk.is_none() {
-            err
+    // To expect token types that have no value (most of them)
+    fn expect_token_type(&mut self, token:Token, expected_msg: &str) -> Result<(), ParseError> {
+        if !self.is_peek_token_type(token) {
+            Err(ParseError::new(expected_msg))
         } else {
-            let pk = pk
-                .expect("Peek has something")
-                .as_ref()
-                .expect("Expect lexer to suceed");
-            match pk {
-                Token::Semi => Ok(()),
-                _ => err,
-            }
+            Ok(())
         }
     }
+ 
+    // expect peek to be semicolon
+    // fn expect_semicolon(&mut self) -> Result<(), ParseError> {
+    //     let err = Err(ParseError::new("Expected semicolon"));
+    //     let pk = self.lexer.peek();
+
+    //     if pk.is_none() {
+    //         err
+    //     } else {
+    //         let pk = pk
+    //             .expect("Peek has something")
+    //             .as_ref()
+    //             .expect("Expect lexer to suceed");
+    //         match pk {
+    //             Token::Semi => Ok(()),
+    //             _ => err,
+    //         }
+    //     }
+    // }
 
     // Store current lexer token as prev_tok and move up lexer 
-    pub fn advance(&mut self) {
+    fn advance(&mut self) {
         if let Some(val) = self.lexer.peek() {
             self.prev_tok
                 .replace(val.clone().expect("Expect lexer to succeed"));
             self.lexer.next();
         }
+    }
+
+    // Parse let statement
+        // let x = 2;
+    fn parse_let(&mut self) -> Result<Expr, ParseError> {
+        self.advance();
+        expect_token_body!(self.lexer.peek(), Ident, "Expected identifier")?;
+        self.expect_token_type(Token::Eq, "Expected '='")?;
+        Ok(Expr::Bool(true))
     }
 
     // Parses and returns an expression. At this stage "expression" includes values, let assignments, fn declarations, etc
@@ -172,16 +192,16 @@ impl<'inp> Parser<'inp> {
             Token::Integer(val) => Ok(Expr::Integer(*val)),
             Token::Float(val) => Ok(Expr::Float(*val)),
             Token::Bool(val) => Ok(Expr::Bool(*val)),
+            Token::Let => self.parse_let(),
             _ => unimplemented!(),
         }
     }
 
+    
+
     pub fn parse_seq(&mut self)->Result<BlockSeq, ParseError> {
         let mut decls:Vec<Decl> = vec![];
-        let mut last_expr:Option<Expr> = None;
-
-        // self.advance(); // advance and get current token
-    
+        let mut last_expr:Option<Expr> = None;    
 
         while let Some(_) = self.lexer.peek() {
             self.advance();
@@ -196,7 +216,7 @@ impl<'inp> Parser<'inp> {
 
             // semicolon: parse as stmt
             // let semi = expect_token_body!(Semi, "semicolon");
-            else if self.expect_semicolon().is_ok() {
+            else if self.is_peek_token_type(Token::Semi) {
                 let expr_stmt = Decl::ExprStmt(expr);
                 decls.push(expr_stmt);
                 self.advance();
@@ -285,9 +305,14 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_mixed() {
+    fn test_parse_mixed_primitives() {
         test_parse("true; 2; 4.5; false; 200; 7.289; 90; true", "true;2;4.5;false;200;7.289;90;true");
         test_parse("true; 2; 4.5; false; 200; 7.289; 90; true; 2.1;", "true;2;4.5;false;200;7.289;90;true;2.1;")
+    }
+
+    #[test]
+    fn test_parse_let() {
+        test_parse("let x = 2;", "let x = 2;")
     }
 
     #[test]

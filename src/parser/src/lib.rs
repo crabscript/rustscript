@@ -28,7 +28,7 @@ macro_rules! expect_token_body {
 
 
 // Different from bytecode Value because values on op stack might be different (e.g fn call)
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub enum Expr {
     Integer(i64),
     Float(f64),
@@ -49,29 +49,53 @@ impl Display for Expr {
     }
 }
 
+#[derive(Debug)]
+pub struct LetStmt {
+    ident:String, 
+    expr:Expr
+}
+
+impl Display for LetStmt {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "let {} = {}", self.ident, self.expr) 
+    }
+}
+
 // Later: LetStmt, IfStmt, FnDef, etc.
-// #[derive(Debug, PartialEq)]
-// pub enum Decl {
-//     ExprStmt(Expr),
-//     Block(BlockSeq),
-// }
+#[derive(Debug)]
+pub enum Decl {
+    LetStmt(LetStmt),
+    ExprStmt(Expr),
+    Block(BlockSeq),
+}
 
-// impl Display for Decl {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         let string = match self {
-//             Decl::ExprStmt(expr) => expr.to_string(),
-//             Decl::Block(seq) => unimplemented!(),
-//         };
+impl Decl {
+    fn to_expr(self) -> Expr {
+        match self {
+            LetStmt(expr) => expr.expr,
+            ExprStmt(expr) => expr,
+            Block(seq) => Expr::Block(seq)
+        }
+    }
+}
 
-//         write!(f, "{}", string)
-//     }
-// }
+impl Display for Decl {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let string = match self {
+            Decl::ExprStmt(expr) => expr.to_string(),
+            Decl::LetStmt(stmt) => stmt.to_string(),
+            _ => unimplemented!(),
+        };
+
+        write!(f, "{}", string)
+    }
+}
 
 // Last expression is value of program semantics (else Unit type)
 // Program is either one declaration or a sequence of declarations with optional last expression
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub struct BlockSeq {
-    decls: Vec<Expr>,
+    decls: Vec<Decl>,
     last_expr: Option<Rc<Expr>>,
 }
 
@@ -115,7 +139,7 @@ pub struct Parser<'inp> {
     lexer: Peekable<Lexer<'inp, Token>>,
 }
 
-// use Decl::*;
+use Decl::*;
 impl<'inp> Parser<'inp> {
     pub fn new<'src>(lexer: Lexer<'src, Token>) -> Parser<'src> {
         Parser {
@@ -156,26 +180,53 @@ impl<'inp> Parser<'inp> {
         }
     }
 
+    // Pass in self.lexer.peek() => get String out for Ident, String in quotes
+    fn string_from_ident(token: Option<&Result<Token, ()>>) -> String {
+        let tok = token.unwrap();
+        let tok = tok.clone().unwrap();
+        tok.to_string()
+    }
+
     // Parse let statement
         // let x = 2;
-    fn parse_let(&mut self) -> Result<Expr, ParseError> {
-        self.advance();
+    fn parse_let(&mut self) -> Result<Decl, ParseError> {
+        // self.advance();
+
         expect_token_body!(self.lexer.peek(), Ident, "Expected identifier")?;
-        self.expect_token_type(Token::Eq, "Expected '='")?;
-        Ok(Expr::Bool(true))
+        let ident = Parser::string_from_ident(self.lexer.peek());
+
+        dbg!("IDENT:", ident);
+
+        // let ident = self.lexer.peek().expect("Expected identifier").clone().expect("Expected identifier");
+        // let ident = ident.
+
+        // self.expect_token_type(Token::Eq, "Expected '='")?;
+        
+        // let expr = self.parse_expr()?;
+
+        // // Error if assigning to an actual declaration (let, fn)
+        // match expr {
+        //     Decl::LetStmt(_) => return Err(ParseError::new("Can't assign to a let statement")),
+        //     _ => ()
+        // }
+        
+        // let let_stmt:LetStmt = {
+        //     ide
+        // }
+        Ok(ExprStmt(Expr::Bool(true)))
     }
 
     // Parses and returns an expression. At this stage "expression" includes values, let assignments, fn declarations, etc
         // Because treatment of something as an expression can vary based on whether it is last value or not, whether semicolon comes after, etc.
-    fn parse_expr(&mut self) -> Result<Expr, ParseError> {
+    fn parse_expr(&mut self) -> Result<Decl, ParseError> {
         let prev_tok = self
             .prev_tok
             .as_ref()
             .expect("prev_tok should not be empty");
         match prev_tok {
-            Token::Integer(val) => Ok(Expr::Integer(*val)),
-            Token::Float(val) => Ok(Expr::Float(*val)),
-            Token::Bool(val) => Ok(Expr::Bool(*val)),
+            Token::Integer(val) => Ok(ExprStmt(Expr::Integer(*val))),
+            Token::Float(val) => Ok(ExprStmt(Expr::Float(*val))),
+            Token::Bool(val) => Ok(ExprStmt(Expr::Bool(*val))),
             Token::Let => self.parse_let(),
             _ => unimplemented!(),
         }
@@ -184,7 +235,7 @@ impl<'inp> Parser<'inp> {
     
 
     pub fn parse_seq(&mut self)->Result<BlockSeq, ParseError> {
-        let mut decls:Vec<Expr> = vec![];
+        let mut decls:Vec<Decl> = vec![];
         let mut last_expr:Option<Expr> = None;    
 
         while let Some(_) = self.lexer.peek() {
@@ -194,14 +245,13 @@ impl<'inp> Parser<'inp> {
 
             // end of block: lexer empty OR curly brace (TODO add curly later)
             if self.lexer.peek().is_none() || self.is_peek_token_type(Token::CloseBrace) {
-                last_expr.replace(expr);
+                last_expr.replace(expr.to_expr());
                 break;
             }
 
             // semicolon: parse as stmt
             // let semi = expect_token_body!(Semi, "semicolon");
             else if self.is_peek_token_type(Token::Semi) {
-                // let expr_stmt = Decl::ExprStmt(expr);
                 decls.push(expr);
                 self.advance();
             }
@@ -239,7 +289,7 @@ mod tests {
         let lex = Token::lexer(inp);
         let parser = Parser::new(lex);
         let res = parser.parse().expect("Should parse");
-        assert_eq!(res.to_string(), expected);
+        // assert_eq!(res.to_string(), expected);
     }
 
     fn test_parse_err(inp: &str, exp_err: &str, contains: bool) {

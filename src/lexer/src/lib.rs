@@ -1,4 +1,5 @@
 use logos::{Lexer, Logos};
+use std::fmt::Display;
 
 #[derive(Debug, Logos, PartialEq, Clone)]
 #[logos(skip r"[ \t\r\n\f]+")]
@@ -106,6 +107,16 @@ pub enum Token {
       stripped.to_owned()
   })]
     String(String),
+}
+
+impl Token {
+    pub fn to_string(&self) -> String {
+        match self {
+            Self::Ident(id) => id.to_string(),
+            Self::String(str) => str.to_string(),
+            _ => String::from("")
+        }
+    }
 }
 
 pub fn lex<'a>(input:&'a str)->Lexer<'a,Token> {

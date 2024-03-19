@@ -1,5 +1,6 @@
 use std::fmt::Display;
 use std::iter::Peekable;
+use std::rc::Rc;
 
 use lexer::Token;
 use logos::Lexer;
@@ -32,6 +33,7 @@ pub enum Expr {
     Integer(i64),
     Float(f64),
     Bool(bool),
+    Block(BlockSeq) // expr can be a block
 }
 
 impl Display for Expr {
@@ -40,6 +42,7 @@ impl Display for Expr {
             Expr::Integer(val) => val.to_string(),
             Expr::Float(val) => val.to_string(),
             Expr::Bool(val) => val.to_string(),
+            Expr::Block(seq) => seq.to_string()
         };
 
         write!(f, "{}", string)
@@ -47,29 +50,29 @@ impl Display for Expr {
 }
 
 // Later: LetStmt, IfStmt, FnDef, etc.
-#[derive(Debug, PartialEq)]
-pub enum Decl {
-    ExprStmt(Expr),
-    Block(BlockSeq),
-}
+// #[derive(Debug, PartialEq)]
+// pub enum Decl {
+//     ExprStmt(Expr),
+//     Block(BlockSeq),
+// }
 
-impl Display for Decl {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let string = match self {
-            Decl::ExprStmt(expr) => expr.to_string(),
-            Decl::Block(seq) => unimplemented!(),
-        };
+// impl Display for Decl {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         let string = match self {
+//             Decl::ExprStmt(expr) => expr.to_string(),
+//             Decl::Block(seq) => unimplemented!(),
+//         };
 
-        write!(f, "{}", string)
-    }
-}
+//         write!(f, "{}", string)
+//     }
+// }
 
 // Last expression is value of program semantics (else Unit type)
 // Program is either one declaration or a sequence of declarations with optional last expression
 #[derive(Debug, PartialEq)]
 pub struct BlockSeq {
-    decls: Vec<Decl>,
-    last_expr: Option<Expr>,
+    decls: Vec<Expr>,
+    last_expr: Option<Rc<Expr>>,
 }
 
 impl Display for BlockSeq {
@@ -112,7 +115,7 @@ pub struct Parser<'inp> {
     lexer: Peekable<Lexer<'inp, Token>>,
 }
 
-use Decl::*;
+// use Decl::*;
 impl<'inp> Parser<'inp> {
     pub fn new<'src>(lexer: Lexer<'src, Token>) -> Parser<'src> {
         Parser {
@@ -143,25 +146,6 @@ impl<'inp> Parser<'inp> {
             Ok(())
         }
     }
- 
-    // expect peek to be semicolon
-    // fn expect_semicolon(&mut self) -> Result<(), ParseError> {
-    //     let err = Err(ParseError::new("Expected semicolon"));
-    //     let pk = self.lexer.peek();
-
-    //     if pk.is_none() {
-    //         err
-    //     } else {
-    //         let pk = pk
-    //             .expect("Peek has something")
-    //             .as_ref()
-    //             .expect("Expect lexer to suceed");
-    //         match pk {
-    //             Token::Semi => Ok(()),
-    //             _ => err,
-    //         }
-    //     }
-    // }
 
     // Store current lexer token as prev_tok and move up lexer 
     fn advance(&mut self) {
@@ -200,7 +184,7 @@ impl<'inp> Parser<'inp> {
     
 
     pub fn parse_seq(&mut self)->Result<BlockSeq, ParseError> {
-        let mut decls:Vec<Decl> = vec![];
+        let mut decls:Vec<Expr> = vec![];
         let mut last_expr:Option<Expr> = None;    
 
         while let Some(_) = self.lexer.peek() {
@@ -217,8 +201,8 @@ impl<'inp> Parser<'inp> {
             // semicolon: parse as stmt
             // let semi = expect_token_body!(Semi, "semicolon");
             else if self.is_peek_token_type(Token::Semi) {
-                let expr_stmt = Decl::ExprStmt(expr);
-                decls.push(expr_stmt);
+                // let expr_stmt = Decl::ExprStmt(expr);
+                decls.push(expr);
                 self.advance();
             }
 
@@ -236,7 +220,7 @@ impl<'inp> Parser<'inp> {
         dbg!(&last_expr, &decls);
         Ok(BlockSeq {
             decls,
-            last_expr
+            last_expr: last_expr.map(|x| Rc::new(x))
         })
     }
 

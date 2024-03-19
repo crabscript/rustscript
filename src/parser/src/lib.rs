@@ -58,14 +58,6 @@ impl Display for BinOpType {
     }
 }
 
-// #[derive(Debug)]
-// pub struct BinOp {
-//     op_type: BinOpType,
-//     left: Expr,
-//     right: Expr
-// }
-
-
 // Different from bytecode Value because values on op stack might be different (e.g fn call)
 #[derive(Debug, Clone)]
 pub enum Expr {
@@ -83,7 +75,7 @@ impl Display for Expr {
             Expr::Float(val) => val.to_string(),
             Expr::Bool(val) => val.to_string(),
             Expr::BinOpExpr(op, lhs, rhs) => {
-                format!("{}{}{}", lhs, op, rhs)
+                format!("({}{}{})", lhs, op, rhs)
             },
             Expr::Block(seq) => seq.to_string(),
         };
@@ -113,6 +105,8 @@ pub enum Decl {
 }
 
 impl Decl {
+    // Need to clone so we can re-use in pratt parser loop 
+    // Reasoning: parsing won't take most of the runtime
     fn to_expr(&self) -> Expr {
         match self {
             LetStmt(_) => panic!("Let statement is not an expression"),
@@ -313,11 +307,16 @@ impl<'inp> Parser<'inp> {
 
             let binop = BinOpType::from_token(&tok)?;
             let (l_bp, r_bp) = Parser::get_infix_bp(&binop);
-            self.advance();
+            // self.advance();
             if l_bp < min_bp {
                 break;
             }
 
+            // only advance after the break
+                // before adv: peek is at infix op
+                // after adv: peek crosses infix op, then reaches the next infix op and prev_tok = next atom
+                // e.g 2+3*4: before adv peek is at +, after adv peek is at *
+            self.advance();
             self.advance();
             let rhs = self.parse_expr(r_bp)?;
 
@@ -390,6 +389,7 @@ impl<'inp> Parser<'inp> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use lexer::lex;
     use logos::Logos;
 
     fn test_parse(inp: &str, expected: &str) {
@@ -487,6 +487,14 @@ mod tests {
 
     #[test]
     fn test_parse_binop() {
-        test_parse("2+3;", "2+3;");
+        test_parse("2+3;", "(2+3);");
+        test_parse("2*3;", "(2*3);");
+        test_parse("2+2*3", "(2+(2*3))");
+        test_parse("2*3+4", "((2*3)+4)");
+        test_parse("2*3+4/2", "((2*3)+(4/2))");
+
+        test_parse("2*3+4; 2+4*3; 20/200*2", "((2*3)+4);(2+(4*3));((20/200)*2)");
+
+
     }
 }

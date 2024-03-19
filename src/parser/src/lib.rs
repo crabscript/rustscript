@@ -171,6 +171,16 @@ impl<'inp> Parser<'inp> {
         }
     }
 
+    // Expect token type and advance if it was there
+    fn consume_token_type(&mut self, token:Token, expected_msg: &str) -> Result<(), ParseError> {
+        if !self.is_peek_token_type(token) {
+            Err(ParseError::new(expected_msg))
+        } else {
+            self.advance();
+            return Ok(())
+        }
+    }
+
     // Store current lexer token as prev_tok and move up lexer 
     fn advance(&mut self) {
         if let Some(val) = self.lexer.peek() {
@@ -190,30 +200,33 @@ impl<'inp> Parser<'inp> {
     // Parse let statement
         // let x = 2;
     fn parse_let(&mut self) -> Result<Decl, ParseError> {
-        // self.advance();
-
         expect_token_body!(self.lexer.peek(), Ident, "Expected identifier")?;
         let ident = Parser::string_from_ident(self.lexer.peek());
+        self.advance();
+        self.consume_token_type(Token::Eq, "Expected '='")?;
 
-        dbg!("IDENT:", ident);
+        self.advance(); // store the start tok of the next expr as prev_tok
 
-        // let ident = self.lexer.peek().expect("Expected identifier").clone().expect("Expected identifier");
-        // let ident = ident.
-
-        // self.expect_token_type(Token::Eq, "Expected '='")?;
+        // dbg!(self.lexer.peek(), &self.prev_tok);
         
-        // let expr = self.parse_expr()?;
-
-        // // Error if assigning to an actual declaration (let, fn)
-        // match expr {
-        //     Decl::LetStmt(_) => return Err(ParseError::new("Can't assign to a let statement")),
-        //     _ => ()
-        // }
+        let expr = self.parse_expr()?;
         
-        // let let_stmt:LetStmt = {
-        //     ide
-        // }
-        Ok(ExprStmt(Expr::Bool(true)))
+
+        // Error if assigning to an actual declaration (let, fn)
+        match expr {
+            Decl::LetStmt(_) => return Err(ParseError::new("Can't assign to a let statement")),
+            _ => ()
+        }
+
+        self.expect_token_type(Token::Semi, "Expected semicolon after let")?;
+        
+        
+        let stmt = LetStmt {
+            ident,
+            expr: expr.to_expr()
+        };
+
+        Ok(LetStmt(stmt))
     }
 
     // Parses and returns an expression. At this stage "expression" includes values, let assignments, fn declarations, etc
@@ -231,8 +244,6 @@ impl<'inp> Parser<'inp> {
             _ => unimplemented!(),
         }
     }
-
-    
 
     pub fn parse_seq(&mut self)->Result<BlockSeq, ParseError> {
         let mut decls:Vec<Decl> = vec![];
@@ -267,7 +278,7 @@ impl<'inp> Parser<'inp> {
             }
             
         }
-        dbg!(&last_expr, &decls);
+        // dbg!(&last_expr, &decls);
         Ok(BlockSeq {
             decls,
             last_expr: last_expr.map(|x| Rc::new(x))
@@ -297,6 +308,8 @@ mod tests {
         let parser = Parser::new(lex);
         let res = parser.parse().expect_err("Should err");
 
+        dbg!(&res.to_string());
+
         if contains {
             assert!(res.to_string().contains(exp_err))
         } else {
@@ -308,7 +321,6 @@ mod tests {
     fn play() {
         let mut lex = Token::lexer("}");
         let mut p = Parser::new(lex);
-        // p.advance();
         dbg!(p.is_peek_token_type(Token::CloseBrace));
     }
 
@@ -346,7 +358,26 @@ mod tests {
 
     #[test]
     fn test_parse_let() {
-        test_parse("let x = 2;", "let x = 2;")
+        test_parse("let x = 2;", "let x = 2;");
+        test_parse("let x = 2; let y = 3;", "let x = 2; let y = 3;"); // both treated as decls
+        test_parse("let x = 2; let y = 3; 30;", "let x = 2; let y = 3; 30;"); // 30 is decl
+        test_parse("let x = 2; let y = 3; 30", "let x = 2; let y = 3; 30");  // 30 is expr
+
+        test_parse("let x = 2; let y = 3; 30; 40; 50", "let x = 2; let y = 3; 30; 40; 50");
+        test_parse("let x = 2; let y = 3; 30; 40; 50; let z = 60;", "let x = 2; let y = 3; 30; 40; 50; let z = 60;");
+
+        test_parse("let x = 2; let y = 3; 30; 40; 50; let z = 60; true", "let x = 2; let y = 3; 30; 40; 50; let z = 60; true");
+
+        // other types
+        test_parse("let x = true; let y = 200; let z = 2.2; 3.14159", "let x = true; let y = 200; let z = 2.2; 3.14159");
+    }
+
+    #[test]
+    fn test_parse_let_err() {
+        test_parse_err("let 2 = 3", "Expected identifier", true);
+        test_parse_err("let x 2", "Expected '='", true);
+        test_parse_err("let x = 2", "Expected semicolon", true);
+        test_parse_err("let x = let y = 3;", "Can't assign", true);
     }
 
     #[test]

@@ -4,6 +4,27 @@ use std::iter::Peekable;
 use lexer::Token;
 use logos::Lexer;
 
+macro_rules! expect_token_body {
+    ($token:ident, $expected:expr) => {{
+        let err = Err(ParseError::new(concat!("Expected ", $expected)));
+        let pk = self.lexer.peek();
+
+        if pk.is_none() {
+            err
+        } else {
+            let pk = pk
+                .expect("Peek has something")
+                .as_ref()
+                .expect("Expect lexer to succeed");
+            match pk {
+                Token::$token => Ok(()),
+                _ => err,
+            }
+        }
+    }};
+}
+
+
 // Different from bytecode Value because values on op stack might be different (e.g fn call)
 #[derive(Debug, PartialEq)]
 pub enum Expr {
@@ -28,14 +49,14 @@ impl Display for Expr {
 #[derive(Debug, PartialEq)]
 pub enum Decl {
     ExprStmt(Expr),
-    Block,
+    Block(BlockSeq),
 }
 
 impl Display for Decl {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let string = match self {
             Decl::ExprStmt(expr) => expr.to_string(),
-            Decl::Block => unimplemented!(),
+            Decl::Block(seq) => unimplemented!(),
         };
 
         write!(f, "{}", string)
@@ -45,12 +66,12 @@ impl Display for Decl {
 // Last expression is value of program semantics (else Unit type)
 // Program is either one declaration or a sequence of declarations with optional last expression
 #[derive(Debug, PartialEq)]
-pub struct Program {
+pub struct BlockSeq {
     decls: Vec<Decl>,
     last_expr: Option<Expr>,
 }
 
-impl Display for Program {
+impl Display for BlockSeq {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let decls = self
             .decls
@@ -86,7 +107,6 @@ impl Display for ParseError {
 }
 
 pub struct Parser<'inp> {
-    decls: Vec<Decl>,
     prev_tok: Option<Token>,
     lexer: Peekable<Lexer<'inp, Token>>,
 }
@@ -94,12 +114,25 @@ pub struct Parser<'inp> {
 impl<'inp> Parser<'inp> {
     pub fn new<'src>(lexer: Lexer<'src, Token>) -> Parser<'src> {
         Parser {
-            decls: vec![],
             prev_tok: None,
             lexer: lexer.peekable(),
         }
     }
 
+    // Check if peek is a specific token type
+    fn is_peek_token_type(&mut self, token: Token)-> bool{
+        let pk = self.lexer.peek();
+        if pk.is_none() {
+            return false;
+        } else {
+            let pk = pk.unwrap();
+            match pk {
+                Ok(prev) => prev.eq(&token),
+                _ => false
+            }
+        }
+    }
+ 
     // expect peek to be semicolon
     fn expect_semicolon(&mut self) -> Result<(), ParseError> {
         let err = Err(ParseError::new("Expected semicolon"));
@@ -120,7 +153,7 @@ impl<'inp> Parser<'inp> {
     }
 
     // Store current lexer token as prev_tok and move up lexer 
-    fn advance(&mut self) {
+    pub fn advance(&mut self) {
         if let Some(val) = self.lexer.peek() {
             self.prev_tok
                 .replace(val.clone().expect("Expect lexer to succeed"));
@@ -128,7 +161,8 @@ impl<'inp> Parser<'inp> {
         }
     }
 
-    // So that we can reuse this for last expr
+    // Parses and returns an expression. At this stage "expression" includes values, let assignments, fn declarations, etc
+        // Because treatment of something as an expression can vary based on whether it is last value or not, whether semicolon comes after, etc.
     fn parse_expr(&mut self) -> Result<Expr, ParseError> {
         let prev_tok = self
             .prev_tok
@@ -142,41 +176,53 @@ impl<'inp> Parser<'inp> {
         }
     }
 
-    // Program is a sequence of declarations
-    fn parse_decl(&mut self) -> Result<(), ParseError> {
-        let val = self.parse_expr()?;
-        self.decls.push(Decl::ExprStmt(val));
+    pub fn parse_seq(&mut self)->Result<BlockSeq, ParseError> {
+        let mut decls:Vec<Decl> = vec![];
+        let mut last_expr:Option<Expr> = None;
 
-        self.expect_semicolon()?; // invariant: after parsing previous leave peek at where semicolon would be
-        self.advance(); // should be called once done (consume semicolon)
-        Ok(())
-    }
-
-    pub fn parse(mut self) -> Result<Program, ParseError> {
-        self.advance();
+        // self.advance(); // advance and get current token
+    
 
         while let Some(_) = self.lexer.peek() {
-            self.parse_decl()?;
-
-            // need to call lexer.next() at least once somewhere so the loop breaks
             self.advance();
-        }
 
-        let mut last_expr: Option<Expr> = None;
-        if let Some(ref val) = self.prev_tok {
-            match val {
-                Token::Integer(_) | Token::Float(_) | Token::Bool(_) => {
-                    let v = self.parse_expr()?;
-                    last_expr.replace(v);
-                }
-                _ => (),
+            let expr = self.parse_expr()?;
+
+            // end of block: lexer empty OR curly brace (TODO add curly later)
+            if self.lexer.peek().is_none() || self.is_peek_token_type(Token::CloseBrace) {
+                last_expr.replace(expr);
+                break;
             }
-        }
 
-        Ok(Program {
-            decls: self.decls,
-            last_expr,
+            // semicolon: parse as stmt
+            // let semi = expect_token_body!(Semi, "semicolon");
+            else if self.expect_semicolon().is_ok() {
+                let expr_stmt = Decl::ExprStmt(expr);
+                decls.push(expr_stmt);
+                self.advance();
+            }
+
+            // TODO: check if expr is a block-like expression (if so, treat as statement)
+                // if it was the tail it should be handled at the first branch
+
+
+            // Syntax error
+             
+            else {
+                return Err(ParseError::new("Expected semicolon"))
+            }
+            
+        }
+        dbg!(&last_expr, &decls);
+        Ok(BlockSeq {
+            decls,
+            last_expr
         })
+    }
+
+    // Implicit block
+    pub fn parse(mut self)->Result<BlockSeq,ParseError> {
+        self.parse_seq()
     }
 }
 
@@ -204,8 +250,17 @@ mod tests {
         }
     }
 
+    #[test] 
+    fn play() {
+        let mut lex = Token::lexer("}");
+        let mut p = Parser::new(lex);
+        // p.advance();
+        dbg!(p.is_peek_token_type(Token::CloseBrace));
+    }
+
     #[test]
     fn test_parse_ints() {
+        test_parse("", "");
         test_parse(" 20\n ", "20"); // expr only
         test_parse(" 20;\n ", "20;"); // one exprstmt
         test_parse(" 20 ;30 \n ", "20;30"); // exprstmt, expr

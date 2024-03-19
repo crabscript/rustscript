@@ -26,7 +26,7 @@ macro_rules! expect_token_body {
     }};
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum BinOpType {
     Add,
     Sub,
@@ -67,7 +67,7 @@ impl Display for BinOpType {
 
 
 // Different from bytecode Value because values on op stack might be different (e.g fn call)
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Expr {
     Integer(i64),
     Float(f64),
@@ -92,7 +92,7 @@ impl Display for Expr {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LetStmt {
     ident:String, 
     expr:Expr
@@ -105,7 +105,7 @@ impl Display for LetStmt {
 }
 
 // Later: LetStmt, IfStmt, FnDef, etc.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Decl {
     LetStmt(LetStmt),
     ExprStmt(Expr),
@@ -113,11 +113,11 @@ pub enum Decl {
 }
 
 impl Decl {
-    fn to_expr(self) -> Expr {
+    fn to_expr(&self) -> Expr {
         match self {
-            LetStmt(expr) => expr.expr,
-            ExprStmt(expr) => expr,
-            Block(seq) => Expr::Block(seq)
+            LetStmt(_) => panic!("Let statement is not an expression"),
+            ExprStmt(expr) => expr.clone(),
+            Block(seq) => Expr::Block(seq.clone())
         }
     }
 }
@@ -136,7 +136,7 @@ impl Display for Decl {
 
 // Last expression is value of program semantics (else Unit type)
 // Program is either one declaration or a sequence of declarations with optional last expression
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BlockSeq {
     decls: Vec<Decl>,
     last_expr: Option<Rc<Expr>>,
@@ -294,7 +294,7 @@ impl<'inp> Parser<'inp> {
     // Return as Decl for consistency
     fn parse_expr(&mut self, min_bp:u8) -> Result<Decl, ParseError> {
         let prev_tok = self.expect_prev_tok()?;
-        let lhs = match prev_tok {
+        let mut lhs = match prev_tok {
             Token::Integer(val) => Ok(ExprStmt(Expr::Integer(*val))),
             Token::Float(val) => Ok(ExprStmt(Expr::Float(*val))),
             Token::Bool(val) => Ok(ExprStmt(Expr::Bool(*val))),
@@ -321,7 +321,9 @@ impl<'inp> Parser<'inp> {
             self.advance();
             let rhs = self.parse_expr(r_bp)?;
 
-            dbg!(&lhs, rhs);
+            // dbg!(&lhs, &rhs);
+
+            lhs = ExprStmt(Expr::BinOpExpr(binop, Box::new(lhs.to_expr()), Box::new(rhs.to_expr())));
         }
 
 
@@ -394,7 +396,7 @@ mod tests {
         let lex = Token::lexer(inp);
         let parser = Parser::new(lex);
         let res = parser.parse().expect("Should parse");
-        // dbg!(&res);
+        dbg!(&res);
         assert_eq!(res.to_string(), expected);
     }
 

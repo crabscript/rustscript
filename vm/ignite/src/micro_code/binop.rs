@@ -42,10 +42,14 @@ pub fn binop(rt: &mut Runtime, op: BinOp) -> Result<()> {
                 BinOp::Lt => Value::Bool(lhs < rhs),  // Less Than
                 BinOp::Eq => Value::Bool(lhs == rhs), // Equality
                 BinOp::And => {
-                    return Err(VmError::IllegalArgument("float not supported".to_string()).into())
+                    return Err(
+                        VmError::IllegalArgument("integer not supported".to_string()).into(),
+                    )
                 }
                 BinOp::Or => {
-                    return Err(VmError::IllegalArgument("float not supported".to_string()).into())
+                    return Err(
+                        VmError::IllegalArgument("integer not supported".to_string()).into(),
+                    )
                 }
             };
             rt.operand_stack.push(result);

@@ -151,8 +151,8 @@ impl Display for Decl {
 // Program is either one declaration or a sequence of declarations with optional last expression
 #[derive(Debug, Clone)]
 pub struct BlockSeq {
-    decls: Vec<Decl>,
-    last_expr: Option<Rc<Expr>>,
+    pub decls: Vec<Decl>,
+    pub last_expr: Option<Rc<Expr>>,
 }
 
 impl Display for BlockSeq {

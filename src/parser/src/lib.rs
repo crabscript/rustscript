@@ -303,6 +303,7 @@ impl<'inp> Parser<'inp> {
         }
     }
 
+    // Unary negation has a higher precedence than binops
     fn get_prefix_bp(unop: &UnOpType) -> ((), u8) {
         match unop {
             UnOpType::Negate => ((), 5)

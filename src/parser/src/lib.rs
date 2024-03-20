@@ -58,12 +58,28 @@ impl Display for BinOpType {
     }
 }
 
+#[derive(Debug, Clone)]
+pub enum UnOpType {
+    Negate
+}
+
+impl Display for UnOpType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let chr = match self {
+            Self::Negate => "-"
+        };
+
+        write!(f, "{}", chr)
+    }
+}
+
 // Different from bytecode Value because values on op stack might be different (e.g fn call)
 #[derive(Debug, Clone)]
 pub enum Expr {
     Integer(i64),
     Float(f64),
     Bool(bool),
+    UnOpExpr(UnOpType, Box<Expr>),
     BinOpExpr(BinOpType, Box<Expr>, Box<Expr>),
     Block(BlockSeq) // expr can be a block
 }
@@ -74,6 +90,9 @@ impl Display for Expr {
             Expr::Integer(val) => val.to_string(),
             Expr::Float(val) => val.to_string(),
             Expr::Bool(val) => val.to_string(),
+            Expr::UnOpExpr(op, expr) => {
+                format!("({}{})", op, expr)
+            }
             Expr::BinOpExpr(op, lhs, rhs) => {
                 format!("({}{}{})", lhs, op, rhs)
             },
@@ -284,6 +303,12 @@ impl<'inp> Parser<'inp> {
         }
     }
 
+    fn get_prefix_bp(unop: &UnOpType) -> ((), u8) {
+        match unop {
+            UnOpType::Negate => ((), 5)
+        }
+    }
+
     // Parses and returns an expression (something that is definitely an expression)
     // Return as Decl for consistency
     fn parse_expr(&mut self, min_bp:u8) -> Result<Decl, ParseError> {
@@ -292,6 +317,13 @@ impl<'inp> Parser<'inp> {
             Token::Integer(val) => Ok(ExprStmt(Expr::Integer(*val))),
             Token::Float(val) => Ok(ExprStmt(Expr::Float(*val))),
             Token::Bool(val) => Ok(ExprStmt(Expr::Bool(*val))),
+            Token::Minus => {
+                let ((), r_bp) = Parser::get_prefix_bp(&UnOpType::Negate);
+                self.advance();
+                let rhs = self.parse_expr(r_bp)?;
+                let res = Expr::UnOpExpr(UnOpType::Negate, Box::new(rhs.to_expr()));
+                Ok(ExprStmt(res))
+            },
             _ => Err(ParseError::new(&format!("Unexpected token - not an expression: '{}'", prev_tok.to_string())))
         }?;
 
@@ -334,7 +366,7 @@ impl<'inp> Parser<'inp> {
     fn parse_decl(&mut self) -> Result<Decl, ParseError> {
         let prev_tok = self.expect_prev_tok()?;
         match prev_tok {
-            Token::Integer(_) | Token::Float(_) | Token::Bool(_) => self.parse_expr(0),
+            Token::Integer(_) | Token::Float(_) | Token::Bool(_) | Token::Minus => self.parse_expr(0),
             Token::Let => self.parse_let(),
             _ => Err(ParseError::new(&format!("Unexpected token: '{}'", prev_tok.to_string()))),
         }
@@ -500,5 +532,19 @@ mod tests {
         test_parse("2-3+4/5*6-8+9; 2+2;", "((((2-3)+((4/5)*6))-8)+9);(2+2);");
 
         test_parse("let x = 2+3*4-5; 300", "let x = ((2+(3*4))-5);300");
+    }
+
+    #[test]
+    fn test_parse_negation() {
+        test_parse("-2;", "(-2);");
+        test_parse("-2+3;", "((-2)+3);");
+        test_parse("3+-2;", "(3+(-2));");
+        test_parse("--2;", "(-(-2));");
+        test_parse("---2;", "(-(-(-2)));");
+        test_parse("-1*2+3-4", "((((-1)*2)+3)-4)");
+        test_parse("let x = -1.23; -1+2*3; 3*-2/5", "let x = (-1.23);((-1)+(2*3));((3*(-2))/5)");
+
+        // no type checking yet - leave type checking to one distinct phase
+        test_parse("let x = -true+false;", "let x = ((-true)+false);"); 
     }
 }

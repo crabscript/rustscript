@@ -8,4 +8,9 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.81"
 bytecode = { path = "../../src/bytecode" }
+clap = { version = "4.5.3", features = ["derive"] }
 thiserror = "1.0.58"
+
+[dev-dependencies]
+assert_cmd = "2.0.14"
+predicates = "3.1.0"

@@ -5,6 +5,12 @@ pub enum VmError {
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
 
+    #[error("File does not exist: {0}")]
+    FileDoesNotExist(String),
+
+    #[error("File is not a .o2 file: {0}")]
+    NotO2File(String),
+
     #[error("symbol not found: {0}")]
     SymbolNotFound(String),
 

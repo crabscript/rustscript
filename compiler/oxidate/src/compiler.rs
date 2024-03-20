@@ -57,9 +57,9 @@ impl Compiler {
             // Decl::Block(blk) => {
             //     Ok(ByteCode::DONE)
             // }
-        };
+        }?;
 
-        Ok(ByteCode::DONE)
+        Ok(code)
     }
 
     pub fn compile(self) -> Result<Vec<ByteCode>, CompileError>{

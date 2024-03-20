@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use parser::{BlockSeq, Decl};
+use parser::{BlockSeq, Decl, Expr};
 use bytecode::ByteCode;
 
 pub struct Compiler {
@@ -35,7 +35,29 @@ impl Compiler {
         }
     }
 
+    pub fn compile_expr(expr:&Expr) -> Result<ByteCode, CompileError> {
+        match expr {
+            Expr::Integer(val) => {
+                Ok(ByteCode::ldc(*val))
+            },
+            _ => unimplemented!()
+        }
+    }
+
     fn compile_decl(decl: Decl) -> Result<ByteCode,CompileError> {
+        let code = match decl {
+            Decl::ExprStmt(expr) => {
+                Compiler::compile_expr(&expr)
+            },
+            _ => unimplemented!()
+            // Decl::LetStmt(stmt) => {
+            //     Ok(ByteCode::DONE)
+
+            // },
+            // Decl::Block(blk) => {
+            //     Ok(ByteCode::DONE)
+            // }
+        };
 
         Ok(ByteCode::DONE)
     }
@@ -51,6 +73,10 @@ impl Compiler {
         }
 
         // Handle expr
+        if let Some(expr) = self.program.last_expr {
+            let code = Compiler::compile_expr(expr.as_ref())?;
+            bytecode.push(code);
+        }
 
         bytecode.push(ByteCode::DONE);
 

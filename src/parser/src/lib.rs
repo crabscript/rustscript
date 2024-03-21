@@ -2,7 +2,7 @@ use std::fmt::{write, Display};
 use std::iter::Peekable;
 use std::rc::Rc;
 
-use lexer::Token;
+use lexer::{lex, Token};
 use logos::Lexer;
 
 // To expect token types that have a value inside (for Ident and primitives)
@@ -201,6 +201,13 @@ impl<'inp> Parser<'inp> {
         Parser {
             prev_tok: None,
             lexer: lexer.peekable(),
+        }
+    }
+
+    pub fn new_from_string<'src>(inp:&'src str) -> Parser<'src>  {
+        Parser {
+            prev_tok: None,
+            lexer: lex(inp).peekable()
         }
     }
 

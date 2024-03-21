@@ -105,6 +105,6 @@ mod tests {
     #[test]
     fn test_compile_simple() {
         let res = test_compile("42;");
-        assert_eq!(res, vec![LDC(Value::Int(42)), DONE])
+        assert_eq!(res, vec![ByteCode::ldc(42), DONE])
     }
 }

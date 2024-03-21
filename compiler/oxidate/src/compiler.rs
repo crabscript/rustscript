@@ -37,9 +37,9 @@ impl Compiler {
 
     pub fn compile_expr(expr:&Expr) -> Result<ByteCode, CompileError> {
         match expr {
-            Expr::Integer(val) => {
-                Ok(ByteCode::ldc(*val))
-            },
+            Expr::Integer(val) => Ok(ByteCode::ldc(*val)),
+            Expr::Float(val) => Ok(ByteCode::ldc(*val)),
+            Expr::Bool(val) => Ok(ByteCode::ldc(*val)),
             _ => unimplemented!()
         }
     }
@@ -70,6 +70,8 @@ impl Compiler {
         for decl in decls {
             let code = Compiler::compile_decl(decl)?;
             bytecode.push(code);
+            // pop result of statements - need to ensure all stmts produce something (either Unit or something else)
+            bytecode.push(ByteCode::POP); 
         }
 
         // Handle expr
@@ -95,7 +97,7 @@ mod tests {
 
     use super::Compiler;
 
-    fn test_compile(inp:&str) -> Vec<ByteCode>{
+    fn compile_str(inp:&str) -> Vec<ByteCode>{
         let parser = Parser::new_from_string(inp);
         let parsed = parser.parse().expect("Should parse");
         let comp = Compiler::new(parsed);
@@ -104,7 +106,13 @@ mod tests {
 
     #[test]
     fn test_compile_simple() {
-        let res = test_compile("42;");
-        assert_eq!(res, vec![ByteCode::ldc(42), DONE])
+        let res = compile_str("42;");
+        assert_eq!(res, vec![ByteCode::ldc(42), POP, DONE]);
+
+        let res = compile_str("42; 45; 30");
+        assert_eq!(res, vec![ByteCode::ldc(42), POP, ByteCode::ldc(45), POP, ByteCode::ldc(30), DONE]);
+
+        let res = compile_str("42; true; 2.36;");
+        assert_eq!(res, vec![ByteCode::ldc(42), POP, ByteCode::ldc(true), POP, ByteCode::ldc(2.36), POP, DONE])
     }
 }

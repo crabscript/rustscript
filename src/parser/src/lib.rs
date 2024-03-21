@@ -76,6 +76,7 @@ impl Display for UnOpType {
 // Different from bytecode Value because values on op stack might be different (e.g fn call)
 #[derive(Debug, Clone)]
 pub enum Expr {
+    Symbol(String),
     Integer(i64),
     Float(f64),
     Bool(bool),
@@ -96,6 +97,7 @@ impl Display for Expr {
             Expr::BinOpExpr(op, lhs, rhs) => {
                 format!("({}{}{})", lhs, op, rhs)
             },
+            Expr::Symbol(val) => val.to_string(),
             Expr::Block(seq) => seq.to_string(),
         };
 
@@ -274,7 +276,7 @@ impl<'inp> Parser<'inp> {
     // Parse let statement
         // let x = 2;
     fn parse_let(&mut self) -> Result<Decl, ParseError> {
-        expect_token_body!(self.lexer.peek(), Ident, "Expected identifier")?;
+        expect_token_body!(self.lexer.peek(), Ident, "identifier")?;
         let ident = Parser::string_from_ident(self.lexer.peek());
         self.advance();
         self.consume_token_type(Token::Eq, "Expected '='")?;
@@ -335,6 +337,13 @@ impl<'inp> Parser<'inp> {
                 let res = Expr::UnOpExpr(UnOpType::Negate, Box::new(rhs.to_expr()));
                 Ok(ExprStmt(res))
             },
+            Token::Ident(id) => {
+                // Three cases: id, id = ..., id() => load var, assignment, func call
+                // Handle just id first
+                // dbg!(&self.lexer.peek());
+                let sym = Expr::Symbol(id.to_string());
+                Ok(ExprStmt(sym))
+            },
             _ => Err(ParseError::new(&format!("Unexpected token - not an expression: '{}'", prev_tok.to_string())))
         }?;
 
@@ -377,7 +386,8 @@ impl<'inp> Parser<'inp> {
     fn parse_decl(&mut self) -> Result<Decl, ParseError> {
         let prev_tok = self.expect_prev_tok()?;
         match prev_tok {
-            Token::Integer(_) | Token::Float(_) | Token::Bool(_) | Token::Minus => self.parse_expr(0),
+            Token::Integer(_) | Token::Float(_) | Token::Bool(_) 
+            | Token::Minus | Token::Ident(_)=> self.parse_expr(0),
             Token::Let => self.parse_let(),
             _ => Err(ParseError::new(&format!("Unexpected token: '{}'", prev_tok.to_string()))),
         }
@@ -510,10 +520,16 @@ mod tests {
 
         // // other types
         test_parse("let x = true; let y = 200; let z = 2.2; 3.14159", "let x = true;let y = 200;let z = 2.2;3.14159");
+
+        // Identifiers
+        test_parse("let x = 20; let y = x; y", "let x = 20;let y = x;y");
+        test_parse("let x = 20; let y = x; let z = x + y * 2;", "let x = 20;let y = x;let z = (x+(y*2));");
+
     }
 
     #[test]
     fn test_parse_let_err() {
+        test_parse_err("let", "Expected identifier", true);
         test_parse_err("let 2 = 3", "Expected identifier", true);
         test_parse_err("let x 2", "Expected '='", true);
         test_parse_err("let x = 2", "Expected semicolon", true);
@@ -557,5 +573,18 @@ mod tests {
 
         // no type checking yet - leave type checking to one distinct phase
         test_parse("let x = -true+false;", "let x = ((-true)+false);"); 
+    }
+
+    #[test]
+    fn test_parse_ident() {
+        test_parse("x", "x");
+        test_parse("x;", "x;");
+        test_parse("x; y;", "x;y;");
+        test_parse("x; y; z", "x;y;z");
+
+        test_parse("x; y; x+y*2", "x;y;(x+(y*2))");
+        test_parse("x; y; -y+x/3", "x;y;((-y)+(x/3))");
+        test_parse("x; y; -y+x/3", "x;y;((-y)+(x/3))");
+
     }
 }

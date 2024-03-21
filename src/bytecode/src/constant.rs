@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 /// The primitive values that can be stored in the stack.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum Value {
+    Unitialized,
     Unit,
     Int(i64),
     Float(f64),

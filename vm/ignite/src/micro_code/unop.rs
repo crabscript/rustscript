@@ -50,6 +50,9 @@ pub fn unop(rt: &mut Runtime, op: UnOp) -> Result<()> {
         Value::String(_) => {
             return Err(VmError::IllegalArgument("string not supported".to_string()).into())
         }
+        Value::Unitialized => {
+            return Err(VmError::IllegalArgument("using unitialized value".to_string()).into())
+        }
     }
 
     Ok(())

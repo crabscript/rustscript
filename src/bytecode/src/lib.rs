@@ -26,6 +26,8 @@ pub enum ByteCode {
     JOF(usize),
     GOTO(usize),
     RESET(FrameType),
+    ENTERSCOPE(Vec<Symbol>),
+    EXITSCOPE,
 }
 
 impl ByteCode {

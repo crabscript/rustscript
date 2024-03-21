@@ -1,7 +1,7 @@
 use std::{error::Error, fmt::Display};
 use anyhow::Result;
 
-use parser::{BlockSeq, Decl, Expr, Parser};
+use parser::{BinOpType, BlockSeq, Decl, Expr, Parser};
 use bytecode::{ByteCode, Value};
 
 pub struct Compiler {
@@ -37,28 +37,39 @@ impl Compiler {
             program
         }
     }
+    
+    // fn compile_binop(op: &BinOpType, lhs: &Box<Expr>, rhs: &Box<Expr>) ->
 
-    pub fn compile_expr(expr:&Expr) -> Result<ByteCode, CompileError> {
+    pub fn compile_expr(expr:&Expr, arr: &mut Vec<ByteCode>) -> Result<(), CompileError> {
         match expr {
-            Expr::Integer(val) => Ok(ByteCode::ldc(*val)),
-            Expr::Float(val) => Ok(ByteCode::ldc(*val)),
-            Expr::Bool(val) => Ok(ByteCode::ldc(*val)),
+            Expr::Integer(val) => arr.push(ByteCode::ldc(*val)),
+            Expr::Float(val) => arr.push(ByteCode::ldc(*val)),
+            Expr::Bool(val) => arr.push(ByteCode::ldc(*val)),
+            // Expr::BinOpExpr(op, lhs, rhs) => {
+            //     match op {
+            //         BinOpType::Add => {
+
+            //         }
+            //     }
+            // },
             _ => unimplemented!()
         }
+
+        Ok(())
     }
 
     fn compile_decl(decl: Decl, arr: &mut Vec<ByteCode>) -> Result<(),CompileError> {
         match decl {
             Decl::ExprStmt(expr) => {
-                let code = Compiler::compile_expr(&expr)?;
-                arr.push(code);
+                Compiler::compile_expr(&expr, arr)?;
+                // arr.push(code);
             },
             Decl::LetStmt(stmt) => {
                 let ident = stmt.ident.to_string();
                 let expr = stmt.expr;
 
-                let compiled_expr = Compiler::compile_expr(&expr)?;
-                arr.push(compiled_expr);
+                Compiler::compile_expr(&expr, arr)?;
+                // arr.push(compiled_expr);
 
                 let assign = ByteCode::ASSIGN(ident);
                 arr.push(assign);
@@ -92,8 +103,8 @@ impl Compiler {
 
         // Handle expr
         if let Some(expr) = self.program.last_expr {
-            let code = Compiler::compile_expr(expr.as_ref())?;
-            bytecode.push(code);
+            Compiler::compile_expr(expr.as_ref(), &mut bytecode)?;
+            // bytecode.push(code);
         }
 
         bytecode.push(ByteCode::DONE);

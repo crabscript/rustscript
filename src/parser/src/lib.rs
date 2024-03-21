@@ -327,6 +327,12 @@ impl<'inp> Parser<'inp> {
     fn parse_expr(&mut self, min_bp:u8) -> Result<Decl, ParseError> {
         let prev_tok = self.expect_prev_tok()?;
         let mut lhs = match prev_tok {
+            Token::OpenParen => {
+                self.advance();
+                let lhs = self.parse_expr(0)?;
+                self.consume_token_type(Token::CloseParen, "closing parenthesis")?;
+                Ok(lhs)
+            },
             Token::Integer(val) => Ok(ExprStmt(Expr::Integer(*val))),
             Token::Float(val) => Ok(ExprStmt(Expr::Float(*val))),
             Token::Bool(val) => Ok(ExprStmt(Expr::Bool(*val))),
@@ -348,7 +354,8 @@ impl<'inp> Parser<'inp> {
         }?;
 
         loop {
-            if self.lexer.peek().is_none() || self.is_peek_token_type(Token::Semi) || self.is_peek_token_type(Token::CloseBrace) {
+            if self.lexer.peek().is_none() || self.is_peek_token_type(Token::Semi) || self.is_peek_token_type(Token::CloseBrace)
+            || self.is_peek_token_type(Token::CloseParen) {
                 break;
             }
             
@@ -387,7 +394,7 @@ impl<'inp> Parser<'inp> {
         let prev_tok = self.expect_prev_tok()?;
         match prev_tok {
             Token::Integer(_) | Token::Float(_) | Token::Bool(_) 
-            | Token::Minus | Token::Ident(_)=> self.parse_expr(0),
+            | Token::Minus | Token::Ident(_) | Token::OpenParen => self.parse_expr(0),
             Token::Let => self.parse_let(),
             _ => Err(ParseError::new(&format!("Unexpected token: '{}'", prev_tok.to_string()))),
         }
@@ -586,5 +593,16 @@ mod tests {
         test_parse("x; y; -y+x/3", "x;y;((-y)+(x/3))");
         test_parse("x; y; -y+x/3", "x;y;((-y)+(x/3))");
 
+    }
+
+    #[test]
+    fn test_parse_parens() {
+        test_parse("(2)", "2");
+        test_parse("((((20))));", "20;");
+        test_parse("(2+3)", "(2+3)");
+        test_parse("(2+3)*4", "((2+3)*4)");
+        test_parse("2+3*(4-5)", "(2+(3*(4-5)))");
+        test_parse("2+3*(4-(5*6/(7-3)))", "(2+(3*(4-((5*6)/(7-3)))))");
+        test_parse("(2*3+(4-(6*5)))*(10-(20)*(3+2))", "(((2*3)+(4-(6*5)))*(10-(20*(3+2))))");
     }
 }

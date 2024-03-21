@@ -1,7 +1,7 @@
 use std::{error::Error, fmt::Display};
 use anyhow::Result;
 
-use parser::{BinOpType, BlockSeq, Decl, Expr, Parser};
+use parser::{BinOpType, BlockSeq, Decl, Expr, Parser, UnOpType};
 use bytecode::{ByteCode, Value};
 
 pub struct Compiler {
@@ -38,6 +38,14 @@ impl Compiler {
         }
     }
     
+    fn compile_unop(op:&UnOpType, expr: &Box<Expr>, arr: &mut Vec<ByteCode>) -> Result<(), CompileError> {
+        Compiler::compile_expr(expr, arr)?;
+        match op {
+            UnOpType::Negate => arr.push(ByteCode::UNOP(bytecode::UnOp::Neg)),
+        }
+        Ok(())
+    }
+    
     // TODO: how to do type checking here?
         // Distinct phase before compilation is reached? Assign types to all expressions
     fn compile_binop(op: &BinOpType, lhs: &Box<Expr>, rhs: &Box<Expr>, arr: &mut Vec<ByteCode>) -> Result<(), CompileError> {
@@ -61,6 +69,9 @@ impl Compiler {
             Expr::Bool(val) => arr.push(ByteCode::ldc(*val)),
             Expr::BinOpExpr(op, lhs, rhs) => {
                 Compiler::compile_binop(op, lhs, rhs, arr)?;
+            },
+            Expr::UnOpExpr(op, expr) => {
+                Compiler::compile_unop(op, expr, arr)?;
             },
             _ => unimplemented!()
         }
@@ -88,13 +99,6 @@ impl Compiler {
                 arr.push(ByteCode::LDC(Value::Unit));
             },
             _ => unimplemented!()
-            // Decl::LetStmt(stmt) => {
-            //     Ok(ByteCode::DONE)
-
-            // },
-            // Decl::Block(blk) => {
-            //     Ok(ByteCode::DONE)
-            // }
         };
 
         Ok(())

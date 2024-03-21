@@ -14,7 +14,10 @@ use bytecode::Value;
 ///
 /// If the stack is empty or the top of the stack is not a boolean.
 pub fn jof(rt: &mut Runtime, pc: usize) -> Result<()> {
-    let cond = rt.operand_stack.pop().ok_or(VmError::StackUnderflow)?;
+    let cond = rt
+        .operand_stack
+        .pop()
+        .ok_or(VmError::OperandStackUnderflow)?;
 
     if let Value::Bool(b) = cond {
         if !b {

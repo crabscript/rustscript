@@ -1,6 +1,7 @@
+pub use crate::environment::Environment;
 pub use crate::error::*;
-pub use crate::frame::Frame;
 pub use crate::runtime::Runtime;
+pub use crate::stack_frame::StackFrame;
 
 use anyhow::{Error, Result};
 use bytecode::read_bytecode;
@@ -8,11 +9,12 @@ use clap::Parser;
 use repl::ignite_repl;
 use std::path::Path;
 
+mod environment;
 mod error;
-mod frame;
 mod micro_code;
 mod repl;
 mod runtime;
+mod stack_frame;
 
 #[derive(Parser, Debug)]
 #[command(name = "Ignite")]

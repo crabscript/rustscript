@@ -14,8 +14,11 @@ pub enum VmError {
     #[error("symbol not found: {0}")]
     SymbolNotFound(String),
 
-    #[error("stack underflow")]
-    StackUnderflow,
+    #[error("operand stack underflow")]
+    OperandStackUnderflow,
+
+    #[error("runtime stack underflow")]
+    RuntimeStackUnderflow,
 
     #[error("pc out of bounds: {0}")]
     PcOutOfBounds(usize),

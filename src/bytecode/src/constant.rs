@@ -1,6 +1,5 @@
-use serde::{Deserialize, Serialize};
-
 use crate::error::ByteCodeError;
+use serde::{Deserialize, Serialize};
 
 /// The primitive values that can be stored in the stack.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]

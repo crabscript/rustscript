@@ -17,7 +17,10 @@ use bytecode::{UnOp, Value};
 /// If the stack is empty or the operation is not supported for
 /// the type of the value on the stack.
 pub fn unop(rt: &mut Runtime, op: UnOp) -> Result<()> {
-    let val = rt.operand_stack.pop().ok_or(VmError::StackUnderflow)?;
+    let val = rt
+        .operand_stack
+        .pop()
+        .ok_or(VmError::OperandStackUnderflow)?;
 
     match val {
         Value::Unit => {

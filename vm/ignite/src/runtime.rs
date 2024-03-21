@@ -1,4 +1,4 @@
-use crate::{frame::Frame, micro_code, VmError};
+use crate::{micro_code, Environment, StackFrame, VmError};
 use anyhow::Result;
 use bytecode::{self, ByteCode, Value};
 use std::{cell::RefCell, rc::Rc};
@@ -6,8 +6,9 @@ use std::{cell::RefCell, rc::Rc};
 /// The runtime for each thread of execution.
 #[derive(Debug, Default)]
 pub struct Runtime {
-    pub frame: Rc<RefCell<Frame>>,
+    pub env: Rc<RefCell<Environment>>,
     pub operand_stack: Vec<Value>,
+    pub runtime_stack: Vec<StackFrame>,
     pub instrs: Vec<ByteCode>,
     pub pc: usize,
 }
@@ -15,8 +16,9 @@ pub struct Runtime {
 impl Runtime {
     pub fn new(instrs: Vec<ByteCode>) -> Self {
         Runtime {
-            frame: Frame::new_wrapped(),
+            env: Environment::new_wrapped(),
             operand_stack: Vec::new(),
+            runtime_stack: Vec::new(),
             instrs,
             ..Default::default()
         }
@@ -80,6 +82,7 @@ pub fn execute(rt: &mut Runtime, instr: ByteCode) -> Result<bool> {
         ByteCode::BINOP(op) => micro_code::binop(rt, op)?,
         ByteCode::JOF(pc) => micro_code::jof(rt, pc)?,
         ByteCode::GOTO(pc) => micro_code::goto(rt, pc)?,
+        ByteCode::RESET(t) => micro_code::reset(rt, t)?,
     }
     Ok(false)
 }
@@ -182,13 +185,7 @@ mod tests {
         ];
         let rt = Runtime::new(instrs);
         let rt = run(rt).unwrap();
-        assert_eq!(
-            rt.frame.borrow().get(&"x".to_string()),
-            Some(Value::Int(44))
-        );
-        assert_eq!(
-            rt.frame.borrow().get(&"y".to_string()),
-            Some(Value::Int(43))
-        );
+        assert_eq!(rt.env.borrow().get(&"x".to_string()), Some(Value::Int(44)));
+        assert_eq!(rt.env.borrow().get(&"y".to_string()), Some(Value::Int(43)));
     }
 }

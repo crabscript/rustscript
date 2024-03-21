@@ -2,15 +2,15 @@ use bytecode::{Symbol, Value};
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 #[derive(Debug, Clone, Default)]
-pub struct Frame {
-    pub parent: Option<Rc<RefCell<Frame>>>,
-    pub env: HashMap<Symbol, Value>,
+pub struct Environment {
+    parent: Option<Rc<RefCell<Environment>>>,
+    env: HashMap<Symbol, Value>,
 }
 
-impl Frame {
+impl Environment {
     /// Create a new frame with no parent, i.e. the root frame.
     pub fn new() -> Self {
-        Frame {
+        Environment {
             parent: None,
             env: HashMap::new(),
         }
@@ -18,16 +18,16 @@ impl Frame {
 
     /// Create a wrapped frame with no parent, i.e. the root frame.
     pub fn new_wrapped() -> Rc<RefCell<Self>> {
-        Rc::new(RefCell::new(Frame::new()))
+        Rc::new(RefCell::new(Environment::new()))
     }
 
     /// Set the parent of the frame.
-    pub fn set_parent(&mut self, parent: Rc<RefCell<Frame>>) {
+    pub fn set_parent(&mut self, parent: Rc<RefCell<Environment>>) {
         self.parent = Some(parent);
     }
 }
 
-impl Frame {
+impl Environment {
     /// Get a snapshot of the value of a symbol in the frame at the time of the call.
     pub fn get(&self, sym: &Symbol) -> Option<Value> {
         if let Some(val) = self.env.get(sym) {
@@ -51,19 +51,25 @@ mod tests {
 
     #[test]
     fn test_frame() {
-        let frame = Frame::new_wrapped();
-        frame.borrow_mut().set("x", 42);
-        assert_eq!(frame.borrow().get(&"x".to_string()), Some(Value::Int(42)));
+        let env = Environment::new_wrapped();
+        env.borrow_mut().set("x", 42);
+        assert_eq!(env.borrow().get(&"x".to_string()), Some(Value::Int(42)));
     }
 
     #[test]
     fn test_frame_with_parent() {
-        let parent = Frame::new_wrapped();
-        parent.borrow_mut().set("x", 42);
-        let frame = Frame::new_wrapped();
-        frame.borrow_mut().set_parent(parent);
-        frame.borrow_mut().set("y", 43);
-        assert_eq!(frame.borrow().get(&"x".to_string()), Some(Value::Int(42)));
-        assert_eq!(frame.borrow().get(&"y".to_string()), Some(Value::Int(43)));
+        let parent_env = Environment::new_wrapped();
+        parent_env.borrow_mut().set("x", 42);
+        let child_env = Environment::new_wrapped();
+        child_env.borrow_mut().set_parent(parent_env);
+        child_env.borrow_mut().set("y", 43);
+        assert_eq!(
+            child_env.borrow().get(&"x".to_string()),
+            Some(Value::Int(42))
+        );
+        assert_eq!(
+            child_env.borrow().get(&"y".to_string()),
+            Some(Value::Int(43))
+        );
     }
 }

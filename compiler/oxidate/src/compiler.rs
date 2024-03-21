@@ -38,20 +38,30 @@ impl Compiler {
         }
     }
     
-    // fn compile_binop(op: &BinOpType, lhs: &Box<Expr>, rhs: &Box<Expr>) ->
+    // TODO: how to do type checking here?
+        // Distinct phase before compilation is reached? Assign types to all expressions
+    fn compile_binop(op: &BinOpType, lhs: &Box<Expr>, rhs: &Box<Expr>, arr: &mut Vec<ByteCode>) -> Result<(), CompileError> {
+        Compiler::compile_expr(lhs.as_ref(), arr)?;
+        Compiler::compile_expr(rhs.as_ref(), arr)?;
+        match op {
+            BinOpType::Add => arr.push(ByteCode::BINOP(bytecode::BinOp::Add)),
+            BinOpType::Mul => arr.push(ByteCode::BINOP(bytecode::BinOp::Mul)),
+            BinOpType::Div => arr.push(ByteCode::BINOP(bytecode::BinOp::Div)),
+            BinOpType::Sub => arr.push(ByteCode::BINOP(bytecode::BinOp::Sub)),
+            _ => unimplemented!()
+        }
+
+        Ok(())
+    }
 
     pub fn compile_expr(expr:&Expr, arr: &mut Vec<ByteCode>) -> Result<(), CompileError> {
         match expr {
             Expr::Integer(val) => arr.push(ByteCode::ldc(*val)),
             Expr::Float(val) => arr.push(ByteCode::ldc(*val)),
             Expr::Bool(val) => arr.push(ByteCode::ldc(*val)),
-            // Expr::BinOpExpr(op, lhs, rhs) => {
-            //     match op {
-            //         BinOpType::Add => {
-
-            //         }
-            //     }
-            // },
+            Expr::BinOpExpr(op, lhs, rhs) => {
+                Compiler::compile_binop(op, lhs, rhs, arr)?;
+            },
             _ => unimplemented!()
         }
 
@@ -140,6 +150,91 @@ mod tests {
 
         let res = exp_compile_str("42; true; 2.36;");
         assert_eq!(res, vec![ByteCode::ldc(42), POP, ByteCode::ldc(true), POP, ByteCode::ldc(2.36), POP, DONE])
+    }
+
+    #[test]
+    fn test_compile_binop() {
+        let res = exp_compile_str("2+3*2-4;");
+        let exp = vec![
+            LDC(
+                Int(
+                    2,
+                ),
+            ),
+            LDC(
+                Int(
+                    3,
+                ),
+            ),
+            LDC(
+                Int(
+                    2,
+                ),
+            ),
+            BINOP(
+                bytecode::BinOp::Mul,
+            ),
+            BINOP(
+                bytecode::BinOp::Add,
+            ),
+            LDC(
+                Int(
+                    4,
+                ),
+            ),
+            BINOP(
+                bytecode::BinOp::Sub,
+            ),
+            POP,
+            DONE,
+        ];
+        
+        assert_eq!(res, exp);
+
+        let res = exp_compile_str("2+3*4-5/5");
+
+        let exp = [
+            LDC(
+                Int(
+                    2,
+                ),
+            ),
+            LDC(
+                Int(
+                    3,
+                ),
+            ),
+            LDC(
+                Int(
+                    4,
+                ),
+            ),
+            BINOP(
+                bytecode::BinOp::Mul,
+            ),
+            BINOP(
+                bytecode::BinOp::Add,
+            ),
+            LDC(
+                Int(
+                    5,
+                ),
+            ),
+            LDC(
+                Int(
+                    5,
+                ),
+            ),
+            BINOP(
+                bytecode::BinOp::Div,
+            ),
+            BINOP(
+                bytecode::BinOp::Sub,
+            ),
+            DONE,
+        ];
+
+        assert_eq!(res, exp);
     }
 
     #[test]

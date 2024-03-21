@@ -37,7 +37,7 @@ pub fn ignite_repl() -> Result<()>  {
                     println!("See you again!");
                     break;
                 }
-
+                
                 rl.add_history_entry(inp.clone().trim()).unwrap();
 
                 let compiled = compile_string(&inp);
@@ -54,7 +54,17 @@ pub fn ignite_repl() -> Result<()>  {
                 // For now, make a new Runtime for each line
                 // Later: try to introduce global state
                 let mut rt = Runtime::new(compiled);
-                rt = run(rt)?;
+                let run_res = run(rt);
+
+                match run_res {
+                    Ok(_) => (),
+                    Err(err) => { 
+                        println!("[RuntimeError]: {}", err);
+                        continue;
+                    }
+                }
+
+                rt = run_res.unwrap();
 
                 let top = rt.operand_stack.last();
 

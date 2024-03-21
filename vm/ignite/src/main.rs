@@ -11,8 +11,8 @@ use std::path::Path;
 mod error;
 mod frame;
 mod micro_code;
-mod runtime;
 mod repl;
+mod runtime;
 
 #[derive(Parser, Debug)]
 #[command(name = "Ignite")]
@@ -24,7 +24,7 @@ struct Args {
 
     /// If true, launch in REPL mode. False by default.
     #[arg(long, short)]
-    repl:bool,
+    repl: bool,
 
     /// Turn debugging information on
     #[arg(short, long, action = clap::ArgAction::Count)]
@@ -34,13 +34,13 @@ struct Args {
 fn main() -> Result<()> {
     let args = Args::parse();
     let file_provided = args.file.is_some();
-;
+
     if args.repl {
         // TODO: if file provided, run the file and pass generated context to REPL
         ignite_repl()?;
-        return Ok(()) // REPL done: exit
+        return Ok(()); // REPL done: exit
     } else if !args.repl && !file_provided {
-        return Err(Error::msg("File should be provided if not launching REPL."))
+        return Err(Error::msg("File should be provided if not launching REPL."));
     }
 
     let file = args.file.expect("File was provided");

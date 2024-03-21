@@ -1,21 +1,21 @@
 use anyhow::Result;
 use bytecode::Value;
 use compiler::compile_string;
-use rustyline::{DefaultEditor, error::ReadlineError};
+use rustyline::DefaultEditor;
 
 use crate::{runtime::run, Runtime};
 
-fn print_value(val:&Value) {
+fn print_value(val: &Value) {
     match val {
         Value::Unit => println!("()"),
         Value::Bool(b) => println!("{}", b),
         Value::Int(i) => println!("{}", i),
         Value::Float(f) => println!("{}", f),
-        Value::String(s) => println!("{}", s)
+        Value::String(s) => println!("{}", s),
     }
 }
 
-pub fn ignite_repl() -> Result<()>  {
+pub fn ignite_repl() -> Result<()> {
     let mut rl = DefaultEditor::new().unwrap();
     println!("Welcome to the RustScript REPL! Type /exit to exit.");
     println!();
@@ -37,7 +37,7 @@ pub fn ignite_repl() -> Result<()>  {
                     println!("See you again!");
                     break;
                 }
-                
+
                 rl.add_history_entry(inp.clone().trim()).unwrap();
 
                 let compiled = compile_string(&inp);
@@ -58,7 +58,7 @@ pub fn ignite_repl() -> Result<()>  {
 
                 match run_res {
                     Ok(_) => (),
-                    Err(err) => { 
+                    Err(err) => {
                         println!("[RuntimeError]: {}", err);
                         continue;
                     }
@@ -70,11 +70,10 @@ pub fn ignite_repl() -> Result<()>  {
 
                 match top {
                     Some(val) => print_value(val),
-                    None => ()
+                    None => (),
                 }
-
-            },
-            _ => ()
+            }
+            _ => (),
         }
     }
 

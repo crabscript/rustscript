@@ -1,5 +1,4 @@
 use logos::{Lexer, Logos};
-use std::fmt::Display;
 
 #[derive(Debug, Logos, PartialEq, Clone)]
 #[logos(skip r"[ \t\r\n\f]+")]
@@ -96,7 +95,7 @@ pub enum Token {
     Bool(bool),
 
     // issue: negative numbers should be dealt with at parser level instead of lexer level (causes issue with minus operator)
-        // https://stackoverflow.com/questions/58910659/how-to-properly-lex-negative-numbers
+    // https://stackoverflow.com/questions/58910659/how-to-properly-lex-negative-numbers
     // so we don't put -? at the front
     #[regex(r"\d+", |lex| lex.slice().parse::<i64>().unwrap())]
     Integer(i64),
@@ -152,7 +151,7 @@ impl Token {
     }
 }
 
-pub fn lex<'a>(input:&'a str)->Lexer<'a,Token> {
+pub fn lex<'a>(input: &'a str) -> Lexer<'a, Token> {
     Token::lexer(input)
 }
 
@@ -219,7 +218,11 @@ mod test {
         let input = format!("{} {}", max_int, min_int);
         let mut tokens = Token::lexer(&input);
 
-        let expected = vec![Token::Integer(i64::MAX), Token::Minus, Token::Integer(i64::MAX)];
+        let expected = vec![
+            Token::Integer(i64::MAX),
+            Token::Minus,
+            Token::Integer(i64::MAX),
+        ];
 
         for e in expected {
             assert_eq!(e, tokens.next().unwrap().expect("Expected token"));
@@ -242,7 +245,7 @@ mod test {
     fn test_lexer_float_max() {
         // NOTE: Because of minus lexing issue the range of -ve numbers we can handle is reduced by one
         let max_float = f64::MAX.to_string();
-        let min_float = (f64::MIN+1.0).to_string();
+        let min_float = (f64::MIN + 1.0).to_string();
 
         // Add .0 to the end of the floats to make them float tokens
         let input = format!("{}.0 {}.0", max_float, min_float);

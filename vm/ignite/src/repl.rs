@@ -40,7 +40,16 @@ pub fn ignite_repl() -> Result<()>  {
 
                 rl.add_history_entry(inp.clone().trim()).unwrap();
 
-                let compiled = compile_string(&inp)?;
+                let compiled = compile_string(&inp);
+                match compiled {
+                    Ok(_) => (),
+                    Err(err) => {
+                        println!("{}", err);
+                        continue;
+                    }
+                }
+
+                let compiled = compiled.unwrap();
 
                 // For now, make a new Runtime for each line
                 // Later: try to introduce global state

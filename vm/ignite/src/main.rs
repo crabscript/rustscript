@@ -19,6 +19,10 @@ struct Args {
     /// File name of the program to run, must be a .o2 file.
     file: String,
 
+    /// If true, launch in REPL mode. False by default.
+    #[arg(long, short)]
+    repl:bool,
+
     /// Turn debugging information on
     #[arg(short, long, action = clap::ArgAction::Count)]
     debug: u8,

@@ -73,6 +73,10 @@ impl Compiler {
             Expr::UnOpExpr(op, expr) => {
                 Compiler::compile_unop(op, expr, arr)?;
             },
+            // Load symbol
+            Expr::Symbol(sym) => {
+                arr.push(ByteCode::LD(sym.to_string()));
+            }
             _ => unimplemented!()
         }
 
@@ -83,7 +87,6 @@ impl Compiler {
         match decl {
             Decl::ExprStmt(expr) => {
                 Compiler::compile_expr(&expr, arr)?;
-                // arr.push(code);
             },
             Decl::LetStmt(stmt) => {
                 let ident = stmt.ident.to_string();
@@ -329,6 +332,90 @@ mod tests {
             DONE
         ];
         
+        assert_eq!(res, exp);
+    }
+
+    #[test]
+    fn test_compile_sym() {
+        let res = exp_compile_str("let x = 2; -x+2;");
+        let exp = vec![
+            LDC(
+                Int(
+                    2,
+                ),
+            ),
+            ASSIGN(
+                "x".to_string(),
+            ),
+            LDC(
+                Unit,
+            ),
+            POP,
+            LD(
+                "x".to_string(),
+            ),
+            UNOP(
+                bytecode::UnOp::Neg,
+            ),
+            LDC(
+                Int(
+                    2,
+                ),
+            ),
+            BINOP(
+                bytecode::BinOp::Add,
+            ),
+            POP,
+            DONE,
+        ];
+        assert_eq!(res, exp);
+
+        let res = exp_compile_str("let x = 2; let y = x; x*5+2");
+        let exp = vec![
+            LDC(
+                Int(
+                    2,
+                ),
+            ),
+            ASSIGN(
+                "x".to_string(),
+            ),
+            LDC(
+                Unit,
+            ),
+            POP,
+            LD(
+                "x".to_string(),
+            ),
+            ASSIGN(
+                "y".to_string(),
+            ),
+            LDC(
+                Unit,
+            ),
+            POP,
+            LD(
+                "x".to_string(),
+            ),
+            LDC(
+                Int(
+                    5,
+                ),
+            ),
+            BINOP(
+                bytecode::BinOp::Mul,
+            ),
+            LDC(
+                Int(
+                    2,
+                ),
+            ),
+            BINOP(
+                bytecode::BinOp::Add,
+            ),
+            DONE,
+        ];
+
         assert_eq!(res, exp);
     }
 }

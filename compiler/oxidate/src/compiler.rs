@@ -42,6 +42,7 @@ impl Compiler {
         Compiler::compile_expr(expr, arr)?;
         match op {
             UnOpType::Negate => arr.push(ByteCode::UNOP(bytecode::UnOp::Neg)),
+            UnOpType::Not => arr.push(ByteCode::UNOP(bytecode::UnOp::Not)),
         }
         Ok(())
     }
@@ -295,6 +296,37 @@ mod tests {
             DONE,
         ];
 
+        assert_eq!(res, exp);
+    }
+
+    #[test]
+    fn test_compile_not() {
+        let res = exp_compile_str("!true");
+        let exp = [
+            LDC(
+                Bool(
+                    true,
+                ),
+            ),
+            UNOP(
+                bytecode::UnOp::Not,
+            ),
+            DONE,
+        ];
+        assert_eq!(res, exp);
+
+        let res = exp_compile_str("!false");
+        let exp = [
+            LDC(
+                Bool(
+                    false,
+                ),
+            ),
+            UNOP(
+                bytecode::UnOp::Not,
+            ),
+            DONE,
+        ];
         assert_eq!(res, exp);
     }
 }

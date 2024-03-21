@@ -64,12 +64,14 @@ impl Display for BinOpType {
 #[derive(Debug, Clone)]
 pub enum UnOpType {
     Negate,
+    Not
 }
 
 impl Display for UnOpType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let chr = match self {
             Self::Negate => "-",
+            Self::Not => "!"
         };
 
         write!(f, "{}", chr)
@@ -319,7 +321,7 @@ impl<'inp> Parser<'inp> {
     // Unary negation has a higher precedence than binops
     fn get_prefix_bp(unop: &UnOpType) -> ((), u8) {
         match unop {
-            UnOpType::Negate => ((), 5),
+            UnOpType::Negate | UnOpType::Not => ((), 5),
         }
     }
 
@@ -337,13 +339,21 @@ impl<'inp> Parser<'inp> {
             Token::Integer(val) => Ok(ExprStmt(Expr::Integer(*val))),
             Token::Float(val) => Ok(ExprStmt(Expr::Float(*val))),
             Token::Bool(val) => Ok(ExprStmt(Expr::Bool(*val))),
+            // Unary
             Token::Minus => {
                 let ((), r_bp) = Parser::get_prefix_bp(&UnOpType::Negate);
                 self.advance();
                 let rhs = self.parse_expr(r_bp)?;
                 let res = Expr::UnOpExpr(UnOpType::Negate, Box::new(rhs.to_expr()));
                 Ok(ExprStmt(res))
-            }
+            },
+            Token::Bang => {
+                let ((), r_bp) = Parser::get_prefix_bp(&UnOpType::Not);
+                self.advance();
+                let rhs = self.parse_expr(r_bp)?;
+                let res = Expr::UnOpExpr(UnOpType::Not, Box::new(rhs.to_expr()));
+                Ok(ExprStmt(res))
+            },
             Token::Ident(id) => {
                 // Three cases: id, id = ..., id() => load var, assignment, func call
                 // Handle just id first
@@ -410,7 +420,8 @@ impl<'inp> Parser<'inp> {
             | Token::Bool(_)
             | Token::Minus
             | Token::Ident(_)
-            | Token::OpenParen => self.parse_expr(0),
+            | Token::OpenParen
+            | Token::Bang => self.parse_expr(0),
             Token::Let => self.parse_let(),
             _ => Err(ParseError::new(&format!(
                 "Unexpected token: '{}'",
@@ -645,5 +656,15 @@ mod tests {
         // Err cases
         test_parse_err("((2+3)*5", "closing paren", true);
         test_parse_err("(2*3+(4-(6*5)))*(10-(20)*(3+2)", "closing paren", true);
+    }
+
+    #[test]
+    fn test_parse_not() {
+        test_parse("!true", "(!true)");
+        test_parse("!false", "(!false)");
+
+        // No type check, but we will use same prec for mul as for logical and/or
+        test_parse("!2*3", "((!2)*3)");
+        test_parse("!(2*3)", "(!(2*3))");
     }
 }

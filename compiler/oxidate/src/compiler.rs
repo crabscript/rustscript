@@ -83,3 +83,28 @@ impl Compiler {
         Ok(bytecode)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::fmt::Debug;
+
+    use bytecode::ByteCode;
+    use bytecode::ByteCode::*;
+    use bytecode::Value;
+    use parser::Parser;
+
+    use super::Compiler;
+
+    fn test_compile(inp:&str) -> Vec<ByteCode>{
+        let parser = Parser::new_from_string(inp);
+        let parsed = parser.parse().expect("Should parse");
+        let comp = Compiler::new(parsed);
+        comp.compile().expect("Should compile")
+    }
+
+    #[test]
+    fn test_compile_simple() {
+        let res = test_compile("42;");
+        assert_eq!(res, vec![LDC(Value::Int(42)), DONE])
+    }
+}

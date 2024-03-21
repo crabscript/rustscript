@@ -330,7 +330,7 @@ impl<'inp> Parser<'inp> {
             Token::OpenParen => {
                 self.advance();
                 let lhs = self.parse_expr(0)?;
-                self.consume_token_type(Token::CloseParen, "closing parenthesis")?;
+                self.consume_token_type(Token::CloseParen, "Expected closing parenthesis")?;
                 Ok(lhs)
             },
             Token::Integer(val) => Ok(ExprStmt(Expr::Integer(*val))),
@@ -604,5 +604,9 @@ mod tests {
         test_parse("2+3*(4-5)", "(2+(3*(4-5)))");
         test_parse("2+3*(4-(5*6/(7-3)))", "(2+(3*(4-((5*6)/(7-3)))))");
         test_parse("(2*3+(4-(6*5)))*(10-(20)*(3+2))", "(((2*3)+(4-(6*5)))*(10-(20*(3+2))))");
+
+        // Err cases
+        test_parse_err("((2+3)*5", "closing paren", true);
+        test_parse_err("(2*3+(4-(6*5)))*(10-(20)*(3+2)", "closing paren", true);
     }
 }

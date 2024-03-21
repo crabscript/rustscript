@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.81"
 bytecode = { path = "../../src/bytecode" }
+oxidate = { path = "../../compiler/oxidate/" }
 clap = { version = "4.5.3", features = ["derive"] }
 thiserror = "1.0.58"
 

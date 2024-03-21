@@ -1,4 +1,4 @@
-mod compiler;
+pub mod compiler;
 
 fn main() {
     println!("Compiler");

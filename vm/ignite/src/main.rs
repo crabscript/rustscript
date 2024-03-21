@@ -1,6 +1,7 @@
 pub use crate::error::*;
 pub use crate::frame::Frame;
 pub use crate::runtime::Runtime;
+
 use anyhow::Result;
 use bytecode::read_bytecode;
 use clap::Parser;
@@ -10,6 +11,7 @@ mod error;
 mod frame;
 mod micro_code;
 mod runtime;
+mod repl;
 
 #[derive(Parser, Debug)]
 #[command(name = "Ignite")]

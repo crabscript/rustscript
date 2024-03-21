@@ -5,6 +5,7 @@ pub use crate::runtime::Runtime;
 use anyhow::Result;
 use bytecode::read_bytecode;
 use clap::Parser;
+use repl::ignite_repl;
 use std::path::Path;
 
 mod error;
@@ -32,6 +33,10 @@ struct Args {
 
 fn main() -> Result<()> {
     let args = Args::parse();
+
+    if args.repl {
+        ignite_repl()?;
+    }
 
     // Check if the file exists
     if !Path::new(&args.file).exists() {

@@ -315,7 +315,7 @@ mod tests {
         ];
         assert_eq!(res, exp);
 
-        let res = exp_compile_str("!false");
+        let res = exp_compile_str("!!false");
         let exp = [
             LDC(
                 Bool(
@@ -325,6 +325,30 @@ mod tests {
             UNOP(
                 bytecode::UnOp::Not,
             ),
+            UNOP(
+                bytecode::UnOp::Not,
+            ),
+            DONE,
+        ];
+        assert_eq!(res, exp);
+
+        let res = exp_compile_str("!!!true;");
+        let exp = [
+            LDC(
+                Bool(
+                    true,
+                ),
+            ),
+            UNOP(
+                bytecode::UnOp::Not,
+            ),
+            UNOP(
+                bytecode::UnOp::Not,
+            ),
+            UNOP(
+                bytecode::UnOp::Not,
+            ),
+            POP,
             DONE,
         ];
         assert_eq!(res, exp);

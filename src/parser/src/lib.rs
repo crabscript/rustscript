@@ -662,6 +662,8 @@ mod tests {
     fn test_parse_not() {
         test_parse("!true", "(!true)");
         test_parse("!false", "(!false)");
+        test_parse("!!true;", "(!(!true));");
+        test_parse("!!!true", "(!(!(!true)))");
 
         // No type check, but we will use same prec for mul as for logical and/or
         test_parse("!2*3", "((!2)*3)");

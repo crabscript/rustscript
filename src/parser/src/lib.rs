@@ -105,8 +105,8 @@ impl Display for Expr {
 
 #[derive(Debug, Clone)]
 pub struct LetStmt {
-    ident:String, 
-    expr:Expr
+    pub ident:String, 
+    pub expr:Expr
 }
 
 impl Display for LetStmt {

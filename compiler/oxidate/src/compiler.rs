@@ -2,7 +2,7 @@ use std::{error::Error, fmt::Display};
 use anyhow::Result;
 
 use parser::{BlockSeq, Decl, Expr, Parser};
-use bytecode::ByteCode;
+use bytecode::{ByteCode, Value};
 
 pub struct Compiler {
     bytecode: Vec<ByteCode>,
@@ -47,10 +47,24 @@ impl Compiler {
         }
     }
 
-    fn compile_decl(decl: Decl) -> Result<ByteCode,CompileError> {
-        let code = match decl {
+    fn compile_decl(decl: Decl, arr: &mut Vec<ByteCode>) -> Result<(),CompileError> {
+        match decl {
             Decl::ExprStmt(expr) => {
-                Compiler::compile_expr(&expr)
+                let code = Compiler::compile_expr(&expr)?;
+                arr.push(code);
+            },
+            Decl::LetStmt(stmt) => {
+                let ident = stmt.ident.to_string();
+                let expr = stmt.expr;
+
+                let compiled_expr = Compiler::compile_expr(&expr)?;
+                arr.push(compiled_expr);
+
+                let assign = ByteCode::ASSIGN(ident);
+                arr.push(assign);
+
+                // Load unit after stmt to be consistent with popping after every stmt
+                arr.push(ByteCode::LDC(Value::Unit));
             },
             _ => unimplemented!()
             // Decl::LetStmt(stmt) => {
@@ -60,9 +74,9 @@ impl Compiler {
             // Decl::Block(blk) => {
             //     Ok(ByteCode::DONE)
             // }
-        }?;
+        };
 
-        Ok(code)
+        Ok(())
     }
 
     pub fn compile(self) -> anyhow::Result<Vec<ByteCode>, CompileError>{
@@ -71,8 +85,7 @@ impl Compiler {
         let decls = self.program.decls;
 
         for decl in decls {
-            let code = Compiler::compile_decl(decl)?;
-            bytecode.push(code);
+            Compiler::compile_decl(decl, &mut bytecode)?;
             // pop result of statements - need to ensure all stmts produce something (either Unit or something else)
             bytecode.push(ByteCode::POP); 
         }
@@ -95,6 +108,7 @@ mod tests {
     use bytecode::ByteCode;
     use bytecode::ByteCode::*;
     use parser::Parser;
+    use bytecode::Value::*;
 
     use super::Compiler;
 
@@ -115,5 +129,96 @@ mod tests {
 
         let res = exp_compile_str("42; true; 2.36;");
         assert_eq!(res, vec![ByteCode::ldc(42), POP, ByteCode::ldc(true), POP, ByteCode::ldc(2.36), POP, DONE])
+    }
+
+    #[test]
+    fn test_compile_let() {
+        let res = exp_compile_str("let x = 2;");
+        let exp = vec![
+            LDC(
+                Int(
+                    2,
+                ),
+            ),
+            ASSIGN(
+                "x".to_string(),
+            ),
+            LDC(
+                Unit,
+            ),
+            POP,
+            DONE,
+        ];
+        
+        assert_eq!(res, exp);
+
+        // stmt last
+        let res = exp_compile_str("let x = 2; let y = 3; ");
+        let exp = vec![
+            LDC(
+                Int(
+                    2,
+                ),
+            ),
+            ASSIGN(
+                "x".to_string(),
+            ),
+            LDC(
+                Unit,
+            ),
+            POP,
+            LDC(
+                Int(
+                    3,
+                ),
+            ),
+            ASSIGN(
+                "y".to_string(),
+            ),
+            LDC(
+                Unit,
+            ),
+            POP,
+            DONE
+        ];
+        
+        assert_eq!(res, exp);
+
+        // many
+        let res = exp_compile_str("let x = 2; let y = 3; 40");
+        let exp = vec![
+            LDC(
+                Int(
+                    2,
+                ),
+            ),
+            ASSIGN(
+                "x".to_string(),
+            ),
+            LDC(
+                Unit,
+            ),
+            POP,
+            LDC(
+                Int(
+                    3,
+                ),
+            ),
+            ASSIGN(
+                "y".to_string(),
+            ),
+            LDC(
+                Unit,
+            ),
+            POP,
+            LDC(
+                Int(
+                    40,
+                ),
+            ),
+            DONE
+        ];
+        
+        assert_eq!(res, exp);
     }
 }

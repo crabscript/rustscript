@@ -1,6 +1,7 @@
-use std::fmt::Display;
+use std::{error::Error, fmt::Display};
+use anyhow::Result;
 
-use parser::{BlockSeq, Decl, Expr};
+use parser::{BlockSeq, Decl, Expr, Parser};
 use bytecode::ByteCode;
 
 pub struct Compiler {
@@ -26,6 +27,8 @@ impl Display for CompileError {
         write!(f, "[CompileError]: {}", self.msg)
     }
 }
+
+impl std::error::Error for CompileError {}
 
 impl Compiler {
     pub fn new(program: BlockSeq) -> Compiler {
@@ -62,7 +65,7 @@ impl Compiler {
         Ok(code)
     }
 
-    pub fn compile(self) -> Result<Vec<ByteCode>, CompileError>{
+    pub fn compile(self) -> anyhow::Result<Vec<ByteCode>, CompileError>{
         // println!("Compile");
         let mut bytecode: Vec<ByteCode> = vec![];
         let decls = self.program.decls;
@@ -86,18 +89,26 @@ impl Compiler {
     }
 }
 
+// Compiles a input string and returns bytecode array
+pub fn compile_string(inp:&str) -> Result<Vec<ByteCode>>{
+    let parser = Parser::new_from_string(inp);
+    let parsed = parser.parse()?;
+    let comp = Compiler::new(parsed);
+
+    let res = comp.compile()?;
+    Ok(res)
+}
+
 #[cfg(test)]
 mod tests {
-    use std::fmt::Debug;
 
     use bytecode::ByteCode;
     use bytecode::ByteCode::*;
-    use bytecode::Value;
     use parser::Parser;
 
     use super::Compiler;
 
-    fn compile_str(inp:&str) -> Vec<ByteCode>{
+    fn exp_compile_str(inp:&str) -> Vec<ByteCode>{
         let parser = Parser::new_from_string(inp);
         let parsed = parser.parse().expect("Should parse");
         let comp = Compiler::new(parsed);
@@ -106,13 +117,13 @@ mod tests {
 
     #[test]
     fn test_compile_simple() {
-        let res = compile_str("42;");
+        let res = exp_compile_str("42;");
         assert_eq!(res, vec![ByteCode::ldc(42), POP, DONE]);
 
-        let res = compile_str("42; 45; 30");
+        let res = exp_compile_str("42; 45; 30");
         assert_eq!(res, vec![ByteCode::ldc(42), POP, ByteCode::ldc(45), POP, ByteCode::ldc(30), DONE]);
 
-        let res = compile_str("42; true; 2.36;");
+        let res = exp_compile_str("42; true; 2.36;");
         assert_eq!(res, vec![ByteCode::ldc(42), POP, ByteCode::ldc(true), POP, ByteCode::ldc(2.36), POP, DONE])
     }
 }

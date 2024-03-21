@@ -190,6 +190,9 @@ impl Display for ParseError {
     }
 }
 
+// automatic due to Display
+impl std::error::Error for ParseError {}
+
 pub struct Parser<'inp> {
     prev_tok: Option<Token>,
     lexer: Peekable<Lexer<'inp, Token>>,

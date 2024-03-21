@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 parser = { path = "../../src/parser" }
 bytecode = { path = "../../src/bytecode" }
+anyhow = "1.0.81"

@@ -36,7 +36,7 @@ impl Compiler {
 
     fn compile_unop(
         op: &UnOpType,
-        expr: &Box<Expr>,
+        expr: &Expr,
         arr: &mut Vec<ByteCode>,
     ) -> Result<(), CompileError> {
         Compiler::compile_expr(expr, arr)?;
@@ -51,12 +51,12 @@ impl Compiler {
     // Distinct phase before compilation is reached? Assign types to all expressions
     fn compile_binop(
         op: &BinOpType,
-        lhs: &Box<Expr>,
-        rhs: &Box<Expr>,
+        lhs: &Expr,
+        rhs: &Expr,
         arr: &mut Vec<ByteCode>,
     ) -> Result<(), CompileError> {
-        Compiler::compile_expr(lhs.as_ref(), arr)?;
-        Compiler::compile_expr(rhs.as_ref(), arr)?;
+        Compiler::compile_expr(lhs, arr)?;
+        Compiler::compile_expr(rhs, arr)?;
         match op {
             BinOpType::Add => arr.push(ByteCode::BINOP(bytecode::BinOp::Add)),
             BinOpType::Mul => arr.push(ByteCode::BINOP(bytecode::BinOp::Mul)),
@@ -302,52 +302,24 @@ mod tests {
     #[test]
     fn test_compile_not() {
         let res = exp_compile_str("!true");
-        let exp = [
-            LDC(
-                Bool(
-                    true,
-                ),
-            ),
-            UNOP(
-                bytecode::UnOp::Not,
-            ),
-            DONE,
-        ];
+        let exp = [LDC(Bool(true)), UNOP(bytecode::UnOp::Not), DONE];
         assert_eq!(res, exp);
 
         let res = exp_compile_str("!!false");
         let exp = [
-            LDC(
-                Bool(
-                    false,
-                ),
-            ),
-            UNOP(
-                bytecode::UnOp::Not,
-            ),
-            UNOP(
-                bytecode::UnOp::Not,
-            ),
+            LDC(Bool(false)),
+            UNOP(bytecode::UnOp::Not),
+            UNOP(bytecode::UnOp::Not),
             DONE,
         ];
         assert_eq!(res, exp);
 
         let res = exp_compile_str("!!!true;");
         let exp = [
-            LDC(
-                Bool(
-                    true,
-                ),
-            ),
-            UNOP(
-                bytecode::UnOp::Not,
-            ),
-            UNOP(
-                bytecode::UnOp::Not,
-            ),
-            UNOP(
-                bytecode::UnOp::Not,
-            ),
+            LDC(Bool(true)),
+            UNOP(bytecode::UnOp::Not),
+            UNOP(bytecode::UnOp::Not),
+            UNOP(bytecode::UnOp::Not),
             POP,
             DONE,
         ];

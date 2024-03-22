@@ -5,4 +5,11 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[lib]
+name = "compiler"
+path = "src/lib.rs"
+
 [dependencies]
+parser = { path = "../../src/parser" }
+bytecode = { path = "../../src/bytecode" }
+anyhow = "1.0.81"

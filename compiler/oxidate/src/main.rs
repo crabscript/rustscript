@@ -1,3 +1,5 @@
+pub mod compiler;
+
 fn main() {
-    println!("Hello, world!");
+    println!("Compiler");
 }

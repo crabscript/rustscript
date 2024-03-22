@@ -1,6 +1,6 @@
-use logos::Logos;
+use logos::{Lexer, Logos};
 
-#[derive(Debug, Logos, PartialEq)]
+#[derive(Debug, Logos, PartialEq, Clone)]
 #[logos(skip r"[ \t\r\n\f]+")]
 pub enum Token {
     #[token(";")]
@@ -94,10 +94,13 @@ pub enum Token {
     #[token("true", |_| true)]
     Bool(bool),
 
-    #[regex(r"-?\d+", |lex| lex.slice().parse::<i64>().unwrap())]
+    // issue: negative numbers should be dealt with at parser level instead of lexer level (causes issue with minus operator)
+    // https://stackoverflow.com/questions/58910659/how-to-properly-lex-negative-numbers
+    // so we don't put -? at the front
+    #[regex(r"\d+", |lex| lex.slice().parse::<i64>().unwrap())]
     Integer(i64),
 
-    #[regex(r"-?\d*\.\d+", |lex| lex.slice().parse::<f64>().unwrap())]
+    #[regex(r"\d*\.\d+", |lex| lex.slice().parse::<f64>().unwrap())]
     Float(f64),
 
     #[regex(r#""([^"\\]|\\["\\bnfrt]|u[a-fA-F0-9]{4})*""#, |lex| {
@@ -106,6 +109,50 @@ pub enum Token {
       stripped.to_owned()
   })]
     String(String),
+}
+
+impl Token {
+    pub fn to_string(&self) -> String {
+        match self {
+            Self::Ident(id) => id.to_string(),
+            Self::String(str) => str.to_string(),
+            Self::Semi => ";".to_string(),
+            Self::Colon => ":".to_string(),
+            Self::Dot => ".".to_string(),
+            Self::Comma => ",".to_string(),
+            Self::OpenParen => "(".to_string(),
+            Self::CloseParen => ")".to_string(),
+            Self::OpenBrace => "{".to_string(),
+            Self::CloseBrace => "}".to_string(),
+            Self::OpenBracket => "[".to_string(),
+            Self::CloseBracket => "]".to_string(),
+            Self::At => "@".to_string(),
+            Self::Pound => "#".to_string(),
+            Self::Tilde => "~".to_string(),
+            Self::Question => "?".to_string(),
+            Self::Dollar => "$".to_string(),
+            Self::Eq => "=".to_string(),
+            Self::Bang => "!".to_string(),
+            Self::Lt => "<".to_string(),
+            Self::Gt => ">".to_string(),
+            Self::Minus => "-".to_string(),
+            Self::And => "&".to_string(),
+            Self::Or => "|".to_string(),
+            Self::Plus => "+".to_string(),
+            Self::Star => "*".to_string(),
+            Self::Slash => "/".to_string(),
+            Self::Caret => "^".to_string(),
+            Self::Percent => "%".to_string(),
+            Self::Let => "let".to_string(),
+            Self::Bool(val) => val.to_string(),
+            Self::Integer(val) => val.to_string(),
+            Self::Float(val) => val.to_string(),
+        }
+    }
+}
+
+pub fn lex<'a>(input: &'a str) -> Lexer<'a, Token> {
+    Token::lexer(input)
 }
 
 #[cfg(test)]
@@ -137,9 +184,12 @@ mod test {
             Token::Integer(1),
             Token::Integer(42),
             Token::Integer(1234567890),
-            Token::Integer(-1),
-            Token::Integer(-42),
-            Token::Integer(-1234567890),
+            Token::Minus,
+            Token::Integer(1),
+            Token::Minus,
+            Token::Integer(42),
+            Token::Minus,
+            Token::Integer(1234567890),
         ];
 
         for e in expected {
@@ -161,13 +211,18 @@ mod test {
 
     #[test]
     fn test_lexer_integer_max() {
+        // NOTE: Because of minus lexing issue the range of -ve numbers we can handle is reduced by one
         let max_int = i64::MAX.to_string();
-        let min_int = i64::MIN.to_string();
+        let min_int = (i64::MIN + 1).to_string();
 
         let input = format!("{} {}", max_int, min_int);
         let mut tokens = Token::lexer(&input);
 
-        let expected = vec![Token::Integer(i64::MAX), Token::Integer(i64::MIN)];
+        let expected = vec![
+            Token::Integer(i64::MAX),
+            Token::Minus,
+            Token::Integer(i64::MAX),
+        ];
 
         for e in expected {
             assert_eq!(e, tokens.next().unwrap().expect("Expected token"));
@@ -179,7 +234,7 @@ mod test {
         let input = "1.23 -4.56";
         let mut tokens = Token::lexer(input);
 
-        let expected = vec![Token::Float(1.23), Token::Float(-4.56)];
+        let expected = vec![Token::Float(1.23), Token::Minus, Token::Float(4.56)];
 
         for e in expected {
             assert_eq!(e, tokens.next().unwrap().expect("Expected token"));
@@ -188,14 +243,15 @@ mod test {
 
     #[test]
     fn test_lexer_float_max() {
+        // NOTE: Because of minus lexing issue the range of -ve numbers we can handle is reduced by one
         let max_float = f64::MAX.to_string();
-        let min_float = f64::MIN.to_string();
+        let min_float = (f64::MIN + 1.0).to_string();
 
         // Add .0 to the end of the floats to make them float tokens
         let input = format!("{}.0 {}.0", max_float, min_float);
         let mut tokens = Token::lexer(&input);
 
-        let expected = vec![Token::Float(f64::MAX), Token::Float(f64::MIN)];
+        let expected = vec![Token::Float(f64::MAX), Token::Minus, Token::Float(f64::MAX)];
 
         for e in expected {
             assert_eq!(e, tokens.next().unwrap().expect("Expected token"));
@@ -209,7 +265,8 @@ mod test {
 
         let expected = vec![
             Token::Float(0.0),
-            Token::Float(-0.0),
+            Token::Minus,
+            Token::Float(0.0),
             Token::Float(0.1),
             Token::Float(1.0),
             Token::Float(1.1),

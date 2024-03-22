@@ -11,7 +11,9 @@ use anyhow::Result;
 ///
 /// If the stack is empty.
 pub fn pop(rt: &mut Runtime) -> Result<()> {
-    rt.operand_stack.pop().ok_or(VmError::StackUnderflow)?;
+    rt.operand_stack
+        .pop()
+        .ok_or(VmError::OperandStackUnderflow)?;
     Ok(())
 }
 

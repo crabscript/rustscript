@@ -1,13 +1,14 @@
-use crate::{frame::Frame, micro_code, VmError};
+use crate::{micro_code, Environment, StackFrame, VmError};
 use anyhow::Result;
-use bytecode::{self, ByteCode, Value};
+use bytecode::{self, ByteCode, Symbol, Value};
 use std::{cell::RefCell, rc::Rc};
 
 /// The runtime for each thread of execution.
 #[derive(Debug, Default)]
 pub struct Runtime {
-    pub frame: Rc<RefCell<Frame>>,
+    pub env: Rc<RefCell<Environment>>,
     pub operand_stack: Vec<Value>,
+    pub runtime_stack: Vec<StackFrame>,
     pub instrs: Vec<ByteCode>,
     pub pc: usize,
 }
@@ -15,8 +16,9 @@ pub struct Runtime {
 impl Runtime {
     pub fn new(instrs: Vec<ByteCode>) -> Self {
         Runtime {
-            frame: Frame::new_wrapped(),
+            env: Environment::new_wrapped(),
             operand_stack: Vec::new(),
+            runtime_stack: Vec::new(),
             instrs,
             ..Default::default()
         }
@@ -80,13 +82,51 @@ pub fn execute(rt: &mut Runtime, instr: ByteCode) -> Result<bool> {
         ByteCode::BINOP(op) => micro_code::binop(rt, op)?,
         ByteCode::JOF(pc) => micro_code::jof(rt, pc)?,
         ByteCode::GOTO(pc) => micro_code::goto(rt, pc)?,
+        ByteCode::RESET(t) => micro_code::reset(rt, t)?,
+        ByteCode::ENTERSCOPE(syms) => micro_code::enter_scope(rt, syms)?,
+        ByteCode::EXITSCOPE => micro_code::exit_scope(rt)?,
     }
     Ok(false)
+}
+
+/// Extend the current environment with new symbols and values.
+///
+/// # Arguments
+///
+/// * `rt` - The runtime to extend the environment of.
+///
+/// * `syms` - The symbols to add to the environment.
+///
+/// * `vals` - The values to add to the environment.
+///
+/// # Errors
+///
+/// If the symbols and values are not the same length.
+pub fn extend_environment(rt: &mut Runtime, syms: Vec<Symbol>, vals: Vec<Value>) -> Result<()> {
+    if syms.len() != vals.len() {
+        return Err(VmError::IllegalArgument(
+            "symbols and values must be the same length".to_string(),
+        )
+        .into());
+    }
+
+    let current_env = Rc::clone(&rt.env);
+    let new_env = Environment::new_wrapped();
+    new_env.borrow_mut().set_parent(current_env);
+
+    for (sym, val) in syms.into_iter().zip(vals.into_iter()) {
+        new_env.borrow_mut().set(sym, val);
+    }
+
+    rt.env = new_env;
+
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use anyhow::Ok;
     use bytecode::{BinOp, UnOp};
 
     #[test]
@@ -182,13 +222,37 @@ mod tests {
         ];
         let rt = Runtime::new(instrs);
         let rt = run(rt).unwrap();
+        assert_eq!(rt.env.borrow().get(&"x".to_string()), Some(Value::Int(44)));
+        assert_eq!(rt.env.borrow().get(&"y".to_string()), Some(Value::Int(43)));
+    }
+
+    #[test]
+    fn test_extend_environment() -> Result<()> {
+        let mut rt = Runtime::new(vec![]);
+        rt.env.borrow_mut().set("a", 42);
+        rt.env.borrow_mut().set("b", 123);
+
+        assert!(
+            extend_environment(&mut rt, vec!["c".to_string(), "d".to_string()], vec![]).is_err()
+        );
+
+        extend_environment(
+            &mut rt,
+            vec!["c".to_string(), "d".to_string()],
+            vec![Value::Float(12.3), Value::Bool(true)],
+        )?;
+
+        assert_eq!(rt.env.borrow().get(&"a".to_string()), Some(Value::Int(42)));
+        assert_eq!(rt.env.borrow().get(&"b".to_string()), Some(Value::Int(123)));
         assert_eq!(
-            rt.frame.borrow().get(&"x".to_string()),
-            Some(Value::Int(44))
+            rt.env.borrow().get(&"c".to_string()),
+            Some(Value::Float(12.3))
         );
         assert_eq!(
-            rt.frame.borrow().get(&"y".to_string()),
-            Some(Value::Int(43))
+            rt.env.borrow().get(&"d".to_string()),
+            Some(Value::Bool(true))
         );
+
+        Ok(())
     }
 }

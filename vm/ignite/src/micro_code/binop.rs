@@ -20,8 +20,14 @@ use bytecode::{BinOp, Value};
 /// If the stack has fewer than two values or the operation is not supported
 /// for the types of the values on the stack.
 pub fn binop(rt: &mut Runtime, op: BinOp) -> Result<()> {
-    let rhs = rt.operand_stack.pop().ok_or(VmError::StackUnderflow)?;
-    let lhs = rt.operand_stack.pop().ok_or(VmError::StackUnderflow)?;
+    let rhs = rt
+        .operand_stack
+        .pop()
+        .ok_or(VmError::OperandStackUnderflow)?;
+    let lhs = rt
+        .operand_stack
+        .pop()
+        .ok_or(VmError::OperandStackUnderflow)?;
 
     match (lhs, rhs) {
         (Value::Unit, Value::Unit) => {

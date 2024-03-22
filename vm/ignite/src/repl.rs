@@ -7,6 +7,7 @@ use crate::{runtime::run, Runtime};
 
 fn print_value(val: &Value) {
     match val {
+        Value::Unitialized => println!("Uninitialized"),
         Value::Unit => println!("()"),
         Value::Bool(b) => println!("{}", b),
         Value::Int(i) => println!("{}", i),

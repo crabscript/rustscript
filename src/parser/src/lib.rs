@@ -43,7 +43,7 @@ impl BinOpType {
             Token::Slash => Ok(Self::Div),
             _ => Err(ParseError::new(&format!(
                 "Expected infix operator but got: {}",
-                token.to_string()
+                token
             ))),
         }
     }
@@ -64,14 +64,14 @@ impl Display for BinOpType {
 #[derive(Debug, Clone)]
 pub enum UnOpType {
     Negate,
-    Not
+    Not,
 }
 
 impl Display for UnOpType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let chr = match self {
             Self::Negate => "-",
-            Self::Not => "!"
+            Self::Not => "!",
         };
 
         write!(f, "{}", chr)
@@ -167,7 +167,7 @@ impl Display for BlockSeq {
         let decls = self
             .decls
             .iter()
-            .map(|d| format!("{};", d))
+            .map(|d| d.to_string() + ";")
             .collect::<String>();
         let expr = match &self.last_expr {
             Some(expr) => expr.to_string(),
@@ -207,14 +207,14 @@ pub struct Parser<'inp> {
 
 use Decl::*;
 impl<'inp> Parser<'inp> {
-    pub fn new<'src>(lexer: Lexer<'src, Token>) -> Parser<'src> {
+    pub fn new(lexer: Lexer<'_, Token>) -> Parser<'_> {
         Parser {
             prev_tok: None,
             lexer: lexer.peekable(),
         }
     }
 
-    pub fn new_from_string<'src>(inp: &'src str) -> Parser<'src> {
+    pub fn new_from_string(inp: &str) -> Parser<'_> {
         Parser {
             prev_tok: None,
             lexer: lex(inp).peekable(),
@@ -225,7 +225,7 @@ impl<'inp> Parser<'inp> {
     fn is_peek_token_type(&mut self, token: Token) -> bool {
         let pk = self.lexer.peek();
         if pk.is_none() {
-            return false;
+            false
         } else {
             let pk = pk.unwrap();
             match pk {
@@ -250,7 +250,7 @@ impl<'inp> Parser<'inp> {
             Err(ParseError::new(expected_msg))
         } else {
             self.advance();
-            return Ok(());
+            Ok(())
         }
     }
 
@@ -266,7 +266,7 @@ impl<'inp> Parser<'inp> {
     // Expect prev_tok to be there (helper method)
     fn expect_prev_tok(&self) -> Result<&Token, ParseError> {
         match &self.prev_tok {
-            Some(tok) => Ok(&tok),
+            Some(tok) => Ok(tok),
             None => Err(ParseError::new("Expected previous token")),
         }
     }
@@ -293,9 +293,9 @@ impl<'inp> Parser<'inp> {
         let expr = self.parse_decl()?;
 
         // Error if assigning to an actual declaration (let, fn)
-        match expr {
-            Decl::LetStmt(_) => return Err(ParseError::new("Can't assign to a let statement")),
-            _ => (),
+        if let Decl::LetStmt(_) = expr {
+            return Err(ParseError::new("Can't assign to a let statement"));
+            // _ => (),
         }
 
         self.expect_token_type(Token::Semi, "Expected semicolon after let")?;
@@ -346,14 +346,14 @@ impl<'inp> Parser<'inp> {
                 let rhs = self.parse_expr(r_bp)?;
                 let res = Expr::UnOpExpr(UnOpType::Negate, Box::new(rhs.to_expr()));
                 Ok(ExprStmt(res))
-            },
+            }
             Token::Bang => {
                 let ((), r_bp) = Parser::get_prefix_bp(&UnOpType::Not);
                 self.advance();
                 let rhs = self.parse_expr(r_bp)?;
                 let res = Expr::UnOpExpr(UnOpType::Not, Box::new(rhs.to_expr()));
                 Ok(ExprStmt(res))
-            },
+            }
             Token::Ident(id) => {
                 // Three cases: id, id = ..., id() => load var, assignment, func call
                 // Handle just id first
@@ -363,7 +363,7 @@ impl<'inp> Parser<'inp> {
             }
             _ => Err(ParseError::new(&format!(
                 "Unexpected token - not an expression: '{}'",
-                prev_tok.to_string()
+                prev_tok
             ))),
         }?;
 
@@ -425,7 +425,7 @@ impl<'inp> Parser<'inp> {
             Token::Let => self.parse_let(),
             _ => Err(ParseError::new(&format!(
                 "Unexpected token: '{}'",
-                prev_tok.to_string()
+                prev_tok
             ))),
         }
     }
@@ -434,7 +434,7 @@ impl<'inp> Parser<'inp> {
         let mut decls: Vec<Decl> = vec![];
         let mut last_expr: Option<Expr> = None;
 
-        while let Some(_) = self.lexer.peek() {
+        while self.lexer.peek().is_some() {
             self.advance();
 
             let expr = self.parse_decl()?;
@@ -461,7 +461,7 @@ impl<'inp> Parser<'inp> {
         // dbg!(&last_expr, &decls);
         Ok(BlockSeq {
             decls,
-            last_expr: last_expr.map(|x| Rc::new(x)),
+            last_expr: last_expr.map(Rc::new),
         })
     }
 

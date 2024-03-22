@@ -25,55 +25,51 @@ pub fn ignite_repl() -> Result<()> {
     loop {
         let readline = rl.readline(">>> ");
 
-        match readline {
-            Ok(inp) => {
-                let inp = inp.trim().to_string();
+        if let Ok(inp) = readline {
+            let inp = inp.trim().to_string();
 
-                if inp.len() == 0 {
+            if inp.is_empty() {
+                continue;
+            }
+
+            if inp.eq("/exit") {
+                println!("See you again!");
+                break;
+            }
+
+            rl.add_history_entry(inp.clone().trim()).unwrap();
+
+            let compiled = compile_string(&inp);
+            match compiled {
+                Ok(_) => (),
+                Err(err) => {
+                    println!("{}", err);
                     continue;
                 }
+            }
 
-                if inp.eq("/exit") {
-                    println!("See you again!");
-                    break;
-                }
+            let compiled = compiled.unwrap();
 
-                rl.add_history_entry(inp.clone().trim()).unwrap();
+            // For now, make a new Runtime for each line
+            // Later: try to introduce global state
+            let mut rt = Runtime::new(compiled);
+            let run_res = run(rt);
 
-                let compiled = compile_string(&inp);
-                match compiled {
-                    Ok(_) => (),
-                    Err(err) => {
-                        println!("{}", err);
-                        continue;
-                    }
-                }
-
-                let compiled = compiled.unwrap();
-
-                // For now, make a new Runtime for each line
-                // Later: try to introduce global state
-                let mut rt = Runtime::new(compiled);
-                let run_res = run(rt);
-
-                match run_res {
-                    Ok(_) => (),
-                    Err(err) => {
-                        println!("[RuntimeError]: {}", err);
-                        continue;
-                    }
-                }
-
-                rt = run_res.unwrap();
-
-                let top = rt.operand_stack.last();
-
-                match top {
-                    Some(val) => print_value(val),
-                    None => (),
+            match run_res {
+                Ok(_) => (),
+                Err(err) => {
+                    println!("[RuntimeError]: {}", err);
+                    continue;
                 }
             }
-            _ => (),
+
+            rt = run_res.unwrap();
+
+            let top = rt.operand_stack.last();
+
+            if let Some(val) = top {
+                print_value(val)
+            }
         }
     }
 

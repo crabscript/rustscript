@@ -111,8 +111,14 @@ pub enum Token {
     String(String),
 }
 
+impl std::fmt::Display for Token {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.repr())
+    }
+}
+
 impl Token {
-    pub fn to_string(&self) -> String {
+    pub fn repr(&self) -> String {
         match self {
             Self::Ident(id) => id.to_string(),
             Self::String(str) => str.to_string(),
@@ -151,7 +157,7 @@ impl Token {
     }
 }
 
-pub fn lex<'a>(input: &'a str) -> Lexer<'a, Token> {
+pub fn lex(input: &str) -> Lexer<'_, Token> {
     Token::lexer(input)
 }
 

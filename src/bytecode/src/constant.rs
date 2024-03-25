@@ -1,7 +1,8 @@
-use crate::error::ByteCodeError;
 use serde::{Deserialize, Serialize};
 
-/// The primitive values that can be stored in the stack.
+use crate::error::ByteCodeError;
+
+/// The values that can be stored on the operant stack.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum Value {
     Unitialized,

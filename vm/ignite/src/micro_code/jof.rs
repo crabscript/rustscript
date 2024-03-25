@@ -1,6 +1,7 @@
-use crate::{Runtime, VmError};
 use anyhow::Result;
 use bytecode::Value;
+
+use crate::{Runtime, VmError};
 
 /// Jumps to the given program counter if the top of the stack is false.
 ///
@@ -33,9 +34,10 @@ pub fn jof(rt: &mut Runtime, pc: usize) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bytecode::Value;
+
     use crate::micro_code::ldc;
     use crate::Runtime;
-    use bytecode::Value;
 
     #[test]
     fn test_jof() {

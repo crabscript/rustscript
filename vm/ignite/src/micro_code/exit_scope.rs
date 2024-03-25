@@ -1,5 +1,6 @@
-use crate::{Runtime, VmError};
 use anyhow::Result;
+
+use crate::{Runtime, VmError};
 
 pub fn exit_scope(rt: &mut Runtime) -> Result<()> {
     let prev_frame = rt
@@ -13,9 +14,9 @@ pub fn exit_scope(rt: &mut Runtime) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use bytecode::{Environment, FrameType, StackFrame, Value};
+
     use super::*;
-    use crate::{Environment, StackFrame};
-    use bytecode::{FrameType, Value};
 
     #[test]
     fn test_exit_scope() {

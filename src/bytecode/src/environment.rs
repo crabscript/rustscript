@@ -1,5 +1,6 @@
-use bytecode::{Symbol, Value};
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
+
+use crate::{Symbol, Value};
 
 #[derive(Debug, Clone, Default)]
 pub struct Environment {

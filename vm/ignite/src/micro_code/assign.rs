@@ -1,6 +1,7 @@
-use crate::{Runtime, VmError};
 use anyhow::{Ok, Result};
 use bytecode::Symbol;
+
+use crate::{Runtime, VmError};
 
 /// Assign a value to a symbol.
 ///
@@ -24,9 +25,9 @@ pub fn assign(rt: &mut Runtime, sym: Symbol) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use bytecode::{Environment, Value};
+
     use super::*;
-    use crate::Environment;
-    use bytecode::Value;
 
     #[test]
     fn test_assign() {

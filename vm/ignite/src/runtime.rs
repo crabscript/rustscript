@@ -79,6 +79,7 @@ pub fn execute(rt: &mut Runtime, instr: ByteCode) -> Result<bool> {
         ByteCode::ASSIGN(sym) => micro_code::assign(rt, sym)?,
         ByteCode::LD(sym) => micro_code::ld(rt, sym)?,
         ByteCode::LDC(val) => micro_code::ldc(rt, val)?,
+        ByteCode::LDF(addr, prms) => micro_code::ldf(rt, addr, prms)?,
         ByteCode::POP => micro_code::pop(rt)?,
         ByteCode::UNOP(op) => micro_code::unop(rt, op)?,
         ByteCode::BINOP(op) => micro_code::binop(rt, op)?,
@@ -87,7 +88,7 @@ pub fn execute(rt: &mut Runtime, instr: ByteCode) -> Result<bool> {
         ByteCode::RESET(t) => micro_code::reset(rt, t)?,
         ByteCode::ENTERSCOPE(syms) => micro_code::enter_scope(rt, syms)?,
         ByteCode::EXITSCOPE => micro_code::exit_scope(rt)?,
-        ByteCode::CALL(_) => (),
+        ByteCode::CALL(arity) => micro_code::call(rt, arity)?,
     }
     Ok(false)
 }
@@ -130,7 +131,7 @@ pub fn extend_environment(rt: &mut Runtime, syms: Vec<Symbol>, vals: Vec<Value>)
 mod tests {
     use super::*;
     use anyhow::Ok;
-    use bytecode::{BinOp, UnOp};
+    use bytecode::{BinOp, FrameType, UnOp};
 
     #[test]
     fn test_pc() {
@@ -255,6 +256,38 @@ mod tests {
             rt.env.borrow().get(&"d".to_string()),
             Some(Value::Bool(true))
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_fn_call() -> Result<()> {
+        // fn simple(n) {
+        //     return n;
+        // }
+        // simple(42)
+        let instrs = vec![
+            ByteCode::enterscope(vec!["simple"]),
+            ByteCode::ldf(3, vec!["n"]),
+            ByteCode::GOTO(5), // Jump to the end of the function
+            // Body of simple
+            ByteCode::ld("n"), // Load the value of n onto the stacks
+            ByteCode::RESET(FrameType::CallFrame), // Return from the function
+            ByteCode::assign("simple"), // Assign the function to the symbol
+            ByteCode::ld("simple"), // Load the function onto the stack
+            ByteCode::ldc(42), // Load the argument onto the stack
+            ByteCode::CALL(1), // Call the function with 1 argument
+            ByteCode::EXITSCOPE,
+            ByteCode::DONE,
+        ];
+
+        let rt = Runtime::new(instrs);
+        let mut rt = run(rt)?;
+
+        let result = rt.operand_stack.pop().unwrap();
+        assert_eq!(result, Value::Int(42));
+        assert_eq!(rt.runtime_stack.len(), 0);
+        assert!(rt.env.borrow().env.is_empty());
 
         Ok(())
     }

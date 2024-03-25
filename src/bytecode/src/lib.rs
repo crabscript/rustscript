@@ -1,15 +1,18 @@
 use serde::{Deserialize, Serialize};
 
 pub use environment::Environment;
+pub use error::ByteCodeError;
 pub use io::*;
-pub use operator::{BinOp, UnOp};
+pub use operator::*;
+pub use prelude::*;
 pub use stack_frame::*;
-pub use value::Value;
+pub use value::*;
 
 mod environment;
 mod error;
 mod io;
 mod operator;
+mod prelude;
 mod stack_frame;
 mod value;
 
@@ -43,13 +46,44 @@ pub enum ByteCode {
     ENTERSCOPE(Vec<Symbol>),
     /// Exit the current scope.
     EXITSCOPE,
+    /// Load the function with the given number of arguments and the function address onto the operant stack.
+    LDF(usize, Vec<Symbol>),
     /// Call a function with the given number of arguments.
     CALL(usize),
 }
 
+/// For creating ByteCode instructions in a more ergonomic way.
 impl ByteCode {
     pub fn ldc(v: impl Into<Value>) -> Self {
         ByteCode::LDC(v.into())
+    }
+
+    pub fn assign(sym: impl Into<Symbol>) -> Self {
+        ByteCode::ASSIGN(sym.into())
+    }
+
+    pub fn ld(sym: impl Into<Symbol>) -> Self {
+        ByteCode::LD(sym.into())
+    }
+
+    pub fn ldf<T: Into<Symbol>>(addr: usize, prms: Vec<T>) -> Self {
+        ByteCode::LDF(addr, prms.into_iter().map(Into::into).collect())
+    }
+
+    pub fn binop(op: impl Into<BinOp>) -> Self {
+        ByteCode::BINOP(op.into())
+    }
+
+    pub fn unop(op: impl Into<UnOp>) -> Self {
+        ByteCode::UNOP(op.into())
+    }
+
+    pub fn reset(t: impl Into<FrameType>) -> Self {
+        ByteCode::RESET(t.into())
+    }
+
+    pub fn enterscope<T: Into<Symbol>>(syms: Vec<T>) -> Self {
+        ByteCode::ENTERSCOPE(syms.into_iter().map(Into::into).collect())
     }
 }
 

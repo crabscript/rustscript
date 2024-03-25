@@ -24,10 +24,38 @@ pub enum BinOp {
     Or,
 }
 
+impl From<&str> for BinOp {
+    fn from(s: &str) -> Self {
+        match s {
+            "+" => BinOp::Add,
+            "-" => BinOp::Sub,
+            "*" => BinOp::Mul,
+            "/" => BinOp::Div,
+            "%" => BinOp::Mod,
+            ">" => BinOp::Gt,
+            "<" => BinOp::Lt,
+            "==" => BinOp::Eq,
+            "&&" => BinOp::And,
+            "||" => BinOp::Or,
+            _ => panic!("Invalid binary operator: {}", s),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum UnOp {
     /// Negation of a value of the same type (int or float)
     Neg,
     /// Logical negation of a value of the same type (bool)
     Not,
+}
+
+impl From<&str> for UnOp {
+    fn from(s: &str) -> Self {
+        match s {
+            "-" => UnOp::Neg,
+            "!" => UnOp::Not,
+            _ => panic!("Invalid unary operator: {}", s),
+        }
+    }
 }

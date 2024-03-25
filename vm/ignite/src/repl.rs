@@ -13,6 +13,12 @@ fn print_value(val: &Value) {
         Value::Int(i) => println!("{}", i),
         Value::Float(f) => println!("{}", f),
         Value::String(s) => println!("{}", s),
+        Value::Closure {
+            sym,
+            prms,
+            addr,
+            env: _,
+        } => println!("Closure - sym: {}, prms: {:?}, addr: {}", sym, prms, addr),
     }
 }
 

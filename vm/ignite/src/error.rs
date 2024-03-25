@@ -29,6 +29,9 @@ pub enum VmError {
     #[error("bad argument: {0}")]
     IllegalArgument(String),
 
+    #[error("arity and params mismatch: arity {arity}, found {params} params")]
+    ArityParamsMismatch { arity: usize, params: usize },
+
     #[error("unimplemented")]
     Unimplemented,
 

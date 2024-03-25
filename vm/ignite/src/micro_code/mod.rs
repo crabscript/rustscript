@@ -1,23 +1,27 @@
 pub use assign::assign;
 pub use binop::binop;
+pub use call::call;
 pub use enter_scope::enter_scope;
 pub use exit_scope::exit_scope;
 pub use goto::goto;
 pub use jof::jof;
 pub use ld::ld;
 pub use ldc::ldc;
+pub use ldf::ldf;
 pub use pop::pop;
 pub use reset::reset;
 pub use unop::unop;
 
 mod assign;
 mod binop;
+mod call;
 mod enter_scope;
 mod exit_scope;
 mod goto;
 mod jof;
 mod ld;
 mod ldc;
+mod ldf;
 mod pop;
 mod reset;
 mod unop;

@@ -2,6 +2,15 @@ use anyhow::Result;
 
 use crate::{Runtime, VmError};
 
+/// Exit the current scope and restores the previous environment.
+///
+/// # Arguments
+///
+/// * `rt` - The runtime to exit the current scope in.
+///
+/// # Errors
+///
+/// If the runtime stack is empty.
 pub fn exit_scope(rt: &mut Runtime) -> Result<()> {
     let prev_frame = rt
         .runtime_stack

@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use anyhow::Result;
 use bytecode::{type_of, FrameType, StackFrame, Value};
 
@@ -58,7 +60,7 @@ pub fn call(rt: &mut Runtime, arity: usize) -> Result<()> {
 
     let frame = StackFrame {
         frame_type: FrameType::CallFrame,
-        env: env.0.clone(),
+        env: Rc::clone(&env.0),
         address: Some(rt.pc),
     };
 

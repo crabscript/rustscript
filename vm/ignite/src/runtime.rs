@@ -106,7 +106,11 @@ pub fn execute(rt: &mut Runtime, instr: ByteCode) -> Result<bool> {
 /// # Errors
 ///
 /// If the symbols and values are not the same length.
-pub fn extend_environment(rt: &mut Runtime, syms: Vec<Symbol>, vals: Vec<Value>) -> Result<()> {
+pub fn extend_environment<S, V>(rt: &mut Runtime, syms: Vec<S>, vals: Vec<V>) -> Result<()>
+where
+    S: Into<Symbol>,
+    V: Into<Value>,
+{
     if syms.len() != vals.len() {
         return Err(VmError::IllegalArgument(
             "symbols and values must be the same length".to_string(),
@@ -217,11 +221,11 @@ mod tests {
     fn test_assignment() {
         let instrs = vec![
             ByteCode::ldc(42),
-            ByteCode::ASSIGN("x".to_string()),
+            ByteCode::assign("x"),
             ByteCode::ldc(43),
-            ByteCode::ASSIGN("y".to_string()),
+            ByteCode::assign("y"),
             ByteCode::ldc(44),
-            ByteCode::ASSIGN("x".to_string()),
+            ByteCode::assign("x"),
             ByteCode::DONE,
         ];
         let rt = Runtime::new(instrs);
@@ -236,13 +240,12 @@ mod tests {
         rt.env.borrow_mut().set("a", 42);
         rt.env.borrow_mut().set("b", 123);
 
-        assert!(
-            extend_environment(&mut rt, vec!["c".to_string(), "d".to_string()], vec![]).is_err()
-        );
+        let empty: Vec<String> = Vec::new();
+        assert!(extend_environment(&mut rt, vec!["c", "d"], empty).is_err());
 
         extend_environment(
             &mut rt,
-            vec!["c".to_string(), "d".to_string()],
+            vec!["c", "d"],
             vec![Value::Float(12.3), Value::Bool(true)],
         )?;
 

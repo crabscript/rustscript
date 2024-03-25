@@ -5,6 +5,18 @@ use bytecode::{FrameType, StackFrame, Symbol, Value};
 
 use crate::{runtime::extend_environment, Runtime};
 
+/// Create a new scope in the current environment. The new environment will be a child of the current
+/// environment. All symbols in the new scope will be initialized to `Value::Unitialized`.
+///
+/// # Arguments
+///
+/// * `rt` - The runtime to create a new scope in.
+///
+/// * `syms` - The symbols to add to the new scope.
+///
+/// # Errors
+///
+/// Infallible.
 pub fn enter_scope(rt: &mut Runtime, syms: Vec<Symbol>) -> Result<()> {
     let current_env = Rc::clone(&rt.env);
 

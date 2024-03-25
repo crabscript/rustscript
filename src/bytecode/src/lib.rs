@@ -1,17 +1,17 @@
 use serde::{Deserialize, Serialize};
 
-pub use constant::Value;
 pub use environment::Environment;
 pub use io::*;
 pub use operator::{BinOp, UnOp};
 pub use stack_frame::*;
+pub use value::Value;
 
-mod constant;
 mod environment;
 mod error;
 mod io;
 mod operator;
 mod stack_frame;
+mod value;
 
 /// A symbol is a string that represents a variable name.
 pub type Symbol = String;
@@ -19,18 +19,32 @@ pub type Symbol = String;
 /// The bytecode instructions that the VM can execute.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum ByteCode {
+    /// Signal that the program has finished executing.
     DONE,
+    /// Assign the top of the operant stack to the given symbol in the current environment.
     ASSIGN(Symbol),
+    /// Load the value of the given symbol onto the operant stack.
     LD(Symbol),
+    /// Load a constant value onto the operant stack.
     LDC(Value),
+    /// Pop the top of the operant stack.
     POP,
+    /// Perform the given binary operation on the top two elements of the operant stack.
     BINOP(BinOp),
+    /// Perform the given unary operation on the top of the operant stack.
     UNOP(UnOp),
+    /// Jump to the given offset if the top of the operant stack is true.
     JOF(usize),
+    /// Set pc to the given value.
     GOTO(usize),
+    /// Keep popping the runtime stack until the given frame type is found.
     RESET(FrameType),
+    /// Create a new scope with the given symbols.
     ENTERSCOPE(Vec<Symbol>),
+    /// Exit the current scope.
     EXITSCOPE,
+    /// Call a function with the given number of arguments.
+    CALL(usize),
 }
 
 impl ByteCode {

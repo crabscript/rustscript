@@ -1,5 +1,7 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
+use serde::{Deserialize, Deserializer, Serialize};
+
 use crate::{Symbol, Value};
 
 #[derive(Debug, Clone, Default)]
@@ -43,6 +45,22 @@ impl Environment {
     /// Set the value of a symbol in the frame.
     pub fn set(&mut self, sym: impl Into<Symbol>, val: impl Into<Value>) {
         self.env.insert(sym.into(), val.into());
+    }
+}
+
+/// Environment should NOT be serialized. It is only used for runtime state.
+/// This trait is pseudo-implemented so that we can add it to the operant stack.
+impl Serialize for Environment {
+    fn serialize<S: serde::Serializer>(&self, _serializer: S) -> Result<S::Ok, S::Error> {
+        panic!("Environment should not be serialized");
+    }
+}
+
+/// Environment should NOT be deserialized. It is only used for runtime state.
+/// This trait is pseudo-implemented so that we can add it to the operant stack.
+impl<'de> Deserialize<'de> for Environment {
+    fn deserialize<D: Deserializer<'de>>(_deserializer: D) -> Result<Self, D::Error> {
+        panic!("Environment should not be deserialized");
     }
 }
 

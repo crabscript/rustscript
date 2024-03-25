@@ -87,6 +87,7 @@ pub fn execute(rt: &mut Runtime, instr: ByteCode) -> Result<bool> {
         ByteCode::RESET(t) => micro_code::reset(rt, t)?,
         ByteCode::ENTERSCOPE(syms) => micro_code::enter_scope(rt, syms)?,
         ByteCode::EXITSCOPE => micro_code::exit_scope(rt)?,
+        ByteCode::CALL(_) => (),
     }
     Ok(false)
 }

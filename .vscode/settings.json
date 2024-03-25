@@ -1,3 +1,7 @@
 {
-	"rust-analyzer.linkedProjects": ["./Cargo.toml", "./vm/ignite/Cargo.toml"]
+	"rust-analyzer.linkedProjects": [
+		"./Cargo.toml",
+		"./vm/ignite/Cargo.toml",
+		"./src/bytecode/Cargo.toml"
+	]
 }

@@ -19,7 +19,8 @@ mod value;
 /// A symbol is a string that represents a variable name.
 pub type Symbol = String;
 
-/// The bytecode instructions that the VM can execute.
+/// The bytecode instructions that the VM can execute. See ignite::micro_code crate for more information
+/// and implementation details.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum ByteCode {
     /// Signal that the program has finished executing.

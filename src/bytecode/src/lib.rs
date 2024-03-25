@@ -36,7 +36,7 @@ pub enum ByteCode {
     BINOP(BinOp),
     /// Perform the given unary operation on the top of the operant stack.
     UNOP(UnOp),
-    /// Jump to the given offset if the top of the operant stack is true.
+    /// Jump to the given offset if the top of the operant stack is false.
     JOF(usize),
     /// Set pc to the given value.
     GOTO(usize),

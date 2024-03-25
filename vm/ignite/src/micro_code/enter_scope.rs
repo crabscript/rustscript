@@ -1,8 +1,9 @@
 use std::rc::Rc;
 
-use crate::{runtime::extend_environment, Runtime, StackFrame};
 use anyhow::Result;
-use bytecode::{FrameType, Symbol, Value};
+use bytecode::{FrameType, StackFrame, Symbol, Value};
+
+use crate::{runtime::extend_environment, Runtime};
 
 pub fn enter_scope(rt: &mut Runtime, syms: Vec<Symbol>) -> Result<()> {
     let current_env = Rc::clone(&rt.env);
@@ -25,8 +26,9 @@ pub fn enter_scope(rt: &mut Runtime, syms: Vec<Symbol>) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use bytecode::Value;
+
+    use super::*;
 
     #[test]
     fn test_enter_scope() {

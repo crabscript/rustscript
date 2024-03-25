@@ -1,6 +1,8 @@
-use super::ByteCode;
-use anyhow::Result;
 use std::io::{Read, Write};
+
+use anyhow::Result;
+
+use crate::ByteCode;
 
 /// Serialize the bytecode to the writer.
 /// The serialized format is:

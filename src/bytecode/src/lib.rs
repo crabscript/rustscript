@@ -1,10 +1,13 @@
+use serde::{Deserialize, Serialize};
+
 pub use constant::Value;
+pub use environment::Environment;
 pub use io::*;
 pub use operator::{BinOp, UnOp};
-use serde::{Deserialize, Serialize};
-pub use stack_frame::FrameType;
+pub use stack_frame::*;
 
 mod constant;
+mod environment;
 mod error;
 mod io;
 mod operator;

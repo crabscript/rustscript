@@ -1,5 +1,6 @@
-use crate::{Runtime, VmError};
 use anyhow::Result;
+
+use crate::{Runtime, VmError};
 
 /// Pops a value off the stack.
 ///
@@ -20,9 +21,10 @@ pub fn pop(rt: &mut Runtime) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bytecode::Value;
+
     use crate::micro_code::ldc;
     use crate::Runtime;
-    use bytecode::Value;
 
     #[test]
     fn test_pop() {

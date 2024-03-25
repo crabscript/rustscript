@@ -1,6 +1,7 @@
-use crate::Runtime;
 use anyhow::Result;
 use bytecode::Value;
+
+use crate::Runtime;
 
 /// Loads a constant value onto the stack.
 ///
@@ -20,9 +21,10 @@ pub fn ldc(rt: &mut Runtime, val: Value) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use bytecode::Value;
+
     use super::*;
     use crate::Runtime;
-    use bytecode::Value;
 
     #[test]
     fn test_ldc() {

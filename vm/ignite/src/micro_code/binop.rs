@@ -1,6 +1,7 @@
-use crate::{Runtime, VmError};
 use anyhow::Result;
 use bytecode::{BinOp, Value};
+
+use crate::{Runtime, VmError};
 
 /// Executes a binary operation on the top two values of the stack.
 /// It pops the two values off the top of the stack, applies the
@@ -109,9 +110,10 @@ pub fn binop(rt: &mut Runtime, op: BinOp) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bytecode::{BinOp, Value};
+
     use crate::micro_code::ldc;
     use crate::Runtime;
-    use bytecode::{BinOp, Value};
 
     #[test]
     fn test_binop() {

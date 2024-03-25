@@ -1,6 +1,7 @@
-use crate::{Runtime, VmError};
 use anyhow::Result;
 use bytecode::Symbol;
+
+use crate::{Runtime, VmError};
 
 /// Load a value from a symbol.
 ///
@@ -25,9 +26,9 @@ pub fn ld(rt: &mut Runtime, sym: Symbol) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use bytecode::{Environment, Value};
+
     use super::*;
-    use crate::Environment;
-    use bytecode::Value;
 
     #[test]
     fn test_ld() {

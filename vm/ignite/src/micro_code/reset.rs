@@ -38,10 +38,12 @@ pub fn reset(rt: &mut Runtime, t: FrameType) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::{Environment, Runtime, StackFrame};
-    use bytecode::{ByteCode, FrameType, Value};
     use std::rc::Rc;
+
+    use super::*;
+    use bytecode::{ByteCode, Environment, FrameType, StackFrame, Value};
+
+    use crate::Runtime;
 
     #[test]
     fn test_reset_restore_env() {

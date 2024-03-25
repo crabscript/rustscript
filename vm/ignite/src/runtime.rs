@@ -1,7 +1,9 @@
-use crate::{micro_code, Environment, StackFrame, VmError};
-use anyhow::Result;
-use bytecode::{self, ByteCode, Symbol, Value};
 use std::{cell::RefCell, rc::Rc};
+
+use anyhow::Result;
+use bytecode::{ByteCode, Environment, StackFrame, Symbol, Value};
+
+use crate::{micro_code, VmError};
 
 /// The runtime for each thread of execution.
 #[derive(Debug, Default)]

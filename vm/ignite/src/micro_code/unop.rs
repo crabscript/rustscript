@@ -53,6 +53,12 @@ pub fn unop(rt: &mut Runtime, op: UnOp) -> Result<()> {
         Value::Unitialized => {
             return Err(VmError::IllegalArgument("using unitialized value".to_string()).into())
         }
+        Value::Closure {
+            sym: _,
+            prms: _,
+            addr: _,
+            env: _,
+        } => return Err(VmError::IllegalArgument("closure not supported".to_string()).into()),
     }
 
     Ok(())

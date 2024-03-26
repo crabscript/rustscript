@@ -1,6 +1,8 @@
+use std::{cell::RefCell, rc::Rc};
+
 use serde::{Deserialize, Serialize};
 
-use crate::error::ByteCodeError;
+use crate::{ByteCodeError, Environment, Symbol, W};
 
 /// The values that can be stored on the operant stack.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -11,6 +13,24 @@ pub enum Value {
     Float(f64),
     Bool(bool),
     String(String),
+    Closure {
+        sym: Symbol,
+        prms: Vec<Symbol>,
+        addr: usize,
+        env: W<Rc<RefCell<Environment>>>,
+    },
+}
+
+pub fn type_of(value: &Value) -> &'static str {
+    match value {
+        Value::Unitialized => "Unitialized",
+        Value::Unit => "Unit",
+        Value::Int(_) => "Int",
+        Value::Float(_) => "Float",
+        Value::Bool(_) => "Bool",
+        Value::String(_) => "String",
+        Value::Closure { .. } => "Closure",
+    }
 }
 
 impl From<i64> for Value {

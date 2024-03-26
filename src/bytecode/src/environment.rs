@@ -1,11 +1,13 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, fmt::Debug, rc::Rc};
 
-use crate::{Symbol, Value};
+use serde::{Deserialize, Deserializer, Serialize};
 
-#[derive(Debug, Clone, Default)]
+use crate::{Symbol, Value, W};
+
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct Environment {
-    parent: Option<Rc<RefCell<Environment>>>,
-    env: HashMap<Symbol, Value>,
+    pub parent: Option<Rc<RefCell<Environment>>>,
+    pub env: HashMap<Symbol, Value>,
 }
 
 impl Environment {
@@ -43,6 +45,45 @@ impl Environment {
     /// Set the value of a symbol in the frame.
     pub fn set(&mut self, sym: impl Into<Symbol>, val: impl Into<Value>) {
         self.env.insert(sym.into(), val.into());
+    }
+}
+
+/// Environment should NOT be serialized. It is only used for runtime state.
+/// This trait is pseudo-implemented so that we can add it to the operant stack.
+/// Note we cannot implement Serialize for Rc<RefCell<Environment>> because it is not defined in this crate.
+impl Serialize for W<Rc<RefCell<Environment>>> {
+    fn serialize<S: serde::Serializer>(&self, _serializer: S) -> Result<S::Ok, S::Error> {
+        panic!("Environment should not be serialized");
+    }
+}
+
+/// Environment should NOT be deserialized. It is only used for runtime state.
+/// This trait is pseudo-implemented so that we can add it to the operant stack.
+/// Note we cannot implement Deserialize for Rc<RefCell<Environment>> because it is not defined in this crate.
+impl<'de> Deserialize<'de> for W<Rc<RefCell<Environment>>> {
+    fn deserialize<D: Deserializer<'de>>(_deserializer: D) -> Result<Self, D::Error> {
+        panic!("Environment should not be deserialized");
+    }
+}
+
+/// Implement Clone trait to satisfy the requirements of Value enum.
+impl Clone for W<Rc<RefCell<Environment>>> {
+    fn clone(&self) -> Self {
+        W(self.0.clone())
+    }
+}
+
+/// Implement PartialEq trait to satisfy the requirements of Value enum.
+impl PartialEq for W<Rc<RefCell<Environment>>> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+/// Implement Debug trait to satisfy the requirements of Value enum.
+impl Debug for W<Rc<RefCell<Environment>>> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.borrow().fmt(f)
     }
 }
 

@@ -1,5 +1,46 @@
 pub mod compiler;
+use anyhow::Result;
+use clap::Parser;
+use std::path::Path;
 
-fn main() {
-    println!("Compiler");
+use crate::compiler::CompileError;
+
+#[derive(Parser, Debug)]
+#[command(name = "Oxidate")]
+#[command(version = "0.1.0")]
+#[command(about = "Compiler for RustScript", long_about = None)]
+struct Args {
+    /// File containing RustScript code. Must be suffixed by .rst
+    file: String,
+
+    /// Output name (to be suffixed by .o2)
+    #[arg(short, long)]
+    out: Option<String>,
+}
+
+fn main() -> Result<()> {
+    let args = Args::parse();
+    let file = args.file;
+
+    if !Path::new(&file).exists() {
+        let err = format!("File '{}' does not exist", file);
+        return Err(CompileError::new(&err).into());
+    }
+
+    match Path::new(&file).extension() {
+        Some(ext) => {
+            if ext != "rst" {
+                let err = format!("File {} does not have extension .rst", file);
+                return Err(CompileError::new(&err).into());
+            }
+        }
+        None => {
+            let err = format!("File {} does not have extension .rst", file);
+            return Err(CompileError::new(&err).into());
+        }
+    }
+
+    println!("OK");
+
+    Ok(())
 }

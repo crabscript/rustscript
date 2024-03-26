@@ -47,12 +47,12 @@ impl Display for TypeErrors {
 impl std::error::Error for TypeErrors {}
 
 /// Struct to enable type checking by encapsulating type environment.
-pub struct TypeChecker {
-    program: BlockSeq,
+pub struct TypeChecker<'prog> {
+    program: &'prog BlockSeq,
 }
 
-impl TypeChecker {
-    pub fn new(program: BlockSeq) -> TypeChecker {
+impl<'prog> TypeChecker<'prog> {
+    pub fn new(program: &BlockSeq) -> TypeChecker<'_> {
         TypeChecker { program }
     }
 
@@ -108,8 +108,8 @@ impl TypeChecker {
         }
 
         // Return type of last expr if any. If errs, add to err list
-        if let Some(last) = self.program.last_expr {
-            let res = TypeChecker::check_expr(&last);
+        if let Some(last) = &self.program.last_expr {
+            let res = TypeChecker::check_expr(last);
             match res {
                 Ok(ty) => return Ok(ty),
                 Err(mut expr_errs) => errs.append(&mut expr_errs),
@@ -132,7 +132,6 @@ impl Default for TypeErrors {
 
 #[cfg(test)]
 mod tests {
-    use parser::BlockSeq;
     use parser::Parser;
     use parser::Type;
 
@@ -140,14 +139,16 @@ mod tests {
 
     fn expect_pass(inp: &str, exp_type: Type) {
         let prog = Parser::new_from_string(inp).parse().expect("Should parse");
-        let ty = TypeChecker::new(prog).type_check();
+        let ty = TypeChecker::new(&prog).type_check();
         assert_eq!(Ok(exp_type), ty)
     }
 
     // contains true means check if input contains exp_err. else check full equals
     fn expect_err(inp: &str, exp_err: &str, contains: bool) {
         let prog = Parser::new_from_string(inp).parse().expect("Should parse");
-        let ty_err = TypeChecker::new(prog).type_check().expect_err("Should err");
+        let ty_err = TypeChecker::new(&prog)
+            .type_check()
+            .expect_err("Should err");
 
         if contains {
             dbg!(ty_err.to_string());

@@ -9,6 +9,7 @@ edition = "2021"
 anyhow = "1.0.81"
 bytecode = { path = "../../src/bytecode" }
 oxidate = { path = "../../compiler/oxidate/" }
+types = { path = "../../src/types" }
 clap = { version = "4.5.3", features = ["derive"] }
 thiserror = "1.0.58"
 rustyline = "14.0.0"

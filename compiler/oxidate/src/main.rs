@@ -5,12 +5,14 @@ use std::path::Path;
 
 use crate::compiler::CompileError;
 
+const RST: &str = "rst";
+
 #[derive(Parser, Debug)]
 #[command(name = "Oxidate")]
 #[command(version = "0.1.0")]
 #[command(about = "Compiler for RustScript", long_about = None)]
 struct Args {
-    /// File containing RustScript code. Must be suffixed by .rst
+    /// File containing RustScript code. Must have extension .rst
     file: String,
 
     /// Output name (to be suffixed by .o2)
@@ -29,13 +31,13 @@ fn main() -> Result<()> {
 
     match Path::new(&file).extension() {
         Some(ext) => {
-            if ext != "rst" {
-                let err = format!("File {} does not have extension .rst", file);
+            if ext != RST {
+                let err = format!("File {} does not have extension .{RST}", file);
                 return Err(CompileError::new(&err).into());
             }
         }
         None => {
-            let err = format!("File {} does not have extension .rst", file);
+            let err = format!("File {} does not have extension .{RST}", file);
             return Err(CompileError::new(&err).into());
         }
     }

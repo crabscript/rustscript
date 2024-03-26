@@ -1,6 +1,7 @@
 pub mod compiler;
 
 use anyhow::Result;
+use bytecode::write_bytecode;
 use clap::Parser;
 use std::{io::Read, path::Path};
 
@@ -24,13 +25,14 @@ struct Args {
 fn main() -> Result<()> {
     let args = Args::parse();
     let file = args.file;
+    let path = Path::new(&file);
 
-    if !Path::new(&file).exists() {
+    if !path.exists() {
         let err = format!("File '{}' does not exist", file);
         return Err(CompileError::new(&err).into());
     }
 
-    match Path::new(&file).extension() {
+    match path.extension() {
         Some(ext) => {
             if ext != RST {
                 let err = format!("File {} does not have extension .{RST}", file);
@@ -50,6 +52,20 @@ fn main() -> Result<()> {
 
     let bytecode = compile_from_string(&code)?;
     println!("{:?}", bytecode);
+
+    let name = path
+        .file_stem()
+        .expect("File exists")
+        .to_owned()
+        .into_string()
+        .expect("File name should be valid string");
+
+    // Write to .o2 file
+    let bc_name = format!("{}.o2", name);
+    let mut bc_file = std::fs::File::create(&bc_name).unwrap();
+    write_bytecode(&bytecode, &mut bc_file)?;
+
+    println!("Compiled successfully to {}", bc_name);
 
     Ok(())
 }

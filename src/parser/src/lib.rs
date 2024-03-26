@@ -742,6 +742,34 @@ mod tests {
 
     #[test]
     fn test_parse_let_type() {
-        test_parse("let x : int = 2;", "let x : int = 2;")
+        test_parse("let x : int = 2;", "let x : int = 2;");
+        test_parse("let x : bool = true;", "let x : bool = true;");
+        test_parse("let x : float = 3.25;", "let x : float = 3.25;");
+
+        // Doesn't check types yet - just a parser
+        test_parse("let x : int = true;", "let x : int = true;");
+        test_parse("let x : bool = 2.3;", "let x : bool = 2.3;");
+        test_parse("let x : float = 5;", "let x : float = 5;");
+
+        // basic err cases
+        test_parse_err("let x : u32 = true;", "Unknown primitive type", true);
+        test_parse_err("let x : = true;", "Expected identifier", true);
+    }
+
+    #[test]
+    fn test_parse_let_type_many() {
+        test_parse(
+            "let x : int = 2; let y : bool = true; let z : float = 2.33;",
+            "let x : int = 2;let y : bool = true;let z : float = 2.33;",
+        );
+        test_parse(
+            "let x : int = 2; let y : bool = true; let z : float = 2.33; x",
+            "let x : int = 2;let y : bool = true;let z : float = 2.33;x",
+        );
+        // Not affected by parens, ops etc
+        test_parse(
+            "let x : int = (2 * 3 + 4 - (5 + 6)); let y : bool = !!(true);",
+            "let x : int = (((2*3)+4)-(5+6));let y : bool = (!(!true));",
+        );
     }
 }

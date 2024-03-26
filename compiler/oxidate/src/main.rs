@@ -1,13 +1,14 @@
 pub mod compiler;
+
 use anyhow::Result;
 use clap::Parser;
-use std::path::Path;
+use std::{io::Read, path::Path};
 
-use crate::compiler::CompileError;
+use crate::compiler::{compile_from_string, CompileError};
 
 const RST: &str = "rst";
 
-#[derive(Parser, Debug)]
+#[derive(clap::Parser, Debug)]
 #[command(name = "Oxidate")]
 #[command(version = "0.1.0")]
 #[command(about = "Compiler for RustScript", long_about = None)]
@@ -42,7 +43,13 @@ fn main() -> Result<()> {
         }
     }
 
-    println!("OK");
+    let mut code: String = String::new();
+    std::fs::File::open(&file)
+        .expect("File should exist")
+        .read_to_string(&mut code)?;
+
+    let bytecode = compile_from_string(&code)?;
+    println!("{:?}", bytecode);
 
     Ok(())
 }

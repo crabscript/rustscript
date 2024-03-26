@@ -114,7 +114,7 @@ impl Display for Expr {
 pub struct LetStmt {
     pub ident: String,
     pub expr: Expr,
-    pub type_ann: Option<TypeAnnotation>,
+    pub type_ann: Option<Type>,
 }
 
 impl Display for LetStmt {
@@ -207,17 +207,18 @@ impl Display for ParseError {
 // automatic due to Display
 impl std::error::Error for ParseError {}
 
-// Type annotation
+// Type annotation corresponding to compile time types
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum TypeAnnotation {
+pub enum Type {
     Int,
     Float,
     Bool,
+    Unit,
 }
 
-impl TypeAnnotation {
+impl Type {
     /// Converts string to primitive type.
-    pub fn from_string(input: &str) -> Result<TypeAnnotation, ParseError> {
+    pub fn from_string(input: &str) -> Result<Type, ParseError> {
         match input {
             "int" => Ok(Self::Int),
             "bool" => Ok(Self::Bool),
@@ -230,12 +231,13 @@ impl TypeAnnotation {
     }
 }
 
-impl Display for TypeAnnotation {
+impl Display for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let string = match self {
             Self::Int => "int",
             Self::Bool => "bool",
             Self::Float => "float",
+            Self::Unit => "()",
         };
 
         write!(f, "{}", string)
@@ -321,13 +323,13 @@ impl<'inp> Parser<'inp> {
     }
 
     /// Parse and return type annotation. Expect lexer.peek() to be at Colon before call
-    fn parse_type_annotation(&mut self) -> Result<TypeAnnotation, ParseError> {
+    fn parse_type_annotation(&mut self) -> Result<Type, ParseError> {
         self.consume_token_type(Token::Colon, "Expected a colon")?;
         expect_token_body!(self.lexer.peek(), Ident, "identifier")?;
         let ident = Parser::string_from_ident(self.lexer.peek());
 
         // Primitive types for now. Compound types: build using primitives within parser
-        let type_ann = TypeAnnotation::from_string(&ident)?;
+        let type_ann = Type::from_string(&ident)?;
         // dbg!("TYPE ANNOTATION:", &type_ann);
 
         // Peek should be at equals at the end, so we advance
@@ -344,7 +346,7 @@ impl<'inp> Parser<'inp> {
         let ident = Parser::string_from_ident(self.lexer.peek());
         self.advance();
 
-        let mut type_ann: Option<TypeAnnotation> = None;
+        let mut type_ann: Option<Type> = None;
 
         // Do nothing if not colon: allow no annotation to let prev tests pass (for now)
         if self.is_peek_token_type(Token::Colon) {

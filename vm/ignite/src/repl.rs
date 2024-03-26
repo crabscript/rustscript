@@ -5,7 +5,7 @@ use rustyline::DefaultEditor;
 
 use crate::{runtime::run, Runtime};
 
-fn print_value(val: &Value) {
+pub fn print_value(val: &Value) {
     match val {
         Value::Unitialized => println!("Uninitialized"),
         Value::Unit => println!("()"),

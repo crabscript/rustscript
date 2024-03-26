@@ -51,17 +51,21 @@ fn main() -> Result<()> {
         .read_to_string(&mut code)?;
 
     let bytecode = compile_from_string(&code)?;
-    println!("{:?}", bytecode);
 
-    let name = path
-        .file_stem()
-        .expect("File exists")
-        .to_owned()
-        .into_string()
-        .expect("File name should be valid string");
+    let out_name;
+    if let Some(name) = args.out {
+        out_name = name;
+    } else {
+        out_name = path
+            .file_stem()
+            .expect("File exists")
+            .to_owned()
+            .into_string()
+            .expect("File name should be valid string");
+    }
 
     // Write to .o2 file
-    let bc_name = format!("{}.o2", name);
+    let bc_name = format!("{}.o2", out_name);
     let mut bc_file = std::fs::File::create(&bc_name).unwrap();
     write_bytecode(&bytecode, &mut bc_file)?;
 

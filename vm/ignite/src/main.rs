@@ -3,7 +3,7 @@ use std::path::Path;
 use anyhow::{Error, Result};
 use bytecode::read_bytecode;
 use clap::Parser;
-use repl::ignite_repl;
+use repl::{ignite_repl, print_value};
 
 pub use crate::error::*;
 pub use crate::runtime::Runtime;
@@ -58,8 +58,15 @@ fn main() -> Result<()> {
     let mut file = std::fs::File::open(file)?;
     let bytecode_vec = read_bytecode(&mut file)?;
 
-    let rt = Runtime::new(bytecode_vec);
-    runtime::run(rt)?;
+    let mut rt = Runtime::new(bytecode_vec);
+    rt = runtime::run(rt)?;
+
+    // Print last value on op stack if there (result of program)
+    let top = rt.operand_stack.last();
+
+    if let Some(val) = top {
+        print_value(val)
+    }
 
     Ok(())
 }

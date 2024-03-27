@@ -14,3 +14,4 @@ parser = { path = "../../src/parser" }
 bytecode = { path = "../../src/bytecode" }
 types = { path = "../../src/types" }
 anyhow = "1.0.81"
+clap = "4.5.4"

@@ -23,7 +23,7 @@ impl CompileError {
 
 impl Display for CompileError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "[CompileError]: {}", self.msg)
+        write!(f, "[CompileError] -  {}", self.msg)
     }
 }
 
@@ -133,6 +133,14 @@ impl Compiler {
 
         Ok(bytecode)
     }
+}
+
+/// Takes in a string and returns compiled bytecode or errors
+pub fn compile_from_string(inp: &str) -> Result<Vec<ByteCode>> {
+    let parser = parser::Parser::new_from_string(inp);
+    let program = parser.parse()?;
+    let compiler = Compiler::new(program);
+    Ok(compiler.compile()?)
 }
 
 #[cfg(test)]

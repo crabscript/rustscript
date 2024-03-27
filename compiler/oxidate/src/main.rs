@@ -50,7 +50,7 @@ fn main() -> Result<()> {
         .expect("File should exist")
         .read_to_string(&mut code)?;
 
-    let bytecode = compile_from_string(&code)?;
+    let bytecode = compile_from_string(&code, true)?;
 
     let out_name;
     if let Some(name) = args.out {

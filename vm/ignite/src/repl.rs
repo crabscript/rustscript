@@ -1,6 +1,6 @@
 use anyhow::Result;
 use bytecode::Value;
-use compiler::compile_string;
+use compiler::compiler;
 use rustyline::DefaultEditor;
 
 use crate::{runtime::run, Runtime};
@@ -46,7 +46,7 @@ pub fn ignite_repl() -> Result<()> {
 
             rl.add_history_entry(inp.clone().trim()).unwrap();
 
-            let compiled = compile_string(&inp);
+            let compiled = compiler::compile_from_string(&inp, false);
             match compiled {
                 Ok(_) => (),
                 Err(err) => {

@@ -1,4 +1,4 @@
-use parser::Type;
+use parser::{Type, UnOpType};
 use std::{collections::HashMap, fmt::Display};
 
 use parser::{BlockSeq, Decl, Expr};
@@ -56,6 +56,27 @@ impl<'prog> TypeChecker<'prog> {
         TypeChecker { program }
     }
 
+    fn check_unop(
+        op: &UnOpType,
+        expr: &Expr,
+        ty_env: &mut HashMap<String, Type>,
+    ) -> Result<Type, TypeErrors> {
+        match op {
+            UnOpType::Negate => {
+                // Return err imm if operand itself is not well typed
+                let ty = TypeChecker::check_expr(expr, ty_env)?;
+                match ty {
+                    Type::Int | Type::Float => Ok(ty),
+                    _ => {
+                        let e = format!("Can't negate type {}", ty);
+                        Err(TypeErrors::new_err(&e))
+                    }
+                }
+            }
+            _ => todo!(),
+        }
+    }
+
     /// Return the type errors out instead of using mutable ref
     // because for nested errors in the expr we want to propagate those
     fn check_expr(expr: &Expr, ty_env: &mut HashMap<String, Type>) -> Result<Type, TypeErrors> {
@@ -73,6 +94,9 @@ impl<'prog> TypeChecker<'prog> {
 
                 get_type.expect("Should have type").to_owned()
             }
+            Expr::UnOpExpr(op, expr) => {
+                return TypeChecker::check_unop(op, expr, ty_env);
+            }
             _ => todo!(),
         };
 
@@ -85,7 +109,7 @@ impl<'prog> TypeChecker<'prog> {
 
     /// Type check declaration and add errors if any
     fn check_decl(decl: &Decl, ty_env: &mut HashMap<String, Type>) -> Result<(), TypeErrors> {
-        dbg!("Type checking decl:", decl);
+        // dbg!("Type checking decl:", decl);
         match decl {
             Decl::LetStmt(stmt) => {
                 let expr_type = TypeChecker::check_expr(&stmt.expr, ty_env)?;
@@ -168,7 +192,7 @@ mod tests {
             .expect_err("Should err");
 
         if contains {
-            dbg!(ty_err.to_string());
+            // dbg!(ty_err.to_string());
             assert!(ty_err.to_string().contains(exp_err))
         } else {
             assert_eq!(ty_err.to_string(), exp_err)
@@ -218,6 +242,12 @@ mod tests {
 
     #[test]
     fn test_type_check_ops() {
-        // expect_pass("let x : int = 2 + 2;", Type::Unit);
+        // Negation
+        expect_err("-true;", "Can't negate type bool", true);
+        expect_err("let x : bool = true; -x", "Can't negate type bool", true);
+        expect_pass("let x : int = 20; -x", Type::Int);
+        expect_pass("let x : int = 20; -x;", Type::Unit);
+        expect_pass("let x : float = 2.33; -x", Type::Float);
+        expect_pass("let x : float = 2.33; -x;", Type::Unit);
     }
 }

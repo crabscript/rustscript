@@ -1,4 +1,4 @@
-use parser::{Type, UnOpType};
+use parser::{BinOpType, Type, UnOpType};
 use std::{collections::HashMap, fmt::Display};
 
 use parser::{BlockSeq, Decl, Expr};
@@ -51,16 +51,14 @@ pub struct TypeChecker<'prog> {
     program: &'prog BlockSeq,
 }
 
+type TyEnv = HashMap<String, Type>;
+
 impl<'prog> TypeChecker<'prog> {
     pub fn new(program: &BlockSeq) -> TypeChecker<'_> {
         TypeChecker { program }
     }
 
-    fn check_unop(
-        op: &UnOpType,
-        expr: &Expr,
-        ty_env: &mut HashMap<String, Type>,
-    ) -> Result<Type, TypeErrors> {
+    fn check_unop(op: &UnOpType, expr: &Expr, ty_env: &mut TyEnv) -> Result<Type, TypeErrors> {
         match op {
             UnOpType::Negate => {
                 // Return err imm if operand itself is not well typed
@@ -86,6 +84,25 @@ impl<'prog> TypeChecker<'prog> {
         }
     }
 
+    fn check_binop(
+        op: &BinOpType,
+        lhs: &Expr,
+        rhs: &Expr,
+        ty_env: &mut TyEnv,
+    ) -> Result<Type, TypeErrors> {
+        let l_type = TypeChecker::check_expr(lhs, ty_env)?;
+        let r_type = TypeChecker::check_expr(rhs, ty_env)?;
+
+        match (l_type, r_type) {
+            (Type::Int, Type::Int) => Ok(Type::Int),
+            (Type::Float, Type::Float) => Ok(Type::Float),
+            _ => {
+                let e = format!("Can't apply '{}' to types '{}' and '{}'", op, lhs, rhs);
+                Err(TypeErrors::new_err(&e))
+            }
+        }
+    }
+
     /// Return the type errors out instead of using mutable ref
     // because for nested errors in the expr we want to propagate those
     fn check_expr(expr: &Expr, ty_env: &mut HashMap<String, Type>) -> Result<Type, TypeErrors> {
@@ -105,6 +122,9 @@ impl<'prog> TypeChecker<'prog> {
             }
             Expr::UnOpExpr(op, expr) => {
                 return TypeChecker::check_unop(op, expr, ty_env);
+            }
+            Expr::BinOpExpr(op, lhs, rhs) => {
+                return TypeChecker::check_binop(op, lhs, rhs, ty_env);
             }
             _ => todo!(),
         };
@@ -263,5 +283,29 @@ mod tests {
         expect_pass("let x : bool = true; !x", Type::Bool);
         expect_err("let x : int = 20; !x", "NOT to type int", true);
         expect_err("let x : float = 20.36; !x", "NOT to type float", true);
+    }
+
+    #[test]
+    fn test_type_check_binops() {
+        expect_pass("2+2", Type::Int);
+        expect_pass("let x : int = 2; let y : int = 3; x + y", Type::Int);
+        expect_pass("let x : int = 2; let y : int = 3; x + y;", Type::Unit);
+
+        expect_pass(
+            "let x : float = 2.36; let y : float = 3.2; x + y",
+            Type::Float,
+        );
+        expect_pass(
+            "let x : float = 2.36; let y : float = 3.2; x + y;",
+            Type::Unit,
+        );
+
+        expect_err("let x : float = 2.36; 2 + 3*x", "apply", true);
+        expect_err(
+            "let x : int = 20 * 3 + 6 / 2; let y : float = 3.2; x + y",
+            "apply",
+            true,
+        );
+        expect_err("let x : bool = true +2;", "apply", true);
     }
 }

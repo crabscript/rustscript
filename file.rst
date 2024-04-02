@@ -1,3 +1,3 @@
-let x : int = 2;
-let y : int = 3;
-x
+let x : int = true;
+let y : bool = x + false;
+let z : bool = !y;

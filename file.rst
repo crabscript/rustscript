@@ -1,3 +1,3 @@
-let x : int = true;
-let y : int = true;
-!x
+let x : int = 2;
+let y : int = 3;
+x

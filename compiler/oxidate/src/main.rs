@@ -1,6 +1,6 @@
 pub mod compiler;
 
-use anyhow::Result;
+use anyhow::{Error, Result};
 use bytecode::write_bytecode;
 use clap::Parser;
 use std::{io::Read, path::Path};
@@ -54,7 +54,13 @@ fn main() -> Result<()> {
         .expect("File should exist")
         .read_to_string(&mut code)?;
 
-    let bytecode = compile_from_string(&code, !args.notype)?;
+    let bytecode = match compile_from_string(&code, !args.notype) {
+        Ok(bc) => bc,
+        Err(err) => {
+            let e = format!("\n{}", err);
+            return Err(Error::msg(e));
+        }
+    };
 
     let out_name;
     if let Some(name) = args.out {

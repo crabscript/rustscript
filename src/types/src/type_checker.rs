@@ -241,7 +241,7 @@ mod tests {
     }
 
     #[test]
-    fn test_type_check_ops() {
+    fn test_type_check_unops() {
         // Negation
         expect_err("-true;", "Can't negate type bool", true);
         expect_err("let x : bool = true; -x", "Can't negate type bool", true);

@@ -28,6 +28,10 @@ struct Args {
     /// Turn debugging information on
     #[arg(short, long, action = clap::ArgAction::Count)]
     debug: u8,
+
+    /// If present, does not type check in REPL. Ignored if only running bytecode.
+    #[arg(short)]
+    notype: bool,
 }
 
 fn main() -> Result<()> {
@@ -36,7 +40,7 @@ fn main() -> Result<()> {
 
     if args.repl {
         // TODO: if file provided, run the file and pass generated context to REPL
-        ignite_repl()?;
+        ignite_repl(!args.notype)?;
         return Ok(()); // REPL done: exit
     } else if !args.repl && !file_provided {
         return Err(Error::msg("File should be provided if not launching REPL."));

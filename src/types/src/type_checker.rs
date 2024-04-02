@@ -73,7 +73,16 @@ impl<'prog> TypeChecker<'prog> {
                     }
                 }
             }
-            _ => todo!(),
+            UnOpType::Not => {
+                let ty = TypeChecker::check_expr(expr, ty_env)?;
+                match ty {
+                    Type::Bool => Ok(ty),
+                    _ => {
+                        let e = format!("Can't apply logical NOT to type {}", ty);
+                        Err(TypeErrors::new_err(&e))
+                    }
+                }
+            }
         }
     }
 
@@ -192,7 +201,7 @@ mod tests {
             .expect_err("Should err");
 
         if contains {
-            // dbg!(ty_err.to_string());
+            dbg!(ty_err.to_string());
             assert!(ty_err.to_string().contains(exp_err))
         } else {
             assert_eq!(ty_err.to_string(), exp_err)
@@ -249,5 +258,10 @@ mod tests {
         expect_pass("let x : int = 20; -x;", Type::Unit);
         expect_pass("let x : float = 2.33; -x", Type::Float);
         expect_pass("let x : float = 2.33; -x;", Type::Unit);
+
+        // Not
+        expect_pass("let x : bool = true; !x", Type::Bool);
+        expect_err("let x : int = 20; !x", "NOT to type int", true);
+        expect_err("let x : float = 20.36; !x", "NOT to type float", true);
     }
 }

@@ -252,7 +252,14 @@ impl<'prog> TypeChecker<'prog> {
         if let Some(last) = &self.program.last_expr {
             let res = TypeChecker::check_expr(last, &mut ty_env);
             match res {
-                Ok(ty) => return Ok(ty),
+                Ok(ty) => {
+                    // if before has errs, return that out instead
+                    if !errs.is_ok() {
+                        return Err(errs);
+                    }
+
+                    return Ok(ty);
+                }
                 Err(mut expr_errs) => errs.append(&mut expr_errs),
             };
         }
@@ -410,5 +417,11 @@ mod tests {
         expect_err("let x : int = !true; let y: bool = x + false; let z : bool = y + x;", 
         "[TypeError]: 'x' has declared type int but assigned type bool\n[TypeError]: Can't apply '+' to types 'int' and 'bool'\n[TypeError]: Can't apply '+' to types 'bool' and 'int'",
         false);
+    }
+
+    #[test]
+    fn test_type_check_bigger() {
+        let t = "let y : bool = 20; let x : int = y; let z : int = x*y + 3; z";
+        expect_err(t, "[TypeError]: 'y' has declared type bool but assigned type int\n[TypeError]: 'x' has declared type int but assigned type bool\n[TypeError]: Can't apply '*' to types 'int' and 'bool'", false);
     }
 }

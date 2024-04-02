@@ -1,3 +1,4 @@
-let x : int = true;
-let y : bool = x + false;
-let z : bool = !y;
+let y : int = 20;
+let x : int = y;
+let z : int = x*y + 3;
+z

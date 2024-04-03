@@ -89,23 +89,32 @@ impl Compiler {
         Ok(())
     }
 
+    fn compile_assign(
+        ident: String,
+        expr: &Expr,
+        arr: &mut Vec<ByteCode>,
+    ) -> Result<(), CompileError> {
+        Compiler::compile_expr(expr, arr)?;
+
+        let assign = ByteCode::ASSIGN(ident);
+        arr.push(assign);
+
+        // Load unit after stmt to be consistent with popping after every stmt
+        arr.push(ByteCode::LDC(Value::Unit));
+
+        Ok(())
+    }
+
     fn compile_decl(decl: Decl, arr: &mut Vec<ByteCode>) -> Result<(), CompileError> {
         match decl {
             Decl::ExprStmt(expr) => {
                 Compiler::compile_expr(&expr, arr)?;
             }
             Decl::LetStmt(stmt) => {
-                let ident = stmt.ident.to_string();
-                let expr = stmt.expr;
-
-                Compiler::compile_expr(&expr, arr)?;
-                // arr.push(compiled_expr);
-
-                let assign = ByteCode::ASSIGN(ident);
-                arr.push(assign);
-
-                // Load unit after stmt to be consistent with popping after every stmt
-                arr.push(ByteCode::LDC(Value::Unit));
+                Compiler::compile_assign(stmt.ident, &stmt.expr, arr)?;
+            }
+            Decl::Assign(stmt) => {
+                Compiler::compile_assign(stmt.ident, &stmt.expr, arr)?;
             }
             _ => unimplemented!(),
         };
@@ -334,6 +343,38 @@ mod tests {
             UNOP(bytecode::UnOp::Not),
             UNOP(bytecode::UnOp::Not),
             UNOP(bytecode::UnOp::Not),
+            POP,
+            DONE,
+        ];
+        assert_eq!(res, exp);
+    }
+
+    #[test]
+    fn test_compile_assign() {
+        let res = exp_compile_str("let x = 2; x = 3;");
+        let exp = vec![
+            LDC(Int(2)),
+            ASSIGN("x".to_string()),
+            LDC(Unit),
+            POP,
+            LDC(Int(3)),
+            ASSIGN("x".to_string()),
+            LDC(Unit),
+            POP,
+            DONE,
+        ];
+        assert_eq!(res, exp);
+
+        // diff types
+        let res = exp_compile_str("let x = 2; x = true;");
+        let exp = vec![
+            LDC(Int(2)),
+            ASSIGN("x".to_string()),
+            LDC(Unit),
+            POP,
+            LDC(Bool(true)),
+            ASSIGN("x".to_string()),
+            LDC(Unit),
             POP,
             DONE,
         ];

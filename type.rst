@@ -1,2 +1,3 @@
-let y : int  = x+2;
-let z = y - g;
+let y : int  = 20;
+y = 30;
+y

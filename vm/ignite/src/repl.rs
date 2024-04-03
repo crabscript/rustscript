@@ -1,6 +1,6 @@
 use anyhow::Result;
 use bytecode::Value;
-use compiler::compile_string;
+use compiler::compiler;
 use rustyline::DefaultEditor;
 
 use crate::{runtime::run, Runtime};
@@ -22,7 +22,7 @@ pub fn print_value(val: &Value) {
     }
 }
 
-pub fn ignite_repl() -> Result<()> {
+pub fn ignite_repl(type_check: bool) -> Result<()> {
     let mut rl = DefaultEditor::new().unwrap();
     println!("Welcome to the RustScript REPL! Type /exit to exit.");
     println!();
@@ -46,7 +46,7 @@ pub fn ignite_repl() -> Result<()> {
 
             rl.add_history_entry(inp.clone().trim()).unwrap();
 
-            let compiled = compile_string(&inp);
+            let compiled = compiler::compile_from_string(&inp, type_check);
             match compiled {
                 Ok(_) => (),
                 Err(err) => {

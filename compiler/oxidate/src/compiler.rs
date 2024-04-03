@@ -1,5 +1,6 @@
 use anyhow::Result;
 use std::fmt::Display;
+use types::type_checker::TypeChecker;
 
 use bytecode::{ByteCode, Value};
 use parser::{BinOpType, BlockSeq, Decl, Expr, UnOpType};
@@ -136,9 +137,14 @@ impl Compiler {
 }
 
 /// Takes in a string and returns compiled bytecode or errors
-pub fn compile_from_string(inp: &str) -> Result<Vec<ByteCode>> {
+pub fn compile_from_string(inp: &str, type_check: bool) -> Result<Vec<ByteCode>> {
     let parser = parser::Parser::new_from_string(inp);
     let program = parser.parse()?;
+
+    if type_check {
+        TypeChecker::new(&program).type_check()?;
+    }
+
     let compiler = Compiler::new(program);
     Ok(compiler.compile()?)
 }

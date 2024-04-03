@@ -1,3 +1,4 @@
-let x = 2;
-let y = 3;
-x + y * (2 - 3 + 4 * 2)
+let y : int = 20;
+let x : int = y;
+let z : int = x*y + 3;
+z

@@ -1,6 +1,6 @@
 pub mod compiler;
 
-use anyhow::Result;
+use anyhow::{Error, Result};
 use bytecode::write_bytecode;
 use clap::Parser;
 use std::{io::Read, path::Path};
@@ -20,6 +20,10 @@ struct Args {
     /// Output name (to be suffixed by .o2)
     #[arg(short, long)]
     out: Option<String>,
+
+    /// If present, does not type check
+    #[arg(short)]
+    notype: bool,
 }
 
 fn main() -> Result<()> {
@@ -50,7 +54,13 @@ fn main() -> Result<()> {
         .expect("File should exist")
         .read_to_string(&mut code)?;
 
-    let bytecode = compile_from_string(&code)?;
+    let bytecode = match compile_from_string(&code, !args.notype) {
+        Ok(bc) => bc,
+        Err(err) => {
+            let e = format!("\n{}", err);
+            return Err(Error::msg(e));
+        }
+    };
 
     let out_name;
     if let Some(name) = args.out {

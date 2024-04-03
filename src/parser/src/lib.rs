@@ -114,11 +114,18 @@ impl Display for Expr {
 pub struct LetStmt {
     pub ident: String,
     pub expr: Expr,
+    pub type_ann: Option<Type>,
 }
 
 impl Display for LetStmt {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "let {} = {}", self.ident, self.expr)
+        let string = if let Some(ty) = self.type_ann {
+            format!("let {} : {} = {}", self.ident, ty, self.expr)
+        } else {
+            format!("let {} = {}", self.ident, self.expr)
+        };
+
+        write!(f, "{}", string)
     }
 }
 
@@ -200,6 +207,43 @@ impl Display for ParseError {
 // automatic due to Display
 impl std::error::Error for ParseError {}
 
+// Type annotation corresponding to compile time types
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Type {
+    Int,
+    Float,
+    Bool,
+    Unit,
+}
+
+impl Type {
+    /// Converts string to primitive type.
+    pub fn from_string(input: &str) -> Result<Type, ParseError> {
+        match input {
+            "int" => Ok(Self::Int),
+            "bool" => Ok(Self::Bool),
+            "float" => Ok(Self::Float),
+            _ => Err(ParseError::new(&format!(
+                "Unknown primitive type: {}",
+                input
+            ))),
+        }
+    }
+}
+
+impl Display for Type {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let string = match self {
+            Self::Int => "int",
+            Self::Bool => "bool",
+            Self::Float => "float",
+            Self::Unit => "()",
+        };
+
+        write!(f, "{}", string)
+    }
+}
+
 pub struct Parser<'inp> {
     prev_tok: Option<Token>,
     lexer: Peekable<Lexer<'inp, Token>>,
@@ -235,7 +279,7 @@ impl<'inp> Parser<'inp> {
         }
     }
 
-    // To expect token types that have no value (most of them)
+    // To expect token types at peek that have no value (most of them)
     fn expect_token_type(&mut self, token: Token, expected_msg: &str) -> Result<(), ParseError> {
         if !self.is_peek_token_type(token) {
             Err(ParseError::new(expected_msg))
@@ -244,7 +288,7 @@ impl<'inp> Parser<'inp> {
         }
     }
 
-    // Expect token type and advance if it was there
+    // Expect token type at peek and advance if it was there
     fn consume_token_type(&mut self, token: Token, expected_msg: &str) -> Result<(), ParseError> {
         if !self.is_peek_token_type(token) {
             Err(ParseError::new(expected_msg))
@@ -278,12 +322,39 @@ impl<'inp> Parser<'inp> {
         tok.to_string()
     }
 
+    /// Parse and return type annotation. Expect lexer.peek() to be at Colon before call
+    fn parse_type_annotation(&mut self) -> Result<Type, ParseError> {
+        self.consume_token_type(Token::Colon, "Expected a colon")?;
+        expect_token_body!(self.lexer.peek(), Ident, "identifier")?;
+        let ident = Parser::string_from_ident(self.lexer.peek());
+
+        // Primitive types for now. Compound types: build using primitives within parser
+        let type_ann = Type::from_string(&ident)?;
+        // dbg!("TYPE ANNOTATION:", &type_ann);
+
+        // Peek should be at equals at the end, so we advance
+        self.advance();
+        // dbg!(&self.lexer.peek());
+
+        Ok(type_ann)
+    }
+
     // Parse let statement
     // let x = 2;
     fn parse_let(&mut self) -> Result<Decl, ParseError> {
         expect_token_body!(self.lexer.peek(), Ident, "identifier")?;
         let ident = Parser::string_from_ident(self.lexer.peek());
         self.advance();
+
+        let mut type_ann: Option<Type> = None;
+
+        // Do nothing if not colon: allow no annotation to let prev tests pass (for now)
+        if self.is_peek_token_type(Token::Colon) {
+            // Parse type annotation if any
+            let ty = self.parse_type_annotation()?;
+            type_ann.replace(ty);
+        }
+
         self.consume_token_type(Token::Eq, "Expected '='")?;
 
         self.advance(); // store the start tok of the next expr as prev_tok
@@ -303,6 +374,7 @@ impl<'inp> Parser<'inp> {
         let stmt = LetStmt {
             ident,
             expr: expr.to_expr(),
+            type_ann,
         };
 
         Ok(LetStmt(stmt))
@@ -668,5 +740,38 @@ mod tests {
         // No type check, but we will use same prec for mul as for logical and/or
         test_parse("!2*3", "((!2)*3)");
         test_parse("!(2*3)", "(!(2*3))");
+    }
+
+    #[test]
+    fn test_parse_let_type() {
+        test_parse("let x : int = 2;", "let x : int = 2;");
+        test_parse("let x : bool = true;", "let x : bool = true;");
+        test_parse("let x : float = 3.25;", "let x : float = 3.25;");
+
+        // Doesn't check types yet - just a parser
+        test_parse("let x : int = true;", "let x : int = true;");
+        test_parse("let x : bool = 2.3;", "let x : bool = 2.3;");
+        test_parse("let x : float = 5;", "let x : float = 5;");
+
+        // basic err cases
+        test_parse_err("let x : u32 = true;", "Unknown primitive type", true);
+        test_parse_err("let x : = true;", "Expected identifier", true);
+    }
+
+    #[test]
+    fn test_parse_let_type_many() {
+        test_parse(
+            "let x : int = 2; let y : bool = true; let z : float = 2.33;",
+            "let x : int = 2;let y : bool = true;let z : float = 2.33;",
+        );
+        test_parse(
+            "let x : int = 2; let y : bool = true; let z : float = 2.33; x",
+            "let x : int = 2;let y : bool = true;let z : float = 2.33;x",
+        );
+        // Not affected by parens, ops etc
+        test_parse(
+            "let x : int = (2 * 3 + 4 - (5 + 6)); let y : bool = !!(true);",
+            "let x : int = (((2*3)+4)-(5+6));let y : bool = (!(!true));",
+        );
     }
 }

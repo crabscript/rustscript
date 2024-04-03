@@ -153,12 +153,12 @@ pub enum Decl {
 impl Decl {
     // Need to clone so we can re-use in pratt parser loop
     // Reasoning: parsing won't take most of the runtime
-    fn to_expr(&self) -> Expr {
+    fn to_expr(&self) -> Result<Expr, ParseError> {
         match self {
-            LetStmt(_) => panic!("Let statement is not an expression"),
-            Assign(_) => panic!("Assign statement is not an expression"),
-            ExprStmt(expr) => expr.clone(),
-            Block(seq) => Expr::Block(seq.clone()),
+            LetStmt(ref stmt) => Err(ParseError::new(&format!("'{}' is not an expression", stmt))),
+            Assign(ref stmt) => Err(ParseError::new(&format!("'{}' is not an expression", stmt))),
+            ExprStmt(expr) => Ok(expr.clone()),
+            Block(seq) => Ok(Expr::Block(seq.clone())),
         }
     }
 }
@@ -374,21 +374,14 @@ impl<'inp> Parser<'inp> {
 
         self.advance(); // store the start tok of the next expr as prev_tok
 
-        // dbg!(self.lexer.peek(), &self.prev_tok);
-
-        let expr = self.parse_decl()?;
-
-        // Error if assigning to an actual declaration (let, fn)
-        if let Decl::LetStmt(_) = expr {
-            return Err(ParseError::new("Can't assign to a let statement"));
-            // _ => (),
-        }
+        // ensure we are assigning to an expression
+        let expr = self.parse_decl()?.to_expr()?;
 
         self.expect_token_type(Token::Semi, "Expected semicolon after let")?;
 
         let stmt = LetStmt {
             ident,
-            expr: expr.to_expr(), // TODO: convert to do this using Result/Optional so we can err
+            expr,
             type_ann,
         };
 
@@ -414,18 +407,8 @@ impl<'inp> Parser<'inp> {
 
     fn parse_ident(&mut self, ident: String, min_bp: u8) -> Result<Decl, ParseError> {
         let sym = Expr::Symbol(ident.to_string());
-        dbg!(&self.lexer.peek());
 
-        // match self.lexer.peek() {
-        //     Some(tok) => {
-        //         let tok = tok.expect("Lexer should not fail");
-        //         match tok {
-
-        //         }
-        //     },
-        //     None => ()
-        // };
-
+        // Handle assignment
         if let Some(tok) = self.lexer.peek() {
             let tok = tok.as_ref().expect("Lexer should not fail");
             if tok.eq(&Token::Eq) {
@@ -433,7 +416,7 @@ impl<'inp> Parser<'inp> {
                 self.advance();
 
                 // now prev_tok has the start of the expr
-                let expr = self.parse_expr(min_bp)?.to_expr();
+                let expr = self.parse_expr(min_bp)?.to_expr()?;
 
                 let assign = AssignStmt { ident, expr };
 
@@ -463,14 +446,14 @@ impl<'inp> Parser<'inp> {
                 let ((), r_bp) = Parser::get_prefix_bp(&UnOpType::Negate);
                 self.advance();
                 let rhs = self.parse_expr(r_bp)?;
-                let res = Expr::UnOpExpr(UnOpType::Negate, Box::new(rhs.to_expr()));
+                let res = Expr::UnOpExpr(UnOpType::Negate, Box::new(rhs.to_expr()?));
                 Ok(ExprStmt(res))
             }
             Token::Bang => {
                 let ((), r_bp) = Parser::get_prefix_bp(&UnOpType::Not);
                 self.advance();
                 let rhs = self.parse_expr(r_bp)?;
-                let res = Expr::UnOpExpr(UnOpType::Not, Box::new(rhs.to_expr()));
+                let res = Expr::UnOpExpr(UnOpType::Not, Box::new(rhs.to_expr()?));
                 Ok(ExprStmt(res))
             }
             Token::Ident(id) => {
@@ -520,8 +503,8 @@ impl<'inp> Parser<'inp> {
 
             lhs = ExprStmt(Expr::BinOpExpr(
                 binop,
-                Box::new(lhs.to_expr()),
-                Box::new(rhs.to_expr()),
+                Box::new(lhs.to_expr()?),
+                Box::new(rhs.to_expr()?),
             ));
         }
 
@@ -559,7 +542,7 @@ impl<'inp> Parser<'inp> {
 
             // end of block: lexer empty OR curly brace (TODO add curly later)
             if self.lexer.peek().is_none() || self.is_peek_token_type(Token::CloseBrace) {
-                last_expr.replace(expr.to_expr());
+                last_expr.replace(expr.to_expr()?);
                 break;
             }
             // semicolon: parse as stmt
@@ -702,7 +685,7 @@ mod tests {
         test_parse_err("let 2 = 3", "Expected identifier", true);
         test_parse_err("let x 2", "Expected '='", true);
         test_parse_err("let x = 2", "Expected semicolon", true);
-        test_parse_err("let x = let y = 3;", "Can't assign", true);
+        test_parse_err("let x = let y = 3;", "not an expression", true);
         test_parse_err(";", "Unexpected token", true);
         test_parse_err("=", "Unexpected token", true);
     }
@@ -823,6 +806,14 @@ mod tests {
 
     #[test]
     fn test_parse_assignment() {
+        test_parse_err("x = y = 2", "not an expression", true);
+        test_parse_err("let x = y = 2;", "not an expression", true);
+
         test_parse("x = 3+2;", "x = (3+2);");
+        // not type checked yet - allows for us to do dynamic typing if we want
+        test_parse(
+            "let x : int = 20; x = true; x",
+            "let x : int = 20;x = true;x",
+        );
     }
 }

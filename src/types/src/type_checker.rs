@@ -206,6 +206,20 @@ impl<'prog> TypeChecker<'prog> {
             Decl::ExprStmt(expr) => {
                 TypeChecker::check_expr(expr, ty_env)?;
             }
+            // Check if sym is declared already. Then check expr matches type at decl
+            Decl::Assign(stmt) => {
+                let sym = Expr::Symbol(stmt.ident.to_owned());
+                let sym_ty = TypeChecker::check_expr(&sym, ty_env)?;
+                let exp_ty = TypeChecker::check_expr(&stmt.expr, ty_env)?;
+
+                if !sym_ty.eq(&exp_ty) {
+                    let e = format!(
+                        "'{}' declared with type {} but assigned type {}",
+                        stmt.ident, sym_ty, exp_ty
+                    );
+                    return Err(TypeErrors::new_err(&e));
+                }
+            }
             _ => todo!(),
         }
 
@@ -228,16 +242,17 @@ impl<'prog> TypeChecker<'prog> {
             }
         }
 
+        // return errors for decls first if any, without checking expr
+        // because expr may be dependent
+        if !errs.is_ok() {
+            return Err(errs);
+        }
+
         // Return type of last expr if any. If errs, add to err list
         if let Some(last) = &self.program.last_expr {
             let res = TypeChecker::check_expr(last, &mut ty_env);
             match res {
                 Ok(ty) => {
-                    // if before has errs, return that out instead
-                    if !errs.is_ok() {
-                        return Err(errs);
-                    }
-
                     return Ok(ty);
                 }
                 Err(mut expr_errs) => errs.append(&mut expr_errs),
@@ -414,5 +429,21 @@ mod tests {
     fn test_type_check_bigger() {
         let t = "let y : bool = 20; let x : int = y; let z : int = x*y + 3; z";
         expect_err(t, "[TypeError]: 'y' has declared type bool but assigned type int\n[TypeError]: 'x' has declared type int but assigned type bool\n[TypeError]: Can't apply '*' to types 'int' and 'bool'", false);
+    }
+
+    #[test]
+    fn test_type_check_assign() {
+        // don't continue since first one has err
+        let t = "let x = !20; x = true; x";
+        expect_err(t, "[TypeError]: Can't apply logical NOT to type int", false);
+
+        let t = "let x = 20; x = true; x";
+        expect_err(t, "'x' declared with type int but assigned type bool", true);
+
+        let t = "let x : int = 20; x = !true; x";
+        expect_err(t, "'x' declared with type int but assigned type bool", true);
+
+        let t = "let x : int = !20; x = !true; x";
+        expect_err(t,"[TypeError]: Can't apply logical NOT to type int\n[TypeError]: 'x' declared with type int but assigned type bool", false);
     }
 }

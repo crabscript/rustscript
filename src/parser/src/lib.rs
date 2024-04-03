@@ -117,6 +117,12 @@ pub struct LetStmt {
     pub type_ann: Option<Type>,
 }
 
+#[derive(Debug, Clone)]
+pub struct AssignStmt {
+    pub ident: String,
+    pub expr: Expr,
+}
+
 impl Display for LetStmt {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let string = if let Some(ty) = self.type_ann {
@@ -129,10 +135,17 @@ impl Display for LetStmt {
     }
 }
 
+impl Display for AssignStmt {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} = {}", self.ident, self.expr)
+    }
+}
+
 // Later: LetStmt, IfStmt, FnDef, etc.
 #[derive(Debug, Clone)]
 pub enum Decl {
     LetStmt(LetStmt),
+    Assign(AssignStmt),
     ExprStmt(Expr),
     Block(BlockSeq),
 }
@@ -143,6 +156,7 @@ impl Decl {
     fn to_expr(&self) -> Expr {
         match self {
             LetStmt(_) => panic!("Let statement is not an expression"),
+            Assign(_) => panic!("Assign statement is not an expression"),
             ExprStmt(expr) => expr.clone(),
             Block(seq) => Expr::Block(seq.clone()),
         }
@@ -154,7 +168,8 @@ impl Display for Decl {
         let string = match self {
             Decl::ExprStmt(expr) => expr.to_string(),
             Decl::LetStmt(stmt) => stmt.to_string(),
-            _ => unimplemented!(),
+            Decl::Assign(stmt) => stmt.to_string(),
+            _ => todo!(),
         };
 
         write!(f, "{}", string)
@@ -373,7 +388,7 @@ impl<'inp> Parser<'inp> {
 
         let stmt = LetStmt {
             ident,
-            expr: expr.to_expr(),
+            expr: expr.to_expr(), // TODO: convert to do this using Result/Optional so we can err
             type_ann,
         };
 
@@ -397,8 +412,40 @@ impl<'inp> Parser<'inp> {
         }
     }
 
+    fn parse_ident(&mut self, ident: String, min_bp: u8) -> Result<Decl, ParseError> {
+        let sym = Expr::Symbol(ident.to_string());
+        dbg!(&self.lexer.peek());
+
+        // match self.lexer.peek() {
+        //     Some(tok) => {
+        //         let tok = tok.expect("Lexer should not fail");
+        //         match tok {
+
+        //         }
+        //     },
+        //     None => ()
+        // };
+
+        if let Some(tok) = self.lexer.peek() {
+            let tok = tok.as_ref().expect("Lexer should not fail");
+            if tok.eq(&Token::Eq) {
+                self.consume_token_type(Token::Eq, "Expected '='")?;
+                self.advance();
+
+                // now prev_tok has the start of the expr
+                let expr = self.parse_expr(min_bp)?.to_expr();
+
+                let assign = AssignStmt { ident, expr };
+
+                return Ok(Assign(assign));
+            }
+        }
+        Ok(ExprStmt(sym))
+    }
+
     // Parses and returns an expression (something that is definitely an expression)
     // Return as Decl for consistency
+    // Invariant: prev_tok should contain the start of the expr before call
     fn parse_expr(&mut self, min_bp: u8) -> Result<Decl, ParseError> {
         let prev_tok = self.expect_prev_tok()?;
         let mut lhs = match prev_tok {
@@ -430,8 +477,7 @@ impl<'inp> Parser<'inp> {
                 // Three cases: id, id = ..., id() => load var, assignment, func call
                 // Handle just id first
                 // dbg!(&self.lexer.peek());
-                let sym = Expr::Symbol(id.to_string());
-                Ok(ExprStmt(sym))
+                self.parse_ident(id.to_string(), min_bp)
             }
             _ => Err(ParseError::new(&format!(
                 "Unexpected token - not an expression: '{}'",
@@ -773,5 +819,10 @@ mod tests {
             "let x : int = (2 * 3 + 4 - (5 + 6)); let y : bool = !!(true);",
             "let x : int = (((2*3)+4)-(5+6));let y : bool = (!(!true));",
         );
+    }
+
+    #[test]
+    fn test_parse_assignment() {
+        test_parse("x = 3+2;", "x = (3+2);");
     }
 }

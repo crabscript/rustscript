@@ -1,2 +1,2 @@
-let x : int = true;
--false
+let y : int  = x+2;
+let z = y - g;

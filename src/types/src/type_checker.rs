@@ -201,26 +201,6 @@ impl<'prog> TypeChecker<'prog> {
                         }
                     }
                 };
-
-                // if let Some(ty_ann) = stmt.type_ann {
-                //     // treat this identifier as the type annotation so we can type check the rest
-                //     ty_env.insert(stmt.ident.to_owned(), ty_ann);
-
-                //     // annotation and assigned type not equal
-                //     if expr_type.is_some() && !ty_ann.eq(&expr_type.unwrap()) {
-                //         // // treat this identifier as the type annotation so we can type check the rest
-                //         // ty_env.insert(stmt.ident.to_owned(), ty_ann);
-
-                // let string = format!(
-                //     "'{}' has declared type {} but assigned type {}",
-                //     stmt.ident, ty_ann, expr_type.unwrap()
-                // );
-                //         return Err(TypeErrors::new_err(&string));
-                //     }
-                // }
-
-                // assign type to ident
-                // ty_env.insert(stmt.ident.to_owned(), expr_type);
             }
             // Type check the expr and return any errors
             Decl::ExprStmt(expr) => {
@@ -417,6 +397,17 @@ mod tests {
         expect_err("let x : int = !true; let y: bool = x + false; let z : bool = y + x;", 
         "[TypeError]: 'x' has declared type int but assigned type bool\n[TypeError]: Can't apply '+' to types 'int' and 'bool'\n[TypeError]: Can't apply '+' to types 'bool' and 'int'",
         false);
+    }
+
+    #[test]
+    fn test_type_check_ident_decl() {
+        // stops immediately because y has no annotation
+        let t = "let y = x + 2; let z = y - false;";
+        expect_err(t, "[TypeError]: Identifier 'x' not declared", false);
+
+        // continues because y has type annotation
+        let t = "let y : int = x + 2; let z = y - false;";
+        expect_err(t, "[TypeError]: Identifier 'x' not declared\n[TypeError]: Can't apply '-' to types 'int' and 'bool'", false);
     }
 
     #[test]

@@ -103,7 +103,7 @@ impl Display for Expr {
                 format!("({}{}{})", lhs, op, rhs)
             }
             Expr::Symbol(val) => val.to_string(),
-            Expr::Block(seq) => seq.to_string(),
+            Expr::Block(seq) => format!("{{ {} }}", seq),
         };
 
         write!(f, "{}", string)
@@ -313,6 +313,17 @@ impl<'inp> Parser<'inp> {
         }
     }
 
+    // If token type there, consume and advance. Otherwise do nothing
+    // Return true if the token was consumed, else false
+    // fn consume_opt_token_type(&mut self, token: Token) -> bool {
+    //     if self.is_peek_token_type(token) {
+    //         self.advance();
+    //         true
+    //     } else {
+    //         false
+    //     }
+    // }
+
     // Store current lexer token as prev_tok and move up lexer
     fn advance(&mut self) {
         if let Some(val) = self.lexer.peek() {
@@ -426,6 +437,18 @@ impl<'inp> Parser<'inp> {
         Ok(ExprStmt(sym))
     }
 
+    fn parse_blk(&mut self, _min_bp: u8) -> Result<Decl, ParseError> {
+        // BlockSeq - vec decls, last expr
+        // self.advance(); // put first tok of block into prev_tok
+        dbg!(&self.prev_tok);
+        let blk = self.parse_seq()?;
+        let res = Decl::ExprStmt(Expr::Block(blk));
+        let err = format!("Expected '{}' to close block", Token::CloseBrace);
+        self.consume_token_type(Token::CloseBrace, &err)?;
+
+        Ok(res)
+    }
+
     // Parses and returns an expression (something that is definitely an expression)
     // Return as Decl for consistency
     // Invariant: prev_tok should contain the start of the expr before call
@@ -462,6 +485,7 @@ impl<'inp> Parser<'inp> {
                 // dbg!(&self.lexer.peek());
                 self.parse_ident(id.to_string(), min_bp)
             }
+            Token::OpenBrace => self.parse_blk(min_bp),
             _ => Err(ParseError::new(&format!(
                 "Unexpected token - not an expression: '{}'",
                 prev_tok
@@ -522,7 +546,8 @@ impl<'inp> Parser<'inp> {
             | Token::Minus
             | Token::Ident(_)
             | Token::OpenParen
-            | Token::Bang => self.parse_expr(0),
+            | Token::Bang
+            | Token::OpenBrace => self.parse_expr(0),
             Token::Let => self.parse_let(),
             _ => Err(ParseError::new(&format!(
                 "Unexpected token: '{}'",
@@ -539,6 +564,8 @@ impl<'inp> Parser<'inp> {
             self.advance();
 
             let expr = self.parse_decl()?;
+            dbg!("Got expr:", &expr);
+            dbg!("Peek:", &self.lexer.peek());
 
             // end of block: lexer empty OR curly brace (TODO add curly later)
             if self.lexer.peek().is_none() || self.is_peek_token_type(Token::CloseBrace) {
@@ -547,9 +574,11 @@ impl<'inp> Parser<'inp> {
             }
             // semicolon: parse as stmt
             // let semi = expect_token_body!(Semi, "semicolon");
+            // TODO: handle block as expr stmt here - block as last expr was already handled above and we break
             else if self.is_peek_token_type(Token::Semi) {
                 decls.push(expr);
                 self.advance();
+                dbg!("Peek after semi:", &self.lexer.peek());
             }
             // TODO: check if expr is a block-like expression (if so, treat as statement)
             // if it was the tail it should be handled at the first branch
@@ -815,5 +844,10 @@ mod tests {
             "let x : int = 20; x = true; x",
             "let x : int = 20;x = true;x",
         );
+    }
+
+    #[test]
+    fn test_parse_blk() {
+        test_parse("{ 2 }", "{ 2 }");
     }
 }

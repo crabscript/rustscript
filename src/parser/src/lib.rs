@@ -440,7 +440,6 @@ impl<'inp> Parser<'inp> {
     fn parse_blk(&mut self, _min_bp: u8) -> Result<Decl, ParseError> {
         // BlockSeq - vec decls, last expr
         // self.advance(); // put first tok of block into prev_tok
-        dbg!(&self.prev_tok);
         let blk = self.parse_seq()?;
         let res = Decl::ExprStmt(Expr::Block(blk));
         let err = format!("Expected '{}' to close block", Token::CloseBrace);
@@ -562,10 +561,11 @@ impl<'inp> Parser<'inp> {
 
         while self.lexer.peek().is_some() {
             self.advance();
+            // dbg!("prev_tok:", &self.prev_tok);
 
             let expr = self.parse_decl()?;
-            dbg!("Got expr:", &expr);
-            dbg!("Peek:", &self.lexer.peek());
+            // dbg!("Got expr:", &expr);
+            // dbg!("Peek:", &self.lexer.peek());
 
             // end of block: lexer empty OR curly brace (TODO add curly later)
             if self.lexer.peek().is_none() || self.is_peek_token_type(Token::CloseBrace) {
@@ -578,7 +578,11 @@ impl<'inp> Parser<'inp> {
             else if self.is_peek_token_type(Token::Semi) {
                 decls.push(expr);
                 self.advance();
-                dbg!("Peek after semi:", &self.lexer.peek());
+                // dbg!("Peek after semi:", &self.lexer.peek());
+
+                if self.is_peek_token_type(Token::CloseBrace) {
+                    break;
+                }
             }
             // TODO: check if expr is a block-like expression (if so, treat as statement)
             // if it was the tail it should be handled at the first branch
@@ -849,5 +853,10 @@ mod tests {
     #[test]
     fn test_parse_blk() {
         test_parse("{ 2 }", "{ 2 }");
+        test_parse("{ 2+3 }", "{ (2+3) }");
+        test_parse("{ 2; }", "{ 2; }");
+        test_parse("{ 2; 3; }", "{ 2;3; }");
+        test_parse("{ 2; 3 }", "{ 2;3 }");
+        test_parse("{ 2; 3; 4 }", "{ 2;3;4 }");
     }
 }

@@ -19,11 +19,12 @@ use crate::Runtime;
 ///
 /// Infallible.
 pub fn ldf(rt: &mut Runtime, addr: usize, prms: Vec<Symbol>) -> Result<()> {
+    let env = Rc::downgrade(&Rc::clone(&rt.env));
     let closure = Value::Closure {
         sym: "Closure".to_string(),
         prms,
         addr,
-        env: W(Rc::clone(&rt.env)),
+        env: W(env),
     };
 
     rt.operand_stack.push(closure);
@@ -40,13 +41,16 @@ mod tests {
         ldf(&mut rt, 0, vec!["x".to_string()]).unwrap();
 
         let closure = rt.operand_stack.pop().unwrap();
+        let env1 = Rc::downgrade(&Rc::clone(&rt.env));
+        let env2 = Rc::downgrade(&Rc::clone(&rt.env));
+
         assert_eq!(
             &closure,
             &Value::Closure {
                 sym: "Closure".to_string(),
                 prms: vec!["x".to_string()],
                 addr: 0,
-                env: W(Rc::clone(&rt.env)),
+                env: W(env1),
             }
         );
 
@@ -56,7 +60,7 @@ mod tests {
                 sym: "Closure".to_string(),
                 prms: vec!["y".to_string()],
                 addr: 0,
-                env: W(Rc::clone(&rt.env)),
+                env: W(env2),
             }
         )
     }

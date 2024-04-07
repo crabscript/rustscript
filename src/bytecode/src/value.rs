@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Weak};
 
 use serde::{Deserialize, Serialize};
 
@@ -17,7 +17,7 @@ pub enum Value {
         sym: Symbol,
         prms: Vec<Symbol>,
         addr: usize,
-        env: W<Rc<RefCell<Environment>>>,
+        env: W<Weak<RefCell<Environment>>>,
     },
 }
 

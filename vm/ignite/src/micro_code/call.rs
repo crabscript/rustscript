@@ -50,6 +50,11 @@ pub fn call(rt: &mut Runtime, arity: usize) -> Result<()> {
         .into());
     };
 
+    let env = match env.0.upgrade() {
+        Some(env) => env,
+        None => return Err(VmError::EnvironmentDropped.into()),
+    };
+
     if prms.len() != arity {
         return Err(VmError::ArityParamsMismatch {
             arity: prms.len(),
@@ -60,7 +65,7 @@ pub fn call(rt: &mut Runtime, arity: usize) -> Result<()> {
 
     let frame = StackFrame {
         frame_type: FrameType::CallFrame,
-        env: Rc::clone(&env.0),
+        env: Rc::clone(&env),
         address: Some(rt.pc),
     };
 
@@ -87,7 +92,7 @@ mod tests {
             sym: "Closure".to_string(),
             prms: vec![],
             addr: 123,
-            env: W(Environment::new_wrapped()),
+            env: W(Rc::downgrade(&Environment::new_wrapped())),
         });
 
         let result = call(&mut rt, 0);

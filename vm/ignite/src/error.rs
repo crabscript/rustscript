@@ -20,6 +20,9 @@ pub enum VmError {
     #[error("runtime stack underflow")]
     RuntimeStackUnderflow,
 
+    #[error("environment dropped")]
+    EnvironmentDropped,
+
     #[error("pc out of bounds: {0}")]
     PcOutOfBounds(usize),
 

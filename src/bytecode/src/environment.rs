@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap, fmt::Debug, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, fmt::Debug, rc::Rc, rc::Weak};
 
 use serde::{Deserialize, Deserializer, Serialize};
 
@@ -51,7 +51,7 @@ impl Environment {
 /// Environment should NOT be serialized. It is only used for runtime state.
 /// This trait is pseudo-implemented so that we can add it to the operant stack.
 /// Note we cannot implement Serialize for Rc<RefCell<Environment>> because it is not defined in this crate.
-impl Serialize for W<Rc<RefCell<Environment>>> {
+impl Serialize for W<Weak<RefCell<Environment>>> {
     fn serialize<S: serde::Serializer>(&self, _serializer: S) -> Result<S::Ok, S::Error> {
         panic!("Environment should not be serialized");
     }
@@ -60,30 +60,37 @@ impl Serialize for W<Rc<RefCell<Environment>>> {
 /// Environment should NOT be deserialized. It is only used for runtime state.
 /// This trait is pseudo-implemented so that we can add it to the operant stack.
 /// Note we cannot implement Deserialize for Rc<RefCell<Environment>> because it is not defined in this crate.
-impl<'de> Deserialize<'de> for W<Rc<RefCell<Environment>>> {
+impl<'de> Deserialize<'de> for W<Weak<RefCell<Environment>>> {
     fn deserialize<D: Deserializer<'de>>(_deserializer: D) -> Result<Self, D::Error> {
         panic!("Environment should not be deserialized");
     }
 }
 
 /// Implement Clone trait to satisfy the requirements of Value enum.
-impl Clone for W<Rc<RefCell<Environment>>> {
+impl Clone for W<Weak<RefCell<Environment>>> {
     fn clone(&self) -> Self {
         W(self.0.clone())
     }
 }
 
 /// Implement PartialEq trait to satisfy the requirements of Value enum.
-impl PartialEq for W<Rc<RefCell<Environment>>> {
+impl PartialEq for W<Weak<RefCell<Environment>>> {
     fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
+        match (self.0.upgrade(), other.0.upgrade()) {
+            (Some(self_rc), Some(other_rc)) => Rc::ptr_eq(&self_rc, &other_rc),
+            (None, None) => true, // Both point to dropped values, considered equal
+            _ => false,           // One is dropped and the other isn't, not equal
+        }
     }
 }
 
 /// Implement Debug trait to satisfy the requirements of Value enum.
-impl Debug for W<Rc<RefCell<Environment>>> {
+impl Debug for W<Weak<RefCell<Environment>>> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.0.borrow().fmt(f)
+        match self.0.upgrade() {
+            Some(env) => env.borrow().fmt(f),
+            None => write!(f, "<Environment dropped>"),
+        }
     }
 }
 

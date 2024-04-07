@@ -25,7 +25,7 @@ impl Environment {
     /// - Environment constants: MAX_INT, MIN_INT, MAX_FLOAT, MIN_FLOAT, EPSILON
     ///
     /// Built in functions are added to the global environment.
-    /// - Math functions: abs, ceil, floor, round, sqrt, sin, cos, tan, asin, acos, atan, atan2, ln, log2, log10, exp, pow
+    /// - Math functions: abs, ceil, floor, round, sqrt, sin, cos, tan, log10, pow
     /// - String functions: len
     /// - Type conversion functions: int_to_float, float_to_int, atoi, atoi
     /// - Comparison functions: min, max

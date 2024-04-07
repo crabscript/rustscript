@@ -85,6 +85,7 @@ mod tests {
     fn test_call() {
         let mut rt = Runtime::new(vec![ByteCode::CALL(0), ByteCode::DONE]);
         let result = call(&mut rt, 0);
+        let env = Environment::new_wrapped();
 
         assert!(result.is_err());
 
@@ -92,7 +93,7 @@ mod tests {
             sym: "Closure".to_string(),
             prms: vec![],
             addr: 123,
-            env: W(Rc::downgrade(&Environment::new_wrapped())),
+            env: W(Rc::downgrade(&env)),
         });
 
         let result = call(&mut rt, 0);

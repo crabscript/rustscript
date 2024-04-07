@@ -1,0 +1,172 @@
+use anyhow::Result;
+use bytecode::{builtin, Value};
+
+use crate::{Runtime, VmError};
+
+pub fn apply_builtin(rt: &mut Runtime, sym: &str, args: Vec<Value>) -> Result<()> {
+    match sym {
+        builtin::READ_LINE_SYM => {
+            let input = builtin::read_line_impl()?;
+            rt.operand_stack.push(Value::String(input));
+        }
+        builtin::PRINT_SYM => {
+            for arg in args {
+                builtin::print_impl(&arg);
+            }
+        }
+        builtin::PRINTLN_SYM => {
+            for arg in args[..args.len() - 1].iter() {
+                builtin::print_impl(arg);
+            }
+            if let Some(arg) = args.last() {
+                builtin::println_impl(arg);
+            }
+        }
+        builtin::STRING_LEN_SYM => {
+            let s = args.first().ok_or(VmError::InsufficientArguments {
+                expected: 1,
+                got: args.len(),
+            })?;
+
+            let len = builtin::string_len_impl(s)?;
+            rt.operand_stack.push(Value::Int(len as i64));
+        }
+        builtin::MIN_SYM => {
+            let v1 = args.first().ok_or(VmError::InsufficientArguments {
+                expected: 2,
+                got: args.len(),
+            })?;
+            let v2 = args.get(1).ok_or(VmError::InsufficientArguments {
+                expected: 2,
+                got: args.len(),
+            })?;
+
+            let min = builtin::min_impl(v1, v2)?;
+            rt.operand_stack.push(min);
+        }
+        builtin::MAX_SYM => {
+            let v1 = args.first().ok_or(VmError::InsufficientArguments {
+                expected: 2,
+                got: args.len(),
+            })?;
+            let v2 = args.get(1).ok_or(VmError::InsufficientArguments {
+                expected: 2,
+                got: args.len(),
+            })?;
+
+            let max = builtin::max_impl(v1, v2)?;
+            rt.operand_stack.push(max);
+        }
+        builtin::ABS_SYM => {
+            let x = args.first().ok_or(VmError::InsufficientArguments {
+                expected: 1,
+                got: args.len(),
+            })?;
+
+            let abs = builtin::abs_impl(x)?;
+            rt.operand_stack.push(abs);
+        }
+        builtin::COS_SYM => {
+            let x = args.first().ok_or(VmError::InsufficientArguments {
+                expected: 1,
+                got: args.len(),
+            })?;
+
+            let cos = builtin::cos_impl(x)?;
+            rt.operand_stack.push(cos);
+        }
+        builtin::SIN_SYM => {
+            let x = args.first().ok_or(VmError::InsufficientArguments {
+                expected: 1,
+                got: args.len(),
+            })?;
+
+            let sin = builtin::sin_impl(x)?;
+            rt.operand_stack.push(sin);
+        }
+        builtin::TAN_SYM => {
+            let x = args.first().ok_or(VmError::InsufficientArguments {
+                expected: 1,
+                got: args.len(),
+            })?;
+
+            let tan = builtin::tan_impl(x)?;
+            rt.operand_stack.push(tan);
+        }
+        builtin::SQRT_SYM => {
+            let x = args.first().ok_or(VmError::InsufficientArguments {
+                expected: 1,
+                got: args.len(),
+            })?;
+
+            let sqrt = builtin::sqrt_impl(x)?;
+            rt.operand_stack.push(sqrt);
+        }
+        builtin::LOG_SYM => {
+            let x = args.first().ok_or(VmError::InsufficientArguments {
+                expected: 1,
+                got: args.len(),
+            })?;
+
+            let log = builtin::log_impl(x)?;
+            rt.operand_stack.push(log);
+        }
+        builtin::POW_SYM => {
+            let x = args.first().ok_or(VmError::InsufficientArguments {
+                expected: 2,
+                got: args.len(),
+            })?;
+            let y = args.get(1).ok_or(VmError::InsufficientArguments {
+                expected: 2,
+                got: args.len(),
+            })?;
+
+            let pow = builtin::pow_impl(x, y)?;
+            rt.operand_stack.push(pow);
+        }
+        builtin::ITOA_SYM => {
+            let x = args.first().ok_or(VmError::InsufficientArguments {
+                expected: 1,
+                got: args.len(),
+            })?;
+
+            let itoa = builtin::itoa_impl(x)?;
+            rt.operand_stack.push(itoa);
+        }
+        builtin::ATOI_SYM => {
+            let s = args.first().ok_or(VmError::InsufficientArguments {
+                expected: 1,
+                got: args.len(),
+            })?;
+
+            let atoi = builtin::atoi_impl(s)?;
+            rt.operand_stack.push(atoi);
+        }
+        builtin::FLOAT_TO_INT_SYM => {
+            let x = args.first().ok_or(VmError::InsufficientArguments {
+                expected: 1,
+                got: args.len(),
+            })?;
+
+            let float_to_int = builtin::float_to_int_impl(x)?;
+            rt.operand_stack.push(float_to_int);
+        }
+        builtin::INT_TO_FLOAT_SYM => {
+            let x = args.first().ok_or(VmError::InsufficientArguments {
+                expected: 1,
+                got: args.len(),
+            })?;
+
+            let int_to_float = builtin::int_to_float_impl(x)?;
+            rt.operand_stack.push(int_to_float);
+        }
+        _ => {
+            return Err(VmError::UnknownBuiltin {
+                sym: sym.to_string(),
+            }
+            .into());
+        }
+    }
+
+    Ok(())
+}

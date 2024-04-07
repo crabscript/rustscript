@@ -13,12 +13,21 @@ pub enum Value {
     Float(f64),
     Bool(bool),
     String(String),
+    #[serde(skip_serializing, skip_deserializing)]
     Closure {
+        fn_type: FnType,
         sym: Symbol,
         prms: Vec<Symbol>,
         addr: usize,
         env: W<Rc<RefCell<Environment>>>,
     },
+}
+
+#[derive(Clone, Debug, PartialEq, Default)]
+pub enum FnType {
+    #[default]
+    User,
+    Builtin,
 }
 
 pub fn type_of(value: &Value) -> &'static str {

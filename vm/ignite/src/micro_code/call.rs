@@ -1,9 +1,11 @@
 use std::rc::Rc;
 
 use anyhow::Result;
-use bytecode::{type_of, FrameType, StackFrame, Value};
+use bytecode::{type_of, FnType, FrameType, StackFrame, Value};
 
 use crate::{runtime::extend_environment, Runtime, VmError};
+
+use super::apply_builtin::apply_builtin;
 
 /// Call a function with the given number of arguments.
 /// First it pops n values from the operand stack where n is the arity of the function.
@@ -40,7 +42,11 @@ pub fn call(rt: &mut Runtime, arity: usize) -> Result<()> {
         .ok_or(VmError::OperandStackUnderflow)?;
 
     let Value::Closure {
-        prms, addr, env, ..
+        fn_type,
+        sym,
+        prms,
+        addr,
+        env,
     } = closure
     else {
         return Err(VmError::BadType {
@@ -56,6 +62,10 @@ pub fn call(rt: &mut Runtime, arity: usize) -> Result<()> {
             params: arity,
         }
         .into());
+    }
+
+    if let FnType::Builtin = fn_type {
+        return apply_builtin(rt, sym.as_str(), args);
     }
 
     let frame = StackFrame {
@@ -74,7 +84,7 @@ pub fn call(rt: &mut Runtime, arity: usize) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bytecode::{ByteCode, Environment, W};
+    use bytecode::{ByteCode, Environment, FnType, W};
 
     #[test]
     fn test_call() {
@@ -84,6 +94,7 @@ mod tests {
         assert!(result.is_err());
 
         rt.operand_stack.push(Value::Closure {
+            fn_type: FnType::User,
             sym: "Closure".to_string(),
             prms: vec![],
             addr: 123,

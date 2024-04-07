@@ -32,6 +32,12 @@ pub enum VmError {
     #[error("arity and params mismatch: arity {arity}, found {params} params")]
     ArityParamsMismatch { arity: usize, params: usize },
 
+    #[error("Insufficient arguments: expected {expected}, got {got}")]
+    InsufficientArguments { expected: usize, got: usize },
+
+    #[error("unknown builtin: {sym}")]
+    UnknownBuiltin { sym: String },
+
     #[error("unimplemented")]
     Unimplemented,
 

@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use anyhow::Result;
-use bytecode::{Symbol, Value, W};
+use bytecode::{FnType, Symbol, Value, W};
 
 use crate::Runtime;
 
@@ -20,6 +20,7 @@ use crate::Runtime;
 /// Infallible.
 pub fn ldf(rt: &mut Runtime, addr: usize, prms: Vec<Symbol>) -> Result<()> {
     let closure = Value::Closure {
+        fn_type: FnType::User,
         sym: "Closure".to_string(),
         prms,
         addr,
@@ -43,6 +44,7 @@ mod tests {
         assert_eq!(
             &closure,
             &Value::Closure {
+                fn_type: FnType::User,
                 sym: "Closure".to_string(),
                 prms: vec!["x".to_string()],
                 addr: 0,
@@ -53,6 +55,7 @@ mod tests {
         assert_ne!(
             &closure,
             &Value::Closure {
+                fn_type: FnType::User,
                 sym: "Closure".to_string(),
                 prms: vec!["y".to_string()],
                 addr: 0,

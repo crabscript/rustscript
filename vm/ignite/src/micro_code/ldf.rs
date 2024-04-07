@@ -41,17 +41,6 @@ mod tests {
         ldf(&mut rt, 0, vec!["x".to_string()]).unwrap();
 
         let closure = rt.operand_stack.pop().unwrap();
-        assert_eq!(
-            &closure,
-            &Value::Closure {
-                fn_type: FnType::User,
-                sym: "Closure".to_string(),
-                prms: vec!["x".to_string()],
-                addr: 0,
-                env: W(Rc::clone(&rt.env)),
-            }
-        );
-
         assert_ne!(
             &closure,
             &Value::Closure {

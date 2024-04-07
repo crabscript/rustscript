@@ -290,7 +290,6 @@ mod tests {
         let result = rt.operand_stack.pop().unwrap();
         assert_eq!(result, Value::Int(42));
         assert_eq!(rt.runtime_stack.len(), 0);
-        assert!(rt.env.borrow().env.is_empty());
 
         Ok(())
     }

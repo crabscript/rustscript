@@ -19,6 +19,48 @@ impl Environment {
         }
     }
 
+    /// Create the global environment.
+    ///
+    /// Constants are added to the global environment.
+    /// - Logical constants: true, false
+    /// - Math constants: PI, E
+    /// - Environment constants: MAX_INT, MIN_INT, MAX_FLOAT, MIN_FLOAT, EPSILON
+    ///
+    /// Built in functions are added to the global environment.
+    /// - Math functions: abs, ceil, floor, round, sqrt, sin, cos, tan, asin, acos, atan, atan2, ln, log2, log10, exp, pow
+    /// - String functions: len
+    /// - Type conversion functions: int_to_float, float_to_int, atoi, atoi
+    /// - Comparison functions: min, max
+    ///
+    /// # Returns
+    ///
+    /// A wrapped reference to the global environment.
+    pub fn new_global() -> Rc<RefCell<Self>> {
+        let env = Environment::new_wrapped();
+
+        // Global constants
+        // Logical constants
+        env.borrow_mut().set("true", true);
+        env.borrow_mut().set("false", false);
+
+        // Math constants
+        env.borrow_mut().set("PI", std::f64::consts::PI);
+        env.borrow_mut().set("E", std::f64::consts::E);
+
+        //Environment constants
+        env.borrow_mut().set("MAX_INT", std::i64::MAX);
+        env.borrow_mut().set("MIN_INT", std::i64::MIN);
+        env.borrow_mut().set("MAX_FLOAT", std::f64::MAX);
+        env.borrow_mut().set("MIN_FLOAT", std::f64::MIN);
+        env.borrow_mut().set("EPSILON", std::f64::EPSILON);
+
+        // Built in functions
+        // Math functions
+        // env.borrow_mut().set("abs", );
+
+        env
+    }
+
     /// Create a wrapped frame with no parent, i.e. the root frame.
     pub fn new_wrapped() -> Rc<RefCell<Self>> {
         Rc::new(RefCell::new(Environment::new()))

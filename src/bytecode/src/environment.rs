@@ -38,19 +38,20 @@ impl Environment {
 
         // Global constants
         // Logical constants
-        env.borrow_mut().set("true", true);
-        env.borrow_mut().set("false", false);
+        env.borrow_mut().set(builtin::TRUE_SYM, true);
+        env.borrow_mut().set(builtin::FALSE_SYM, false);
 
         // Math constants
-        env.borrow_mut().set("PI", std::f64::consts::PI);
-        env.borrow_mut().set("E", std::f64::consts::E);
+        env.borrow_mut().set(builtin::PI_SYM, std::f64::consts::PI);
+        env.borrow_mut().set(builtin::E_SYM, std::f64::consts::E);
 
         //Environment constants
-        env.borrow_mut().set("MAX_INT", std::i64::MAX);
-        env.borrow_mut().set("MIN_INT", std::i64::MIN);
-        env.borrow_mut().set("MAX_FLOAT", std::f64::MAX);
-        env.borrow_mut().set("MIN_FLOAT", std::f64::MIN);
-        env.borrow_mut().set("EPSILON", std::f64::EPSILON);
+        env.borrow_mut().set(builtin::MAX_INT_SYM, std::i64::MAX);
+        env.borrow_mut().set(builtin::MIN_INT_SYM, std::i64::MIN);
+        env.borrow_mut().set(builtin::MAX_FLOAT_SYM, std::f64::MAX);
+        env.borrow_mut().set(builtin::MIN_FLOAT_SYM, std::f64::MIN);
+        env.borrow_mut()
+            .set(builtin::EPSILON_SYM, std::f64::EPSILON);
 
         // Built in functions
         // Math functions

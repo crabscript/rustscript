@@ -18,3 +18,5 @@ let thread_id_3 = spawn loop_and_print;
 join thread_id_3;
 join thread_id_2;
 join thread_id_1;
+
+println("All threads finished");

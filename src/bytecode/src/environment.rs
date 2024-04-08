@@ -1,8 +1,6 @@
 use std::{cell::RefCell, collections::HashMap, fmt::Debug, rc::Rc};
 
-use serde::{Deserialize, Deserializer, Serialize};
-
-use crate::{Symbol, Value, W};
+use crate::{builtin, Symbol, Value, W};
 
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Environment {
@@ -17,6 +15,94 @@ impl Environment {
             parent: None,
             env: HashMap::new(),
         }
+    }
+
+    /// Create the global environment.
+    ///
+    /// Constants are added to the global environment.
+    /// - Logical constants: true, false
+    /// - Math constants: PI, E
+    /// - Environment constants: MAX_INT, MIN_INT, MAX_FLOAT, MIN_FLOAT, EPSILON
+    ///
+    /// Built in functions are added to the global environment.
+    /// - Math functions: abs, ceil, floor, round, sqrt, sin, cos, tan, log10, pow
+    /// - String functions: len
+    /// - Type conversion functions: int_to_float, float_to_int, atoi, atoi
+    /// - Comparison functions: min, max
+    ///
+    /// # Returns
+    ///
+    /// A wrapped reference to the global environment.
+    pub fn new_global() -> Rc<RefCell<Self>> {
+        let env = Environment::new_wrapped();
+
+        // Global constants
+        // Logical constants
+        env.borrow_mut().set(builtin::TRUE_SYM, true);
+        env.borrow_mut().set(builtin::FALSE_SYM, false);
+
+        // Math constants
+        env.borrow_mut().set(builtin::PI_SYM, std::f64::consts::PI);
+        env.borrow_mut().set(builtin::E_SYM, std::f64::consts::E);
+
+        //Environment constants
+        env.borrow_mut().set(builtin::MAX_INT_SYM, std::i64::MAX);
+        env.borrow_mut().set(builtin::MIN_INT_SYM, std::i64::MIN);
+        env.borrow_mut().set(builtin::MAX_FLOAT_SYM, std::f64::MAX);
+        env.borrow_mut().set(builtin::MIN_FLOAT_SYM, std::f64::MIN);
+        env.borrow_mut()
+            .set(builtin::EPSILON_SYM, std::f64::EPSILON);
+
+        // Built in functions
+        // Math functions
+        env.borrow_mut()
+            .set(builtin::ABS_SYM, builtin::abs(Rc::clone(&env)));
+        env.borrow_mut()
+            .set(builtin::COS_SYM, builtin::cos(Rc::clone(&env)));
+        env.borrow_mut()
+            .set(builtin::SIN_SYM, builtin::sin(Rc::clone(&env)));
+        env.borrow_mut()
+            .set(builtin::TAN_SYM, builtin::tan(Rc::clone(&env)));
+        env.borrow_mut()
+            .set(builtin::LOG_SYM, builtin::log(Rc::clone(&env)));
+        env.borrow_mut()
+            .set(builtin::POW_SYM, builtin::pow(Rc::clone(&env)));
+        env.borrow_mut()
+            .set(builtin::SQRT_SYM, builtin::sqrt(Rc::clone(&env)));
+        env.borrow_mut()
+            .set(builtin::MAX_SYM, builtin::max(Rc::clone(&env)));
+        env.borrow_mut()
+            .set(builtin::MIN_SYM, builtin::min(Rc::clone(&env)));
+
+        // String functions
+        env.borrow_mut().set(
+            builtin::STRING_LEN_SYM,
+            builtin::string_len(Rc::clone(&env)),
+        );
+
+        // Type conversion functions
+        env.borrow_mut().set(
+            builtin::INT_TO_FLOAT_SYM,
+            builtin::int_to_float(Rc::clone(&env)),
+        );
+        env.borrow_mut().set(
+            builtin::FLOAT_TO_INT_SYM,
+            builtin::float_to_int(Rc::clone(&env)),
+        );
+        env.borrow_mut()
+            .set(builtin::ATOI_SYM, builtin::atoi(Rc::clone(&env)));
+        env.borrow_mut()
+            .set(builtin::ITOA_SYM, builtin::itoa(Rc::clone(&env)));
+
+        // stdin, stdout
+        env.borrow_mut()
+            .set(builtin::READ_LINE_SYM, builtin::read_line(Rc::clone(&env)));
+        env.borrow_mut()
+            .set(builtin::PRINT_SYM, builtin::print(Rc::clone(&env)));
+        env.borrow_mut()
+            .set(builtin::PRINTLN_SYM, builtin::println(Rc::clone(&env)));
+
+        env
     }
 
     /// Create a wrapped frame with no parent, i.e. the root frame.
@@ -45,24 +131,6 @@ impl Environment {
     /// Set the value of a symbol in the frame.
     pub fn set(&mut self, sym: impl Into<Symbol>, val: impl Into<Value>) {
         self.env.insert(sym.into(), val.into());
-    }
-}
-
-/// Environment should NOT be serialized. It is only used for runtime state.
-/// This trait is pseudo-implemented so that we can add it to the operant stack.
-/// Note we cannot implement Serialize for Rc<RefCell<Environment>> because it is not defined in this crate.
-impl Serialize for W<Rc<RefCell<Environment>>> {
-    fn serialize<S: serde::Serializer>(&self, _serializer: S) -> Result<S::Ok, S::Error> {
-        panic!("Environment should not be serialized");
-    }
-}
-
-/// Environment should NOT be deserialized. It is only used for runtime state.
-/// This trait is pseudo-implemented so that we can add it to the operant stack.
-/// Note we cannot implement Deserialize for Rc<RefCell<Environment>> because it is not defined in this crate.
-impl<'de> Deserialize<'de> for W<Rc<RefCell<Environment>>> {
-    fn deserialize<D: Deserializer<'de>>(_deserializer: D) -> Result<Self, D::Error> {
-        panic!("Environment should not be deserialized");
     }
 }
 

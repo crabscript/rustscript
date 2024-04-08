@@ -1,0 +1,9 @@
+pub const PI_SYM: &str = "PI";
+pub const E_SYM: &str = "E";
+pub const MAX_INT_SYM: &str = "MAX_INT";
+pub const MIN_INT_SYM: &str = "MIN_INT";
+pub const MAX_FLOAT_SYM: &str = "MAX_FLOAT";
+pub const MIN_FLOAT_SYM: &str = "MIN_FLOAT";
+pub const EPSILON_SYM: &str = "EPSILON";
+pub const TRUE_SYM: &str = "true";
+pub const FALSE_SYM: &str = "false";

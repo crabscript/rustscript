@@ -4,4 +4,7 @@ use thiserror::Error;
 pub enum ByteCodeError {
     #[error("Type mismatch, expected {expected}, found {found}")]
     TypeMismatch { expected: String, found: String },
+
+    #[error("Bad type, expected {expected}, found {found}")]
+    BadType { expected: String, found: String },
 }

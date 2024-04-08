@@ -14,6 +14,7 @@ pub fn print_value(val: &Value) {
         Value::Float(f) => println!("{}", f),
         Value::String(s) => println!("{}", s),
         Value::Closure {
+            fn_type: _,
             sym,
             prms,
             addr,

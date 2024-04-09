@@ -190,6 +190,22 @@ mod tests {
         let y = { 2; 3; 4} + 5 * { 6; };
         ";
         test_parse(t, "let y = ({ 2;3;4 }+(5*{ 6; }));");
+
+        // mixed with int stmts
+        let t = r"
+        30;
+        { 40; }
+        50;
+        60
+        ";
+        test_parse(t, "30;{ 40; };50;60");
+
+        // potential edge case
+        let t = "20 + { { 40; } 30 }";
+        test_parse(t, "(20+{ { 40; };30 })");
+
+        let t = "20 + { { 40 } 30 }";
+        test_parse(t, "(20+{ { 40 };30 })");
     }
 
     #[test]

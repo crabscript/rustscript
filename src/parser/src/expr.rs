@@ -10,7 +10,7 @@ impl<'inp> Parser<'inp> {
     // Parses and returns an expression (something that is definitely an expression)
     // Return as Decl for consistency
     // Invariant: prev_tok should contain the start of the expr before call
-    pub fn parse_expr(&mut self, min_bp: u8) -> Result<Decl, ParseError> {
+    pub(crate) fn parse_expr(&mut self, min_bp: u8) -> Result<Decl, ParseError> {
         let prev_tok = self.expect_prev_tok()?;
         let mut lhs = match prev_tok {
             Token::OpenParen => {
@@ -66,7 +66,7 @@ impl<'inp> Parser<'inp> {
                 .clone()
                 .expect("Lexer should not fail");
 
-            dbg!("Prev_tok before from_token:", &self.prev_tok);
+            // dbg!("Prev_tok before from_token:", &self.prev_tok);
             let binop = BinOpType::from_token(&tok);
 
             if let (&Some(Token::CloseBrace), &Err(_)) = (&self.prev_tok, &binop) {

@@ -160,6 +160,8 @@ impl Display for Decl {
 pub struct BlockSeq {
     pub decls: Vec<Decl>,
     pub last_expr: Option<Rc<Expr>>,
+    // List of top level uninitialised symbols (variable/func declarations)
+    pub symbols: Vec<String>,
 }
 
 impl Display for BlockSeq {

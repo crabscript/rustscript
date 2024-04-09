@@ -8,6 +8,7 @@ pub use prelude::*;
 pub use stack_frame::*;
 pub use value::*;
 
+pub mod builtin;
 mod environment;
 mod error;
 mod io;

@@ -18,7 +18,7 @@ pub struct Runtime {
 impl Runtime {
     pub fn new(instrs: Vec<ByteCode>) -> Self {
         Runtime {
-            env: Environment::new_wrapped(),
+            env: Environment::new_global(),
             operand_stack: Vec::new(),
             runtime_stack: Vec::new(),
             instrs,
@@ -135,7 +135,7 @@ where
 mod tests {
     use super::*;
     use anyhow::Ok;
-    use bytecode::{BinOp, FrameType, UnOp};
+    use bytecode::{builtin, BinOp, FrameType, UnOp};
 
     #[test]
     fn test_pc() {
@@ -290,7 +290,53 @@ mod tests {
         let result = rt.operand_stack.pop().unwrap();
         assert_eq!(result, Value::Int(42));
         assert_eq!(rt.runtime_stack.len(), 0);
-        assert!(rt.env.borrow().env.is_empty());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_global_constants() -> Result<()> {
+        let instrs = vec![ByteCode::ld(builtin::PI_SYM), ByteCode::DONE];
+
+        let rt = Runtime::new(instrs);
+        let rt = run(rt)?;
+        assert_eq!(rt.operand_stack, vec![Value::Float(std::f64::consts::PI)]);
+
+        let instrs = vec![ByteCode::ld(builtin::MAX_INT_SYM), ByteCode::DONE];
+
+        let rt = Runtime::new(instrs);
+        let rt = run(rt)?;
+
+        assert_eq!(rt.operand_stack, vec![Value::Int(std::i64::MAX)]);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_global_functions() -> Result<()> {
+        let instrs = vec![
+            ByteCode::ld(builtin::STRING_LEN_SYM),
+            ByteCode::ldc("Hello, world!"),
+            ByteCode::CALL(1),
+            ByteCode::DONE,
+        ];
+
+        let rt = Runtime::new(instrs);
+        let rt = run(rt)?;
+
+        assert_eq!(rt.operand_stack, vec![Value::Int(13)]);
+
+        let instrs = vec![
+            ByteCode::ld(builtin::ABS_SYM),
+            ByteCode::ldc(-42),
+            ByteCode::CALL(1),
+            ByteCode::DONE,
+        ];
+
+        let rt = Runtime::new(instrs);
+        let rt = run(rt)?;
+
+        assert_eq!(rt.operand_stack, vec![Value::Int(42)]);
 
         Ok(())
     }

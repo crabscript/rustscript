@@ -54,6 +54,7 @@ pub fn unop(rt: &mut Runtime, op: UnOp) -> Result<()> {
             return Err(VmError::IllegalArgument("using unitialized value".to_string()).into())
         }
         Value::Closure {
+            fn_type: _,
             sym: _,
             prms: _,
             addr: _,

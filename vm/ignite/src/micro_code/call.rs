@@ -1,15 +1,18 @@
 use std::rc::Rc;
 
 use anyhow::Result;
-use bytecode::{type_of, FrameType, StackFrame, Value};
+use bytecode::{type_of, FnType, FrameType, StackFrame, Value};
 
 use crate::{runtime::extend_environment, Runtime, VmError};
+
+use super::apply_builtin::apply_builtin;
 
 /// Call a function with the given number of arguments.
 /// First it pops n values from the operand stack where n is the arity of the function.
 /// Then it pops the closure from the operand stack.
 /// It checks that the closure is a closure and that the arity of the closure matches the number of arguments.
-/// It creates a new stack frame with the environment of the closure and the address of the closure.
+/// If the closure is a builtin function it applies the builtin function and returns.
+/// Otherwise it creates a new stack frame with the environment of the closure and the address of the closure.
 /// It extends the environment with the parameters and arguments.
 /// It sets the program counter to the address of the closure. Essentially calling the function.
 ///
@@ -34,28 +37,36 @@ pub fn call(rt: &mut Runtime, arity: usize) -> Result<()> {
         );
     }
 
-    let closure = rt
+    let value = rt
         .operand_stack
         .pop()
         .ok_or(VmError::OperandStackUnderflow)?;
 
     let Value::Closure {
-        prms, addr, env, ..
-    } = closure
+        fn_type,
+        sym,
+        prms,
+        addr,
+        env,
+    } = value
     else {
         return Err(VmError::BadType {
             expected: "Closure".to_string(),
-            found: type_of(&closure).to_string(),
+            found: type_of(&value).to_string(),
         }
         .into());
     };
 
     if prms.len() != arity {
         return Err(VmError::ArityParamsMismatch {
-            arity: prms.len(),
-            params: arity,
+            arity,
+            params: prms.len(),
         }
         .into());
+    }
+
+    if let FnType::Builtin = fn_type {
+        return apply_builtin(rt, sym.as_str(), args);
     }
 
     let frame = StackFrame {
@@ -74,7 +85,7 @@ pub fn call(rt: &mut Runtime, arity: usize) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bytecode::{ByteCode, Environment, W};
+    use bytecode::{ByteCode, Environment, FnType, W};
 
     #[test]
     fn test_call() {
@@ -84,6 +95,7 @@ mod tests {
         assert!(result.is_err());
 
         rt.operand_stack.push(Value::Closure {
+            fn_type: FnType::User,
             sym: "Closure".to_string(),
             prms: vec![],
             addr: 123,

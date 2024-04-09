@@ -12,6 +12,7 @@ pub use pop::pop;
 pub use reset::reset;
 pub use unop::unop;
 
+mod apply_builtin;
 mod assign;
 mod binop;
 mod call;

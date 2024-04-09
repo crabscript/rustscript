@@ -445,7 +445,7 @@ impl<'inp> Parser<'inp> {
         let err = format!("Expected '{}' to close block", Token::CloseBrace);
         self.consume_token_type(Token::CloseBrace, &err)?;
 
-        dbg!("prev_tok after blk:", &self.prev_tok);
+        // dbg!("prev_tok after blk:", &self.prev_tok);
 
         Ok(res)
     }
@@ -509,7 +509,7 @@ impl<'inp> Parser<'inp> {
                 .clone()
                 .expect("Lexer should not fail");
 
-            dbg!("Prev_tok before from_token:", &self.prev_tok);
+            // dbg!("Prev_tok before from_token:", &self.prev_tok);
             let binop = BinOpType::from_token(&tok)?;
             let (l_bp, r_bp) = Parser::get_infix_bp(&binop);
             // self.advance();
@@ -597,6 +597,8 @@ impl<'inp> Parser<'inp> {
 
             // Syntax error
             else {
+                dbg!("prev_tok:", &self.prev_tok);
+                dbg!("peek:", &self.lexer.peek());
                 return Err(ParseError::new("Expected semicolon"));
             }
         }
@@ -638,13 +640,6 @@ mod tests {
         } else {
             assert_eq!(res.to_string(), exp_err);
         }
-    }
-
-    #[test]
-    fn play() {
-        let lex = Token::lexer("2-3");
-        let v = lex.collect::<Vec<_>>();
-        dbg!(v);
     }
 
     #[test]
@@ -903,14 +898,14 @@ mod tests {
 
         // // blk in the middle without semi - we allow this to parse but type checker will reject (blk stmt should have unit) (?)
         // currently failing
-        // let t = r"
-        // let x = 2;
-        // {
-        //     let x = 3;
-        //     x
-        // }
-        // x
-        // ";
+        let t = r"
+        let x = 2;
+        {
+            let x = 3;
+            x
+        }
+        x
+        ";
         // test_parse(t, "let x = 2;{ let x = 3;x };x");
     }
 }

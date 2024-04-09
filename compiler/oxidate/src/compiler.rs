@@ -109,6 +109,11 @@ impl Compiler {
 
     fn compile_block(blk: &BlockSeq, arr: &mut Vec<ByteCode>) -> Result<(), CompileError> {
         let decls = &blk.decls;
+        let syms = &blk.symbols;
+
+        if !syms.is_empty() {
+            arr.push(ByteCode::ENTERSCOPE(syms.clone()));
+        }
 
         for decl in decls {
             Compiler::compile_decl(decl, arr)?;
@@ -121,6 +126,10 @@ impl Compiler {
             Compiler::compile_expr(expr.as_ref(), arr)?;
         }
 
+        if !syms.is_empty() {
+            arr.push(ByteCode::EXITSCOPE);
+        }
+
         Ok(())
     }
 
@@ -129,20 +138,12 @@ impl Compiler {
             Decl::ExprStmt(expr) => {
                 Compiler::compile_expr(expr, arr)?;
 
+                // avoid pop underflow when block has no value pushed at the end
                 if let Expr::BlockExpr(seq) = expr {
                     if seq.last_expr.is_none() {
                         arr.push(ByteCode::ldc(Value::Unit))
                     }
                 }
-                // match expr {
-                //     Expr::BlockExpr(seq) => {
-                //         // if no last expr, push Unit so the pop is a no-op
-                //         if seq.last_expr.is_none() {
-                //             arr.push(ByteCode::ldc(Value::Unit))
-                //         }
-                //     }
-                //     _ => (),
-                // }
             }
             Decl::LetStmt(stmt) => {
                 Compiler::compile_assign(&stmt.ident, &stmt.expr, arr)?;
@@ -482,5 +483,17 @@ mod tests {
             "{ 2; };",
             vec![ByteCode::ldc(2), POP, ByteCode::ldc(Unit), POP, DONE],
         );
+    }
+
+    #[test]
+    fn test_compile_blk_let() {
+        let t = r"
+        let x = 2;
+        {
+            let y = 3;
+            x+y
+        }
+        ";
+        // test_comp(t, vec![]);
     }
 }

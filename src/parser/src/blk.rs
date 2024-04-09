@@ -244,4 +244,46 @@ mod tests {
         let exp = "let x = 20;let y = { x = 30;(x+5) };let g = { let z = (x+y);z; };g";
         test_parse(t, exp);
     }
+
+    #[test]
+    fn test_parse_nested_blks() {
+        let t = r"
+        let x = 20;
+        let y = {
+            let z = 20;
+            {
+                x = 30;
+                x+z
+            }
+        };
+        ";
+
+        let exp = "let x = 20;let y = { let z = 20;{ x = 30;(x+z) } };";
+        test_parse(t, exp);
+
+        let t = r"
+        let x : int = {
+            20;
+            let y = {
+                30;
+                40+50;
+
+                let z = {
+                    50+60;
+                    100
+                };
+
+                z
+            };
+
+            y + 100
+        } + { 
+            let g = 100;
+            g + 20
+        };
+        x 
+        ";
+        let exp = "let x : int = ({ 20;let y = { 30;(40+50);let z = { (50+60);100 };z };(y+100) }+{ let g = 100;(g+20) });x";
+        test_parse(t, exp);
+    }
 }

@@ -128,6 +128,21 @@ impl Compiler {
         match decl {
             Decl::ExprStmt(expr) => {
                 Compiler::compile_expr(expr, arr)?;
+
+                if let Expr::BlockExpr(seq) = expr {
+                    if seq.last_expr.is_none() {
+                        arr.push(ByteCode::ldc(Value::Unit))
+                    }
+                }
+                // match expr {
+                //     Expr::BlockExpr(seq) => {
+                //         // if no last expr, push Unit so the pop is a no-op
+                //         if seq.last_expr.is_none() {
+                //             arr.push(ByteCode::ldc(Value::Unit))
+                //         }
+                //     }
+                //     _ => (),
+                // }
             }
             Decl::LetStmt(stmt) => {
                 Compiler::compile_assign(&stmt.ident, &stmt.expr, arr)?;
@@ -392,45 +407,80 @@ mod tests {
         assert_eq!(res, exp);
     }
 
+    use bytecode::Value::*;
     #[test]
     fn test_compile_blk_simple() {
-        // let t = "{ 2 }";
-        // let exp = vec![ByteCode::ldc(2), DONE];
-        // test_comp(t, exp);
+        let t = "{ 2 }";
+        let exp = vec![ByteCode::ldc(2), DONE];
+        test_comp(t, exp);
 
-        // let t = "{ 2; 3 }";
-        // let exp = vec![ByteCode::ldc(2), ByteCode::POP, ByteCode::ldc(3), DONE];
-        // test_comp(t, exp);
+        let t = "{ 2; 3 }";
+        let exp = vec![ByteCode::ldc(2), ByteCode::POP, ByteCode::ldc(3), DONE];
+        test_comp(t, exp);
 
-        // let t = "{ 2; 3; }";
-        // let exp = vec![
-        //     ByteCode::ldc(2),
-        //     ByteCode::POP,
-        //     ByteCode::ldc(3),
-        //     ByteCode::POP,
-        //     DONE,
-        // ];
-        // test_comp(t, exp);
+        let t = "{ 2; 3; }";
+        let exp = vec![
+            ByteCode::ldc(2),
+            ByteCode::POP,
+            ByteCode::ldc(3),
+            ByteCode::POP,
+            DONE,
+        ];
+        test_comp(t, exp);
 
-        // let t = "{ 2; 3; 4 }";
-        // let exp = vec![
-        //     ByteCode::ldc(2),
-        //     ByteCode::POP,
-        //     ByteCode::ldc(3),
-        //     ByteCode::POP,
-        //     ByteCode::ldc(4),
-        //     DONE,
-        // ];
-        // test_comp(t, exp);
+        let t = "{ 2; 3; 4 }";
+        let exp = vec![
+            ByteCode::ldc(2),
+            ByteCode::POP,
+            ByteCode::ldc(3),
+            ByteCode::POP,
+            ByteCode::ldc(4),
+            DONE,
+        ];
+        test_comp(t, exp);
 
-        // // like doing just 4;
-        // let t = "{ 2; 3; 4 };";
-        // let exp = vec![ByteCode::ldc(2), ByteCode::POP, ByteCode::ldc(3), ByteCode::POP, ByteCode::ldc(4), ByteCode::POP, DONE];
-        // test_comp(t, exp);
+        // like doing just 4;
+        let t = "{ 2; 3; 4 };";
+        let exp = vec![
+            ByteCode::ldc(2),
+            ByteCode::POP,
+            ByteCode::ldc(3),
+            ByteCode::POP,
+            ByteCode::ldc(4),
+            ByteCode::POP,
+            DONE,
+        ];
+        test_comp(t, exp);
 
         // wrong
-        // let t = "{ 2; 3; 4; };";
-        // let exp = vec![ByteCode::ldc(2), ByteCode::POP, ByteCode::ldc(3), ByteCode::POP, ByteCode::ldc(4), ByteCode::POP, DONE];
-        // test_comp(t, exp);
+        let t = "{ 2; 3; 4; };";
+        let exp = vec![
+            ByteCode::ldc(2),
+            ByteCode::POP,
+            ByteCode::ldc(3),
+            ByteCode::POP,
+            ByteCode::ldc(4),
+            ByteCode::POP,
+            ByteCode::ldc(Unit),
+            ByteCode::POP,
+            DONE,
+        ];
+        test_comp(t, exp);
+    }
+
+    #[test]
+    fn test_compile_blk_cases() {
+        test_comp("{ 2 }", vec![ByteCode::ldc(2), DONE]);
+        test_comp("{ 2; }", vec![ByteCode::ldc(2), POP, DONE]);
+
+        // since we pop after every stmt, if the block ends in expr we just rely on that
+        test_comp("{ 2 };", vec![ByteCode::ldc(2), POP, DONE]);
+
+        // we pop after every stmt, but since this blk has no last expr we push unit before blk ends so the pop doesn't
+        // underflow
+        test_comp(
+            "{ 2; };",
+            vec![ByteCode::ldc(2), POP, ByteCode::ldc(Unit), POP, DONE],
+        );
     }
 }

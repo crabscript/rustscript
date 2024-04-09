@@ -166,4 +166,82 @@ mod tests {
         ";
         test_parse(t, "let x = 2;{ 30;50; };");
     }
+
+    #[test]
+    fn test_parse_blkexpr() {
+        let t = r"
+        { 2 } + 3;
+        ";
+        test_parse(t, "({ 2 }+3);");
+
+        let t = r"
+        { let x = 20; x + 5 } + 3;
+        ";
+        test_parse(t, "({ let x = 20;(x+5) }+3);");
+
+        let t = r"
+        let y = { 2; 3; 4} + 5 * { 6 };
+        y + 5
+        ";
+        test_parse(t, "let y = ({ 2;3;4 }+(5*{ 6 }));(y+5)");
+
+        // also parses even if blk returns wrong type - need to check later
+        let t = r"
+        let y = { 2; 3; 4} + 5 * { 6; };
+        ";
+        test_parse(t, "let y = ({ 2;3;4 }+(5*{ 6; }));");
+    }
+
+    #[test]
+    fn test_parse_consecutive_blks() {
+        let t = r"
+        { 2; }
+        { 3; }
+        ";
+        test_parse(t, "{ 2; };{ 3; }");
+
+        let t = r"
+        { 2; }
+        { 3; }
+        { 4 }
+        ";
+        test_parse(t, "{ 2; };{ 3; };{ 4 }");
+
+        // semi in the middle ok
+        let t = r"
+        { 2; };
+        { 3; };
+        { 4 }
+        ";
+        test_parse(t, "{ 2; };{ 3; };{ 4 }");
+
+        // semi at end ok
+        let t = r"
+        { 2; }
+        { 3; };
+        { 4 };
+        ";
+        test_parse(t, "{ 2; };{ 3; };{ 4 };");
+
+        // semi at end ok
+        let t = r"
+        let x = 20;
+        { let x = 2; x+20; };
+        { let y = 3; y-2*3; }
+        { let z = 20+30; x = z+5; };
+        ";
+        let exp = "let x = 20;{ let x = 2;(x+20); };{ let y = 3;(y-(2*3)); };{ let z = (20+30);x = (z+5); };";
+        test_parse(t, exp);
+
+        // assignment to blk
+        // g assigned to blk with no last expr would be unit type
+        let t = "
+        let x = 20;
+        let y = { x = 30; x+5 };
+        let g = { let z = x+y; z; };
+        g
+        ";
+        let exp = "let x = 20;let y = { x = 30;(x+5) };let g = { let z = (x+y);z; };g";
+        test_parse(t, exp);
+    }
 }

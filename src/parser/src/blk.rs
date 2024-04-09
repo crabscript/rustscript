@@ -25,12 +25,12 @@ mod tests {
     use crate::tests::*;
     #[test]
     fn test_parse_blk_simple() {
-        //     test_parse("{ 2 }", "{ 2 }");
-        //     test_parse("{ 2+3 }", "{ (2+3) }");
+        test_parse("{ 2 }", "{ 2 }");
+        test_parse("{ 2+3 }", "{ (2+3) }");
         test_parse("{ 2; }", "{ 2; }");
-        // test_parse("{ 2; 3; }", "{ 2;3; }");
-        // test_parse("{ 2; 3 }", "{ 2;3 }");
-        // test_parse("{ 2; 3; 4 }", "{ 2;3;4 }");
+        test_parse("{ 2; 3; }", "{ 2;3; }");
+        test_parse("{ 2; 3 }", "{ 2;3 }");
+        test_parse("{ 2; 3; 4 }", "{ 2;3;4 }");
     }
 
     #[test]
@@ -40,10 +40,10 @@ mod tests {
         let x = 2;
         {
             let x = 3;
-            x
+            x;
         }
         ";
-        test_parse(t, "let x = 2;{ let x = 3;x }");
+        test_parse(t, "let x = 2;{ let x = 3;x; }");
 
         // blk stmt at the end
         let t = r"
@@ -85,5 +85,85 @@ mod tests {
         y+2;
         ";
         test_parse(t, "let y = 10;{ let x = 3;x };(y+2);");
+    }
+
+    #[test]
+    fn test_parse_cases() {
+        // 1 - blk in middle without semicolon that ends in expr
+        // actually invalid because in the middle must have Unit type
+        // but we allow during parsing
+        let t = r"
+        let x = 2;
+        {
+            30;
+            50
+        }
+        x + 50;
+        ";
+        test_parse(t, "let x = 2;{ 30;50 };(x+50);");
+
+        // semicolon outside - ok
+        let t = r"
+        let x = 2;
+        {
+            30;
+            50
+        };
+        x + 50;
+        ";
+        test_parse(t, "let x = 2;{ 30;50 };(x+50);");
+
+        // 2 - blk in middle with semi at the end but not outside: ok
+        let t = r"
+        let x = 2;
+        {
+            30;
+            50;
+        }
+        x + 50;
+        ";
+        test_parse(t, "let x = 2;{ 30;50; };(x+50);");
+
+        // semi outside as well - ok
+        let t = r"
+        let x = 2;
+        {
+            30;
+            50;
+        };
+        x + 50;
+        ";
+        test_parse(t, "let x = 2;{ 30;50; };(x+50);");
+
+        // 3 - blk at end without termination
+        // depends on fn type - global level is fine
+        let t = r"
+        let x = 2;
+        {
+            30;
+            50
+        }
+        ";
+        test_parse(t, "let x = 2;{ 30;50 }");
+
+        // 4 - blk at end with semi - depends on fn type
+        let t = r"
+        let x = 2;
+        {
+            30;
+            50;
+        }
+        ";
+        test_parse(t, "let x = 2;{ 30;50; }");
+
+        // with semi outside - ok, treated as decl and not as last expr
+        let t = r"
+        let x = 2;
+        {
+            30;
+            50;
+        };
+        ";
+        test_parse(t, "let x = 2;{ 30;50; };");
     }
 }

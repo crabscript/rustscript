@@ -83,7 +83,9 @@ impl Compiler {
             Expr::Symbol(sym) => {
                 arr.push(ByteCode::LD(sym.to_string()));
             }
-            _ => unimplemented!(),
+            Expr::BlockExpr(blk) => {
+                Compiler::compile_block(blk, arr)?;
+            }
         }
 
         Ok(())
@@ -174,8 +176,15 @@ mod tests {
     fn exp_compile_str(inp: &str) -> Vec<ByteCode> {
         let parser = Parser::new_from_string(inp);
         let parsed = parser.parse().expect("Should parse");
+        dbg!("parsed:", &parsed);
         let comp = Compiler::new(parsed);
         comp.compile().expect("Should compile")
+    }
+
+    fn test_comp(inp: &str, exp: Vec<ByteCode>) {
+        let res = exp_compile_str(inp);
+        dbg!(&res);
+        assert_eq!(res, exp);
     }
 
     #[test]
@@ -382,5 +391,42 @@ mod tests {
             DONE,
         ];
         assert_eq!(res, exp);
+    }
+
+    #[test]
+    fn test_compile_blk_simple() {
+        let t = "{ 2 }";
+        let exp = vec![ByteCode::ldc(2), DONE];
+        test_comp(t, exp);
+
+        let t = "{ 2; 3 }";
+        let exp = vec![ByteCode::ldc(2), ByteCode::POP, ByteCode::ldc(3), DONE];
+        test_comp(t, exp);
+
+        let t = "{ 2; 3; }";
+        let exp = vec![
+            ByteCode::ldc(2),
+            ByteCode::POP,
+            ByteCode::ldc(3),
+            ByteCode::POP,
+            DONE,
+        ];
+        test_comp(t, exp);
+
+        let t = "{ 2; 3; 4 }";
+        let exp = vec![
+            ByteCode::ldc(2),
+            ByteCode::POP,
+            ByteCode::ldc(3),
+            ByteCode::POP,
+            ByteCode::ldc(4),
+            DONE,
+        ];
+        test_comp(t, exp);
+
+        // wrong: too many pops
+        // let t = "{ 2; 3; 4; };";
+        // let exp = vec![ByteCode::ldc(2), ByteCode::POP, ByteCode::ldc(3), ByteCode::POP, ByteCode::ldc(4), DONE];
+        // test_comp(t, exp);
     }
 }

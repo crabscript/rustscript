@@ -3,7 +3,7 @@ use std::fmt::Display;
 use types::type_checker::TypeChecker;
 
 use bytecode::{ByteCode, Value};
-use parser::{BinOpType, BlockSeq, Decl, Expr, UnOpType};
+use parser::structs::{BinOpType, BlockSeq, Decl, Expr, UnOpType};
 
 pub struct Compiler {
     program: BlockSeq,

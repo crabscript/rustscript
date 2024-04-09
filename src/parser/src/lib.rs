@@ -1,9 +1,12 @@
-use std::fmt::Display;
-use std::iter::Peekable;
-use std::rc::Rc;
-
 use lexer::{lex, Token};
 use logos::Lexer;
+use std::iter::Peekable;
+use structs::*;
+
+pub mod blk;
+pub mod expr;
+pub mod seq;
+pub mod structs;
 
 // To expect token types that have a value inside (for Ident and primitives)
 macro_rules! expect_token_body {
@@ -24,239 +27,6 @@ macro_rules! expect_token_body {
             }
         }
     }};
-}
-
-#[derive(Debug, Clone)]
-pub enum BinOpType {
-    Add,
-    Sub,
-    Mul,
-    Div,
-}
-
-impl BinOpType {
-    pub fn from_token(token: &Token) -> Result<BinOpType, ParseError> {
-        match token {
-            Token::Plus => Ok(Self::Add),
-            Token::Minus => Ok(Self::Sub),
-            Token::Star => Ok(Self::Mul),
-            Token::Slash => Ok(Self::Div),
-            _ => Err(ParseError::new(&format!(
-                "Expected infix operator but got: {}",
-                token
-            ))),
-        }
-    }
-}
-
-impl Display for BinOpType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let chr = match self {
-            BinOpType::Add => "+",
-            BinOpType::Sub => "-",
-            BinOpType::Mul => "*",
-            BinOpType::Div => "/",
-        };
-        write!(f, "{}", chr)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum UnOpType {
-    Negate,
-    Not,
-}
-
-impl Display for UnOpType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let chr = match self {
-            Self::Negate => "-",
-            Self::Not => "!",
-        };
-
-        write!(f, "{}", chr)
-    }
-}
-
-// Different from bytecode Value because values on op stack might be different (e.g fn call)
-#[derive(Debug, Clone)]
-pub enum Expr {
-    Symbol(String),
-    Integer(i64),
-    Float(f64),
-    Bool(bool),
-    UnOpExpr(UnOpType, Box<Expr>),
-    BinOpExpr(BinOpType, Box<Expr>, Box<Expr>),
-    Block(BlockSeq), // expr can be a block
-}
-
-impl Display for Expr {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let string = match self {
-            Expr::Integer(val) => val.to_string(),
-            Expr::Float(val) => val.to_string(),
-            Expr::Bool(val) => val.to_string(),
-            Expr::UnOpExpr(op, expr) => {
-                format!("({}{})", op, expr)
-            }
-            Expr::BinOpExpr(op, lhs, rhs) => {
-                format!("({}{}{})", lhs, op, rhs)
-            }
-            Expr::Symbol(val) => val.to_string(),
-            Expr::Block(seq) => format!("{{ {} }}", seq),
-        };
-
-        write!(f, "{}", string)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct LetStmt {
-    pub ident: String,
-    pub expr: Expr,
-    pub type_ann: Option<Type>,
-}
-
-#[derive(Debug, Clone)]
-pub struct AssignStmt {
-    pub ident: String,
-    pub expr: Expr,
-}
-
-impl Display for LetStmt {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let string = if let Some(ty) = self.type_ann {
-            format!("let {} : {} = {}", self.ident, ty, self.expr)
-        } else {
-            format!("let {} = {}", self.ident, self.expr)
-        };
-
-        write!(f, "{}", string)
-    }
-}
-
-impl Display for AssignStmt {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} = {}", self.ident, self.expr)
-    }
-}
-
-// Later: LetStmt, IfStmt, FnDef, etc.
-#[derive(Debug, Clone)]
-pub enum Decl {
-    LetStmt(LetStmt),
-    Assign(AssignStmt),
-    ExprStmt(Expr),
-    Block(BlockSeq),
-}
-
-impl Decl {
-    // Need to clone so we can re-use in pratt parser loop
-    // Reasoning: parsing won't take most of the runtime
-    fn to_expr(&self) -> Result<Expr, ParseError> {
-        match self {
-            LetStmt(ref stmt) => Err(ParseError::new(&format!("'{}' is not an expression", stmt))),
-            Assign(ref stmt) => Err(ParseError::new(&format!("'{}' is not an expression", stmt))),
-            ExprStmt(expr) => Ok(expr.clone()),
-            Block(seq) => Ok(Expr::Block(seq.clone())),
-        }
-    }
-}
-
-impl Display for Decl {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let string = match self {
-            Decl::ExprStmt(expr) => expr.to_string(),
-            Decl::LetStmt(stmt) => stmt.to_string(),
-            Decl::Assign(stmt) => stmt.to_string(),
-            _ => todo!(),
-        };
-
-        write!(f, "{}", string)
-    }
-}
-
-// Last expression is value of program semantics (else Unit type)
-// Program is either one declaration or a sequence of declarations with optional last expression
-#[derive(Debug, Clone)]
-pub struct BlockSeq {
-    pub decls: Vec<Decl>,
-    pub last_expr: Option<Rc<Expr>>,
-}
-
-impl Display for BlockSeq {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let decls = self
-            .decls
-            .iter()
-            .map(|d| d.to_string() + ";")
-            .collect::<String>();
-        let expr = match &self.last_expr {
-            Some(expr) => expr.to_string(),
-            None => String::from(""),
-        };
-
-        write!(f, "{}{}", decls, expr)
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub struct ParseError {
-    msg: String,
-}
-
-impl ParseError {
-    pub fn new(err: &str) -> ParseError {
-        ParseError {
-            msg: err.to_owned(),
-        }
-    }
-}
-
-impl Display for ParseError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "[ParseError]: {}", self.msg)
-    }
-}
-
-// automatic due to Display
-impl std::error::Error for ParseError {}
-
-// Type annotation corresponding to compile time types
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Type {
-    Int,
-    Float,
-    Bool,
-    Unit,
-}
-
-impl Type {
-    /// Converts string to primitive type.
-    pub fn from_string(input: &str) -> Result<Type, ParseError> {
-        match input {
-            "int" => Ok(Self::Int),
-            "bool" => Ok(Self::Bool),
-            "float" => Ok(Self::Float),
-            _ => Err(ParseError::new(&format!(
-                "Unknown primitive type: {}",
-                input
-            ))),
-        }
-    }
-}
-
-impl Display for Type {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let string = match self {
-            Self::Int => "int",
-            Self::Bool => "bool",
-            Self::Float => "float",
-            Self::Unit => "()",
-        };
-
-        write!(f, "{}", string)
-    }
 }
 
 pub struct Parser<'inp> {
@@ -390,7 +160,7 @@ impl<'inp> Parser<'inp> {
 
         self.expect_token_type(Token::Semi, "Expected semicolon after let")?;
 
-        let stmt = LetStmt {
+        let stmt = LetStmtData {
             ident,
             expr,
             type_ann,
@@ -437,122 +207,6 @@ impl<'inp> Parser<'inp> {
         Ok(ExprStmt(sym))
     }
 
-    fn parse_blk(&mut self, _min_bp: u8) -> Result<Decl, ParseError> {
-        // BlockSeq - vec decls, last expr
-        // self.advance(); // put first tok of block into prev_tok
-        let blk = self.parse_seq()?;
-        let res = Decl::ExprStmt(Expr::Block(blk));
-        let err = format!("Expected '{}' to close block", Token::CloseBrace);
-        self.consume_token_type(Token::CloseBrace, &err)?;
-
-        dbg!("prev_tok after blk:", &self.prev_tok);
-        // dbg!("peek after blk:", &self.lexer.peek());
-
-        Ok(res)
-    }
-
-    // Parses and returns an expression (something that is definitely an expression)
-    // Return as Decl for consistency
-    // Invariant: prev_tok should contain the start of the expr before call
-    fn parse_expr(&mut self, min_bp: u8) -> Result<Decl, ParseError> {
-        let prev_tok = self.expect_prev_tok()?;
-        let mut lhs = match prev_tok {
-            Token::OpenParen => {
-                self.advance();
-                let lhs = self.parse_expr(0)?;
-                self.consume_token_type(Token::CloseParen, "Expected closing parenthesis")?;
-                Ok(lhs)
-            }
-            Token::Integer(val) => Ok(ExprStmt(Expr::Integer(*val))),
-            Token::Float(val) => Ok(ExprStmt(Expr::Float(*val))),
-            Token::Bool(val) => Ok(ExprStmt(Expr::Bool(*val))),
-            // Unary
-            Token::Minus => {
-                let ((), r_bp) = Parser::get_prefix_bp(&UnOpType::Negate);
-                self.advance();
-                let rhs = self.parse_expr(r_bp)?;
-                let res = Expr::UnOpExpr(UnOpType::Negate, Box::new(rhs.to_expr()?));
-                Ok(ExprStmt(res))
-            }
-            Token::Bang => {
-                let ((), r_bp) = Parser::get_prefix_bp(&UnOpType::Not);
-                self.advance();
-                let rhs = self.parse_expr(r_bp)?;
-                let res = Expr::UnOpExpr(UnOpType::Not, Box::new(rhs.to_expr()?));
-                Ok(ExprStmt(res))
-            }
-            Token::Ident(id) => {
-                // Three cases: id, id = ..., id() => load var, assignment, func call
-                // Handle just id first
-                // dbg!(&self.lexer.peek());
-                self.parse_ident(id.to_string(), min_bp)
-            }
-            Token::OpenBrace => self.parse_blk(min_bp),
-            _ => Err(ParseError::new(&format!(
-                "Unexpected token - not an expression: '{}'",
-                prev_tok
-            ))),
-        }?;
-
-        loop {
-            if self.lexer.peek().is_none()
-                || self.is_peek_token_type(Token::Semi)
-                || self.is_peek_token_type(Token::CloseBrace)
-                || self.is_peek_token_type(Token::CloseParen)
-            {
-                break;
-            }
-
-            let tok = self
-                .lexer
-                .peek()
-                .expect("Should have token")
-                .clone()
-                .expect("Lexer should not fail");
-
-            dbg!("Prev_tok before from_token:", &self.prev_tok);
-            let binop = BinOpType::from_token(&tok);
-
-            // if we just parsed a block and peek token is not an infix, don't continue - to support blocks as stmts and exprs
-            // match (&self.prev_tok, &binop) {
-            //     (&Some(Token::CloseBrace), &Err(_)) => {
-            //         break;
-            //     }
-            //     _ => (),
-            // };
-
-            if let (&Some(Token::CloseBrace), &Err(_)) = (&self.prev_tok, &binop) {
-                break;
-            }
-
-            let binop = binop?;
-
-            let (l_bp, r_bp) = Parser::get_infix_bp(&binop);
-            // self.advance();
-            if l_bp < min_bp {
-                break;
-            }
-
-            // only advance after the break
-            // before adv: peek is at infix op
-            // after adv: peek crosses infix op, then reaches the next infix op and prev_tok = next atom
-            // e.g 2+3*4: before adv peek is at +, after adv peek is at *
-            self.advance();
-            self.advance();
-            let rhs = self.parse_expr(r_bp)?;
-
-            // dbg!(&lhs, &rhs);
-
-            lhs = ExprStmt(Expr::BinOpExpr(
-                binop,
-                Box::new(lhs.to_expr()?),
-                Box::new(rhs.to_expr()?),
-            ));
-        }
-
-        Ok(lhs)
-    }
-
     // Parses and returns a declaration. At this stage "declaration" includes values, let assignments, fn declarations, etc
     // Because treatment of something as an expression can vary based on whether it is last value or not, whether semicolon comes after, etc.
     fn parse_decl(&mut self) -> Result<Decl, ParseError> {
@@ -574,66 +228,6 @@ impl<'inp> Parser<'inp> {
         }
     }
 
-    pub fn parse_seq(&mut self) -> Result<BlockSeq, ParseError> {
-        let mut decls: Vec<Decl> = vec![];
-        let mut last_expr: Option<Expr> = None;
-
-        while self.lexer.peek().is_some() {
-            // parsing a block: break so parse_blk can consume CloseBrace
-            if self.is_peek_token_type(Token::CloseBrace) {
-                break;
-            }
-
-            self.advance();
-            // dbg!("prev_tok:", &self.prev_tok);
-
-            let expr = self.parse_decl()?;
-            dbg!("Got expr:", &expr);
-            // dbg!("Peek:", &self.lexer.peek());
-
-            // end of block: lexer empty OR curly brace (TODO add curly later)
-            if self.lexer.peek().is_none() || self.is_peek_token_type(Token::CloseBrace) {
-                last_expr.replace(expr.to_expr()?);
-                break;
-            }
-            // semicolon: parse as stmt
-            // let semi = expect_token_body!(Semi, "semicolon");
-            // TODO: handle block as expr stmt here - block as last expr was already handled above and we break
-            else if self.is_peek_token_type(Token::Semi) {
-                decls.push(expr);
-                self.advance();
-                // dbg!("Peek after semi:", &self.lexer.peek());
-            }
-            // check if expr is a block-like expression (if so, treat as statement)
-            // if it was the tail expr it should be handled at the first branch
-            else if self
-                .prev_tok
-                .as_ref()
-                .map(|tok| tok.eq(&Token::CloseBrace))
-                .unwrap_or(false)
-            {
-                decls.push(expr);
-            }
-            // Syntax error
-            else {
-                dbg!("prev_tok:", &self.prev_tok);
-                let is_brace = &self
-                    .prev_tok
-                    .as_ref()
-                    .map(|tok| tok.eq(&Token::CloseBrace))
-                    .unwrap_or(false);
-                dbg!("prev_tok is close brace:", is_brace);
-                dbg!("peek:", &self.lexer.peek());
-                return Err(ParseError::new("Expected semicolon"));
-            }
-        }
-        // dbg!(&last_expr, &decls);
-        Ok(BlockSeq {
-            decls,
-            last_expr: last_expr.map(Rc::new),
-        })
-    }
-
     // Implicit block
     pub fn parse(mut self) -> Result<BlockSeq, ParseError> {
         self.parse_seq()
@@ -645,7 +239,7 @@ mod tests {
     use super::*;
     use logos::Logos;
 
-    fn test_parse(inp: &str, expected: &str) {
+    pub fn test_parse(inp: &str, expected: &str) {
         let lex = Token::lexer(inp);
         let parser = Parser::new(lex);
         let res = parser.parse().expect("Should parse");
@@ -653,7 +247,7 @@ mod tests {
         assert_eq!(res.to_string(), expected);
     }
 
-    fn test_parse_err(inp: &str, exp_err: &str, contains: bool) {
+    pub fn test_parse_err(inp: &str, exp_err: &str, contains: bool) {
         let lex = Token::lexer(inp);
         let parser = Parser::new(lex);
         let res = parser.parse().expect_err("Should err");
@@ -876,69 +470,5 @@ mod tests {
             "let x : int = 20; x = true; x",
             "let x : int = 20;x = true;x",
         );
-    }
-
-    #[test]
-    fn test_parse_blk_simple() {
-        //     test_parse("{ 2 }", "{ 2 }");
-        //     test_parse("{ 2+3 }", "{ (2+3) }");
-        test_parse("{ 2; }", "{ 2; }");
-        // test_parse("{ 2; 3; }", "{ 2;3; }");
-        // test_parse("{ 2; 3 }", "{ 2;3 }");
-        // test_parse("{ 2; 3; 4 }", "{ 2;3;4 }");
-    }
-
-    #[test]
-    fn test_parse_blk_more() {
-        // blk expr at the end
-        let t = r"
-        let x = 2;
-        {
-            let x = 3;
-            x
-        }
-        ";
-        test_parse(t, "let x = 2;{ let x = 3;x }");
-
-        // blk stmt at the end
-        let t = r"
-        let x = 2;
-        {
-            let x = 3;
-            x
-        };
-        ";
-        test_parse(t, "let x = 2;{ let x = 3;x };");
-
-        // blk in middle with semi
-        let t = r"
-        let x = 2;
-        {
-            let x = 3;
-            x
-        };
-        x
-        ";
-        test_parse(t, "let x = 2;{ let x = 3;x };x");
-
-        // blk in the middle without semi - we allow this to parse but type checker will reject (blk stmt should have unit) (?)
-        let t = r"
-        {
-            let x = 3;
-            x
-        }
-        y+2
-        ";
-        test_parse(t, "{ let x = 3;x };(y+2)");
-
-        let t = r"
-        let y = 10;
-        {
-            let x = 3;
-            x
-        };
-        y+2;
-        ";
-        test_parse(t, "let y = 10;{ let x = 3;x };(y+2);");
     }
 }

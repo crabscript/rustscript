@@ -1,7 +1,7 @@
-use parser::{BinOpType, Type, UnOpType};
+use parser::structs::*;
 use std::{collections::HashMap, fmt::Display};
 
-use parser::{BlockSeq, Decl, Expr};
+use parser::structs::{BlockSeq, Decl, Expr};
 
 #[derive(Debug, PartialEq)]
 pub struct TypeErrors {
@@ -275,8 +275,8 @@ impl Default for TypeErrors {
 
 #[cfg(test)]
 mod tests {
+    use parser::structs::Type;
     use parser::Parser;
-    use parser::Type;
 
     use super::TypeChecker;
 

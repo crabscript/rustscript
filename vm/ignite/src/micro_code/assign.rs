@@ -34,6 +34,11 @@ pub fn assign(rt: &mut Runtime, sym: Symbol) -> Result<()> {
         env_ptr = t;
     }
 
+    // parent
+    // if env_ptr.borrow().parent.is_none() && !env_ptr.borrow().env.contains_key(&sym){
+    //     return Err(VmError::SymbolNotFound(sym.to_string()).into());
+    // }
+
     env_ptr.borrow_mut().set(sym, val);
 
     Ok(())

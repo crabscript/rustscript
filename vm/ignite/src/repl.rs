@@ -28,8 +28,6 @@ pub fn ignite_repl(type_check: bool) -> Result<()> {
     println!("Welcome to the RustScript REPL! Type /exit to exit.");
     println!();
 
-    // let mut rt:Runtime = Runtime::default();
-
     loop {
         let readline = rl.readline(">>> ");
 

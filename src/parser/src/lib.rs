@@ -445,7 +445,8 @@ impl<'inp> Parser<'inp> {
         let err = format!("Expected '{}' to close block", Token::CloseBrace);
         self.consume_token_type(Token::CloseBrace, &err)?;
 
-        // dbg!("prev_tok after blk:", &self.prev_tok);
+        dbg!("prev_tok after blk:", &self.prev_tok);
+        // dbg!("peek after blk:", &self.lexer.peek());
 
         Ok(res)
     }
@@ -509,8 +510,23 @@ impl<'inp> Parser<'inp> {
                 .clone()
                 .expect("Lexer should not fail");
 
-            // dbg!("Prev_tok before from_token:", &self.prev_tok);
-            let binop = BinOpType::from_token(&tok)?;
+            dbg!("Prev_tok before from_token:", &self.prev_tok);
+            let binop = BinOpType::from_token(&tok);
+
+            // if we just parsed a block and peek token is not an infix, don't continue - to support blocks as stmts and exprs
+            // match (&self.prev_tok, &binop) {
+            //     (&Some(Token::CloseBrace), &Err(_)) => {
+            //         break;
+            //     }
+            //     _ => (),
+            // };
+
+            if let (&Some(Token::CloseBrace), &Err(_)) = (&self.prev_tok, &binop) {
+                break;
+            }
+
+            let binop = binop?;
+
             let (l_bp, r_bp) = Parser::get_infix_bp(&binop);
             // self.advance();
             if l_bp < min_bp {
@@ -572,7 +588,7 @@ impl<'inp> Parser<'inp> {
             // dbg!("prev_tok:", &self.prev_tok);
 
             let expr = self.parse_decl()?;
-            // dbg!("Got expr:", &expr);
+            dbg!("Got expr:", &expr);
             // dbg!("Peek:", &self.lexer.peek());
 
             // end of block: lexer empty OR curly brace (TODO add curly later)
@@ -587,17 +603,26 @@ impl<'inp> Parser<'inp> {
                 decls.push(expr);
                 self.advance();
                 // dbg!("Peek after semi:", &self.lexer.peek());
-
-                // if self.is_peek_token_type(Token::CloseBrace) {
-                //     break;
-                // }
             }
-            // TODO: check if expr is a block-like expression (if so, treat as statement)
-            // if it was the tail it should be handled at the first branch
-
+            // check if expr is a block-like expression (if so, treat as statement)
+            // if it was the tail expr it should be handled at the first branch
+            else if self
+                .prev_tok
+                .as_ref()
+                .map(|tok| tok.eq(&Token::CloseBrace))
+                .unwrap_or(false)
+            {
+                decls.push(expr);
+            }
             // Syntax error
             else {
                 dbg!("prev_tok:", &self.prev_tok);
+                let is_brace = &self
+                    .prev_tok
+                    .as_ref()
+                    .map(|tok| tok.eq(&Token::CloseBrace))
+                    .unwrap_or(false);
+                dbg!("prev_tok is close brace:", is_brace);
                 dbg!("peek:", &self.lexer.peek());
                 return Err(ParseError::new("Expected semicolon"));
             }
@@ -866,46 +891,54 @@ mod tests {
     #[test]
     fn test_parse_blk_more() {
         // blk expr at the end
-        // let t = r"
-        // let x = 2;
-        // {
-        //     let x = 3;
-        //     x
-        // }
-        // ";
-        // test_parse(t, "let x = 2;{ let x = 3;x }");
-
-        // // blk stmt at the end
-        // let t = r"
-        // let x = 2;
-        // {
-        //     let x = 3;
-        //     x
-        // };
-        // ";
-        // test_parse(t, "let x = 2;{ let x = 3;x };");
-
-        // // blk in middle with semi
-        // let t = r"
-        // let x = 2;
-        // {
-        //     let x = 3;
-        //     x
-        // };
-        // x
-        // ";
-        // test_parse(t, "let x = 2;{ let x = 3;x };x");
-
-        // // blk in the middle without semi - we allow this to parse but type checker will reject (blk stmt should have unit) (?)
-        // currently failing
         let t = r"
         let x = 2;
         {
             let x = 3;
             x
         }
+        ";
+        test_parse(t, "let x = 2;{ let x = 3;x }");
+
+        // blk stmt at the end
+        let t = r"
+        let x = 2;
+        {
+            let x = 3;
+            x
+        };
+        ";
+        test_parse(t, "let x = 2;{ let x = 3;x };");
+
+        // blk in middle with semi
+        let t = r"
+        let x = 2;
+        {
+            let x = 3;
+            x
+        };
         x
         ";
-        // test_parse(t, "let x = 2;{ let x = 3;x };x");
+        test_parse(t, "let x = 2;{ let x = 3;x };x");
+
+        // blk in the middle without semi - we allow this to parse but type checker will reject (blk stmt should have unit) (?)
+        let t = r"
+        {
+            let x = 3;
+            x
+        }
+        y+2
+        ";
+        test_parse(t, "{ let x = 3;x };(y+2)");
+
+        let t = r"
+        let y = 10;
+        {
+            let x = 3;
+            x
+        };
+        y+2;
+        ";
+        test_parse(t, "let y = 10;{ let x = 3;x };(y+2);");
     }
 }

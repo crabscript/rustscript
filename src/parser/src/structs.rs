@@ -64,7 +64,7 @@ pub enum Expr {
     Bool(bool),
     UnOpExpr(UnOpType, Box<Expr>),
     BinOpExpr(BinOpType, Box<Expr>, Box<Expr>),
-    Block(BlockSeq), // expr can be a block
+    BlockExpr(BlockSeq), // expr can be a block
 }
 
 impl Display for Expr {
@@ -80,7 +80,7 @@ impl Display for Expr {
                 format!("({}{}{})", lhs, op, rhs)
             }
             Expr::Symbol(val) => val.to_string(),
-            Expr::Block(seq) => format!("{{ {} }}", seq),
+            Expr::BlockExpr(seq) => format!("{{ {} }}", seq),
         };
 
         write!(f, "{}", string)
@@ -139,7 +139,7 @@ impl Decl {
                 Err(ParseError::new(&format!("'{}' is not an expression", stmt)))
             }
             Self::ExprStmt(expr) => Ok(expr.clone()),
-            Self::Block(seq) => Ok(Expr::Block(seq.clone())),
+            Self::Block(seq) => Ok(Expr::BlockExpr(seq.clone())),
         }
     }
 }

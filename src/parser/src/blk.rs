@@ -9,7 +9,7 @@ impl<'inp> Parser<'inp> {
         // BlockSeq - vec decls, last expr
         // self.advance(); // put first tok of block into prev_tok
         let blk = self.parse_seq()?;
-        let res = Decl::ExprStmt(Expr::Block(blk));
+        let res = Decl::ExprStmt(Expr::BlockExpr(blk));
         let err = format!("Expected '{}' to close block", Token::CloseBrace);
         self.consume_token_type(Token::CloseBrace, &err)?;
 

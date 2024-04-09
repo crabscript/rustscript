@@ -220,7 +220,6 @@ impl<'prog> TypeChecker<'prog> {
                     return Err(TypeErrors::new_err(&e));
                 }
             }
-            _ => todo!(),
         }
 
         Ok(())

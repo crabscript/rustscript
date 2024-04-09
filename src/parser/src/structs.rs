@@ -124,7 +124,6 @@ pub enum Decl {
     LetStmt(LetStmtData),
     Assign(AssignStmt),
     ExprStmt(Expr),
-    Block(BlockSeq),
 }
 
 impl Decl {
@@ -139,7 +138,6 @@ impl Decl {
                 Err(ParseError::new(&format!("'{}' is not an expression", stmt)))
             }
             Self::ExprStmt(expr) => Ok(expr.clone()),
-            Self::Block(seq) => Ok(Expr::BlockExpr(seq.clone())),
         }
     }
 }
@@ -150,7 +148,6 @@ impl Display for Decl {
             Decl::ExprStmt(expr) => expr.to_string(),
             Decl::LetStmt(stmt) => stmt.to_string(),
             Decl::Assign(stmt) => stmt.to_string(),
-            _ => todo!(),
         };
 
         write!(f, "{}", string)

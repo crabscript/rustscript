@@ -84,7 +84,7 @@ impl Compiler {
                 arr.push(ByteCode::LD(sym.to_string()));
             }
             Expr::BlockExpr(blk) => {
-                Compiler::compile_block(blk, arr)?;
+                Compiler::compile_block(blk, arr, false)?;
             }
         }
 
@@ -107,11 +107,15 @@ impl Compiler {
         Ok(())
     }
 
-    fn compile_block(blk: &BlockSeq, arr: &mut Vec<ByteCode>) -> Result<(), CompileError> {
+    fn compile_block(
+        blk: &BlockSeq,
+        arr: &mut Vec<ByteCode>,
+        global: bool,
+    ) -> Result<(), CompileError> {
         let decls = &blk.decls;
         let syms = &blk.symbols;
 
-        if !syms.is_empty() {
+        if !global && !syms.is_empty() {
             arr.push(ByteCode::ENTERSCOPE(syms.clone()));
         }
 
@@ -126,7 +130,7 @@ impl Compiler {
             Compiler::compile_expr(expr.as_ref(), arr)?;
         }
 
-        if !syms.is_empty() {
+        if !global && !syms.is_empty() {
             arr.push(ByteCode::EXITSCOPE);
         }
 
@@ -158,7 +162,7 @@ impl Compiler {
 
     pub fn compile(self) -> anyhow::Result<Vec<ByteCode>, CompileError> {
         let mut bytecode: Vec<ByteCode> = vec![];
-        Compiler::compile_block(&self.program, &mut bytecode)?;
+        Compiler::compile_block(&self.program, &mut bytecode, true)?;
         bytecode.push(ByteCode::DONE);
 
         Ok(bytecode)

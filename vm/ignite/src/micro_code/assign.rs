@@ -14,12 +14,28 @@ use crate::{Runtime, VmError};
 /// # Errors
 ///
 /// If the stack is empty.
+use std::rc::Rc;
 pub fn assign(rt: &mut Runtime, sym: Symbol) -> Result<()> {
     let val = rt
         .operand_stack
         .pop()
         .ok_or(VmError::OperandStackUnderflow)?;
-    rt.env.borrow_mut().set(sym, val);
+
+    // to handle e.g let x = 2; { x = 10; } x
+    // when the variable isnt in the current env we need to set the outer env's binding
+
+    let mut env_ptr = Rc::clone(&rt.env);
+    loop {
+        if env_ptr.borrow().env.contains_key(&sym) || env_ptr.borrow().parent.is_none() {
+            break;
+        }
+
+        let t = Rc::clone(env_ptr.borrow().parent.as_ref().unwrap());
+        env_ptr = t;
+    }
+
+    env_ptr.borrow_mut().set(sym, val);
+
     Ok(())
 }
 

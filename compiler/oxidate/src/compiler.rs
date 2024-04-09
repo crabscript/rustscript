@@ -90,13 +90,13 @@ impl Compiler {
     }
 
     fn compile_assign(
-        ident: String,
+        ident: &String,
         expr: &Expr,
         arr: &mut Vec<ByteCode>,
     ) -> Result<(), CompileError> {
         Compiler::compile_expr(expr, arr)?;
 
-        let assign = ByteCode::ASSIGN(ident);
+        let assign = ByteCode::ASSIGN(ident.to_owned());
         arr.push(assign);
 
         // Load unit after stmt to be consistent with popping after every stmt
@@ -105,16 +105,33 @@ impl Compiler {
         Ok(())
     }
 
-    fn compile_decl(decl: Decl, arr: &mut Vec<ByteCode>) -> Result<(), CompileError> {
+    fn compile_block(blk: &BlockSeq, arr: &mut Vec<ByteCode>) -> Result<(), CompileError> {
+        let decls = &blk.decls;
+
+        for decl in decls {
+            Compiler::compile_decl(decl, arr)?;
+            // pop result of statements - need to ensure all stmts produce something (either Unit or something else)
+            arr.push(ByteCode::POP);
+        }
+
+        // Handle expr
+        if let Some(expr) = &blk.last_expr {
+            Compiler::compile_expr(expr.as_ref(), arr)?;
+        }
+
+        Ok(())
+    }
+
+    fn compile_decl(decl: &Decl, arr: &mut Vec<ByteCode>) -> Result<(), CompileError> {
         match decl {
             Decl::ExprStmt(expr) => {
-                Compiler::compile_expr(&expr, arr)?;
+                Compiler::compile_expr(expr, arr)?;
             }
             Decl::LetStmt(stmt) => {
-                Compiler::compile_assign(stmt.ident, &stmt.expr, arr)?;
+                Compiler::compile_assign(&stmt.ident, &stmt.expr, arr)?;
             }
             Decl::Assign(stmt) => {
-                Compiler::compile_assign(stmt.ident, &stmt.expr, arr)?;
+                Compiler::compile_assign(&stmt.ident, &stmt.expr, arr)?;
             }
             _ => unimplemented!(),
         };
@@ -123,22 +140,8 @@ impl Compiler {
     }
 
     pub fn compile(self) -> anyhow::Result<Vec<ByteCode>, CompileError> {
-        // println!("Compile");
         let mut bytecode: Vec<ByteCode> = vec![];
-        let decls = self.program.decls;
-
-        for decl in decls {
-            Compiler::compile_decl(decl, &mut bytecode)?;
-            // pop result of statements - need to ensure all stmts produce something (either Unit or something else)
-            bytecode.push(ByteCode::POP);
-        }
-
-        // Handle expr
-        if let Some(expr) = self.program.last_expr {
-            Compiler::compile_expr(expr.as_ref(), &mut bytecode)?;
-            // bytecode.push(code);
-        }
-
+        Compiler::compile_block(&self.program, &mut bytecode)?;
         bytecode.push(ByteCode::DONE);
 
         Ok(bytecode)

@@ -1,8 +1,9 @@
 use parser::structs::*;
-// use std::rc::Rc;
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::{collections::HashMap, fmt::Display};
 
-use parser::structs::{BlockSeq, Decl, Expr};
+use parser::structs::{BlockSeq, Decl, Expr, Type};
 
 #[derive(Debug, PartialEq)]
 pub struct TypeErrors {
@@ -61,12 +62,54 @@ pub struct TypeChecker<'prog> {
     program: &'prog BlockSeq,
 }
 
-type TyEnv = HashMap<String, Type>;
+// type TyEnv = HashMap<String, Type>;
 
-// struct TyEnv {
-//     pub env: HashMap<String, Type>,
-//     pub parent: Option<Rc<RefCell<HashMap<String, Type>>>>
-// }
+type Env = HashMap<String, Type>;
+#[allow(dead_code)]
+struct TyEnv {
+    pub env: Rc<RefCell<Env>>,
+    pub parent: Option<Rc<RefCell<Env>>>,
+}
+
+impl TyEnv {
+    pub fn new() -> TyEnv {
+        TyEnv {
+            env: Rc::new(RefCell::new(HashMap::new())),
+            parent: None,
+        }
+    }
+
+    pub fn get(&self, ident: &str) -> Result<Type, TypeErrors> {
+        let env = self.env.borrow();
+
+        let ty = env.get(ident);
+
+        if ty.is_none() {
+            let e = format!("Identifier '{}' not declared", ident);
+            return Err(TypeErrors::new_err(&e));
+        }
+
+        let ty = ty.unwrap().to_owned();
+        Ok(ty)
+    }
+
+    pub fn insert(&mut self, ident: String, type_ann: Type) {
+        self.env.borrow_mut().insert(ident, type_ann);
+    }
+
+    /// Returns a new type environment with self.env as parent
+    // TODO: Add symbols to uninit
+    #[allow(dead_code)]
+    pub fn enter_scope(&self) -> TyEnv {
+        let new_env = Rc::new(RefCell::new(HashMap::new()));
+        let parent = Rc::clone(&self.env);
+
+        TyEnv {
+            env: new_env,
+            parent: Some(parent),
+        }
+    }
+}
 
 impl<'prog> TypeChecker<'prog> {
     pub fn new(program: &BlockSeq) -> TypeChecker<'_> {
@@ -129,15 +172,7 @@ impl<'prog> TypeChecker<'prog> {
             Expr::Integer(_) => Type::Int,
             Expr::Float(_) => Type::Float,
             Expr::Bool(_) => Type::Bool,
-            Expr::Symbol(ident) => {
-                let get_type = ty_env.get(ident);
-                if get_type.is_none() {
-                    let e = format!("Identifier '{}' not declared", ident);
-                    return Err(TypeErrors::new_err(&e));
-                }
-
-                get_type.expect("Should have type").to_owned()
-            }
+            Expr::Symbol(ident) => ty_env.get(ident)?,
             Expr::UnOpExpr(op, expr) => {
                 return TypeChecker::check_unop(op, expr, ty_env);
             }
@@ -155,7 +190,7 @@ impl<'prog> TypeChecker<'prog> {
     }
 
     /// Type check declaration and add errors if any
-    fn check_decl(decl: &Decl, ty_env: &mut HashMap<String, Type>) -> Result<(), TypeErrors> {
+    fn check_decl(decl: &Decl, ty_env: &mut TyEnv) -> Result<(), TypeErrors> {
         // dbg!("Type checking decl:", decl);
         match decl {
             Decl::LetStmt(stmt) => {
@@ -234,7 +269,8 @@ impl<'prog> TypeChecker<'prog> {
     pub fn type_check(self) -> Result<Type, TypeErrors> {
         let mut errs = TypeErrors::new();
         // map bindings to types
-        let mut ty_env: HashMap<String, Type> = HashMap::new();
+        // let mut ty_env: HashMap<String, Type> = HashMap::new();
+        let mut ty_env = TyEnv::new();
 
         for decl in self.program.decls.iter() {
             if let Err(mut decl_errs) = TypeChecker::check_decl(decl, &mut ty_env) {

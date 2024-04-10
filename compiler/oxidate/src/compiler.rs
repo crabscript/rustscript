@@ -84,7 +84,7 @@ impl Compiler {
                 arr.push(ByteCode::LD(sym.to_string()));
             }
             Expr::BlockExpr(blk) => {
-                Compiler::compile_block(blk, arr, false)?;
+                Compiler::compile_block(blk, arr)?;
             }
         }
 
@@ -107,15 +107,11 @@ impl Compiler {
         Ok(())
     }
 
-    fn compile_block(
-        blk: &BlockSeq,
-        arr: &mut Vec<ByteCode>,
-        global: bool,
-    ) -> Result<(), CompileError> {
+    fn compile_block(blk: &BlockSeq, arr: &mut Vec<ByteCode>) -> Result<(), CompileError> {
         let decls = &blk.decls;
         let syms = &blk.symbols;
 
-        if !global && !syms.is_empty() {
+        if !syms.is_empty() {
             arr.push(ByteCode::ENTERSCOPE(syms.clone()));
         }
 
@@ -130,7 +126,7 @@ impl Compiler {
             Compiler::compile_expr(expr.as_ref(), arr)?;
         }
 
-        if !global && !syms.is_empty() {
+        if !syms.is_empty() {
             arr.push(ByteCode::EXITSCOPE);
         }
 
@@ -162,7 +158,7 @@ impl Compiler {
 
     pub fn compile(self) -> anyhow::Result<Vec<ByteCode>, CompileError> {
         let mut bytecode: Vec<ByteCode> = vec![];
-        Compiler::compile_block(&self.program, &mut bytecode, true)?;
+        Compiler::compile_block(&self.program, &mut bytecode)?;
         bytecode.push(ByteCode::DONE);
 
         Ok(bytecode)
@@ -277,13 +273,22 @@ mod tests {
     #[test]
     fn test_compile_let() {
         let res = exp_compile_str("let x = 2;");
-        let exp = vec![LDC(Int(2)), ASSIGN("x".to_string()), LDC(Unit), POP, DONE];
+        let exp = vec![
+            ENTERSCOPE(vec!["x".to_string()]),
+            LDC(Int(2)),
+            ASSIGN("x".to_string()),
+            LDC(Unit),
+            POP,
+            EXITSCOPE,
+            DONE,
+        ];
 
         assert_eq!(res, exp);
 
         // stmt last
         let res = exp_compile_str("let x = 2; let y = 3; ");
         let exp = vec![
+            ENTERSCOPE(vec!["x".to_string(), "y".to_string()]),
             LDC(Int(2)),
             ASSIGN("x".to_string()),
             LDC(Unit),
@@ -292,6 +297,7 @@ mod tests {
             ASSIGN("y".to_string()),
             LDC(Unit),
             POP,
+            EXITSCOPE,
             DONE,
         ];
 
@@ -300,6 +306,7 @@ mod tests {
         // many
         let res = exp_compile_str("let x = 2; let y = 3; 40");
         let exp = vec![
+            ENTERSCOPE(vec!["x".to_string(), "y".to_string()]),
             LDC(Int(2)),
             ASSIGN("x".to_string()),
             LDC(Unit),
@@ -309,6 +316,7 @@ mod tests {
             LDC(Unit),
             POP,
             LDC(Int(40)),
+            EXITSCOPE,
             DONE,
         ];
 
@@ -319,6 +327,7 @@ mod tests {
     fn test_compile_sym() {
         let res = exp_compile_str("let x = 2; -x+2;");
         let exp = vec![
+            ENTERSCOPE(vec!["x".to_string()]),
             LDC(Int(2)),
             ASSIGN("x".to_string()),
             LDC(Unit),
@@ -328,12 +337,14 @@ mod tests {
             LDC(Int(2)),
             BINOP(bytecode::BinOp::Add),
             POP,
+            EXITSCOPE,
             DONE,
         ];
         assert_eq!(res, exp);
 
         let res = exp_compile_str("let x = 2; let y = x; x*5+2");
         let exp = vec![
+            ENTERSCOPE(vec!["x".to_string(), "y".to_string()]),
             LDC(Int(2)),
             ASSIGN("x".to_string()),
             LDC(Unit),
@@ -347,6 +358,7 @@ mod tests {
             BINOP(bytecode::BinOp::Mul),
             LDC(Int(2)),
             BINOP(bytecode::BinOp::Add),
+            EXITSCOPE,
             DONE,
         ];
 
@@ -384,6 +396,7 @@ mod tests {
     fn test_compile_assign() {
         let res = exp_compile_str("let x = 2; x = 3;");
         let exp = vec![
+            ENTERSCOPE(vec!["x".to_string()]),
             LDC(Int(2)),
             ASSIGN("x".to_string()),
             LDC(Unit),
@@ -392,6 +405,7 @@ mod tests {
             ASSIGN("x".to_string()),
             LDC(Unit),
             POP,
+            EXITSCOPE,
             DONE,
         ];
         assert_eq!(res, exp);
@@ -399,6 +413,7 @@ mod tests {
         // diff types
         let res = exp_compile_str("let x = 2; x = true;");
         let exp = vec![
+            ENTERSCOPE(vec!["x".to_string()]),
             LDC(Int(2)),
             ASSIGN("x".to_string()),
             LDC(Unit),
@@ -407,6 +422,7 @@ mod tests {
             ASSIGN("x".to_string()),
             LDC(Unit),
             POP,
+            EXITSCOPE,
             DONE,
         ];
         assert_eq!(res, exp);

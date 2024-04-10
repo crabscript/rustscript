@@ -103,7 +103,6 @@ impl TyEnv {
     // }
 }
 
-
 /// Struct to enable type checking by encapsulating type environment.
 pub struct TypeChecker<'prog> {
     program: &'prog BlockSeq,

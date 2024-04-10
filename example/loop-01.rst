@@ -1,4 +1,4 @@
-let i = 0
+let i = 0;
 
 loop {
   if i > 10 {

@@ -244,5 +244,6 @@ mod tests {
             child_env.borrow().get(&"y".to_string()),
             Some(Value::Int(43))
         );
+        assert!(!child_env.borrow().env.contains_key(&"x".to_string()));
     }
 }

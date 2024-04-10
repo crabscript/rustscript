@@ -2,7 +2,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use anyhow::Result;
 
-use crate::{Environment, FnType, Value, W};
+use crate::{Environment, FnType, Value};
 
 pub const SIN_SYM: &str = "sin";
 
@@ -12,7 +12,7 @@ pub fn sin(global_env: Rc<RefCell<Environment>>) -> Value {
         sym: SIN_SYM.into(),
         prms: vec!["x".into()],
         addr: 0,
-        env: W(global_env),
+        env: global_env,
     }
 }
 

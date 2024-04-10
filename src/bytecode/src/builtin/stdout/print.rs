@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use crate::{Environment, FnType, Value, W};
+use crate::{Environment, FnType, Value};
 
 pub const PRINT_SYM: &str = "print";
 
@@ -10,7 +10,7 @@ pub fn print(global_env: Rc<RefCell<Environment>>) -> Value {
         sym: PRINT_SYM.into(),
         prms: vec!["s".into()],
         addr: 0,
-        env: W(global_env),
+        env: global_env,
     }
 }
 

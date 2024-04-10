@@ -7,7 +7,7 @@ use std::{
 
 use anyhow::Result;
 
-use crate::{builtin, ByteCodeError, Symbol, Value, W};
+use crate::{builtin, ByteCodeError, Symbol, Value};
 
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Environment {
@@ -172,27 +172,6 @@ impl Environment {
         } else {
             Err(ByteCodeError::UnboundedName { name: sym }.into())
         }
-    }
-}
-
-/// Implement Clone trait to satisfy the requirements of Value enum.
-impl Clone for W<Rc<RefCell<Environment>>> {
-    fn clone(&self) -> Self {
-        W(self.0.clone())
-    }
-}
-
-/// Implement PartialEq trait to satisfy the requirements of Value enum.
-impl PartialEq for W<Rc<RefCell<Environment>>> {
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
-    }
-}
-
-/// Implement Debug trait to satisfy the requirements of Value enum.
-impl Debug for W<Rc<RefCell<Environment>>> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.0.borrow().fmt(f)
     }
 }
 

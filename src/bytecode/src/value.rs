@@ -2,7 +2,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{ByteCodeError, Environment, Symbol, W};
+use crate::{ByteCodeError, Environment, Symbol};
 
 /// The values that can be stored on the operant stack.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -19,7 +19,7 @@ pub enum Value {
         sym: Symbol,
         prms: Vec<Symbol>,
         addr: usize,
-        env: W<Rc<RefCell<Environment>>>,
+        env: Rc<RefCell<Environment>>,
     },
 }
 

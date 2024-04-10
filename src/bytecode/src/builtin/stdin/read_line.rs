@@ -2,7 +2,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use anyhow::Result;
 
-use crate::{Environment, FnType, Value, W};
+use crate::{Environment, FnType, Value};
 
 pub const READ_LINE_SYM: &str = "read_line";
 
@@ -12,7 +12,7 @@ pub fn read_line(global_env: Rc<RefCell<Environment>>) -> Value {
         sym: READ_LINE_SYM.into(),
         prms: vec![],
         addr: 0,
-        env: W(global_env),
+        env: global_env,
     }
 }
 

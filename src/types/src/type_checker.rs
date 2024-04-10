@@ -1,4 +1,5 @@
 use parser::structs::*;
+// use std::rc::Rc;
 use std::{collections::HashMap, fmt::Display};
 
 use parser::structs::{BlockSeq, Decl, Expr};
@@ -61,6 +62,11 @@ pub struct TypeChecker<'prog> {
 }
 
 type TyEnv = HashMap<String, Type>;
+
+// struct TyEnv {
+//     pub env: HashMap<String, Type>,
+//     pub parent: Option<Rc<RefCell<HashMap<String, Type>>>>
+// }
 
 impl<'prog> TypeChecker<'prog> {
     pub fn new(program: &BlockSeq) -> TypeChecker<'_> {
@@ -444,5 +450,14 @@ mod tests {
 
         let t = "let x : int = !20; x = !true; x";
         expect_err(t,"[TypeError]: Can't apply logical NOT to type int\n[TypeError]: 'x' declared with type int but assigned type bool", false);
+
+        let t = "let y = 2; x = 10;";
+        expect_err(t, "Identifier 'x' not declared", true);
+    }
+
+    #[test]
+    fn test_type_check_blk() {
+        let t = "{ 2 }";
+        // expect_pass(t, Type::Int);
     }
 }

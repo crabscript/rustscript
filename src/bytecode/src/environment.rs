@@ -1,6 +1,13 @@
-use std::{cell::RefCell, collections::HashMap, fmt::Debug, rc::Rc};
+use std::{
+    cell::RefCell,
+    collections::{hash_map::Entry, HashMap},
+    fmt::Debug,
+    rc::Rc,
+};
 
-use crate::{builtin, Symbol, Value, W};
+use anyhow::Result;
+
+use crate::{builtin, ByteCodeError, Symbol, Value, W};
 
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Environment {
@@ -128,9 +135,43 @@ impl Environment {
         }
     }
 
-    /// Set the value of a symbol in the frame.
+    /// Set the value of a symbol in the current environment.
+    ///
+    /// # Arguments
+    ///
+    /// * `sym` - The symbol whose value is to be set.
+    /// * `val` - The value to be set.
     pub fn set(&mut self, sym: impl Into<Symbol>, val: impl Into<Value>) {
         self.env.insert(sym.into(), val.into());
+    }
+
+    /// Update the value of a symbol in the current environment.
+    /// If the symbol is not found in the current environment, the parent environment is searched.
+    /// If the symbol is not found in the environment chain, an error is returned.
+    ///
+    /// # Arguments
+    ///
+    /// * `sym` - The symbol whose value is to be updated.
+    /// * `val` - The new value to be set.
+    ///
+    /// # Returns
+    ///
+    /// An error if the symbol is not found in the environment chain.
+    ///
+    /// # Errors
+    ///
+    /// * `ByteCodeError::UnboundedName` - If the symbol is not found in the environment chain.
+    pub fn update(&mut self, sym: impl Into<Symbol>, val: impl Into<Value>) -> Result<()> {
+        let sym = sym.into();
+
+        if let Entry::Occupied(mut entry) = self.env.entry(sym.clone()) {
+            entry.insert(val.into());
+            Ok(())
+        } else if let Some(parent) = &self.parent {
+            parent.borrow_mut().update(sym, val)
+        } else {
+            Err(ByteCodeError::UnboundedName { name: sym }.into())
+        }
     }
 }
 
@@ -160,19 +201,21 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_frame() {
+    fn test_environment() {
         let env = Environment::new_wrapped();
         env.borrow_mut().set("x", 42);
         assert_eq!(env.borrow().get(&"x".to_string()), Some(Value::Int(42)));
     }
 
     #[test]
-    fn test_frame_with_parent() {
+    fn test_set_environment() {
         let parent_env = Environment::new_wrapped();
         parent_env.borrow_mut().set("x", 42);
+
         let child_env = Environment::new_wrapped();
         child_env.borrow_mut().set_parent(parent_env);
         child_env.borrow_mut().set("y", 43);
+
         assert_eq!(
             child_env.borrow().get(&"x".to_string()),
             Some(Value::Int(42))
@@ -181,5 +224,26 @@ mod tests {
             child_env.borrow().get(&"y".to_string()),
             Some(Value::Int(43))
         );
+    }
+
+    #[test]
+    fn test_update_environment() {
+        let parent_env = Environment::new_wrapped();
+        parent_env.borrow_mut().set("x", 42);
+
+        let child_env = Environment::new_wrapped();
+        child_env.borrow_mut().set_parent(parent_env);
+        child_env.borrow_mut().set("y", 43);
+        child_env.borrow_mut().update("x", 44).unwrap();
+
+        assert_eq!(
+            child_env.borrow().get(&"x".to_string()),
+            Some(Value::Int(44))
+        );
+        assert_eq!(
+            child_env.borrow().get(&"y".to_string()),
+            Some(Value::Int(43))
+        );
+        assert!(!child_env.borrow().env.contains_key(&"x".to_string()));
     }
 }

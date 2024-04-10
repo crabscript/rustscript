@@ -228,7 +228,11 @@ mod tests {
             ByteCode::assign("x"),
             ByteCode::DONE,
         ];
+
         let rt = Runtime::new(instrs);
+        rt.env.borrow_mut().set("x", Value::Unitialized);
+        rt.env.borrow_mut().set("y", Value::Unitialized);
+
         let rt = run(rt).unwrap();
         assert_eq!(rt.env.borrow().get(&"x".to_string()), Some(Value::Int(44)));
         assert_eq!(rt.env.borrow().get(&"y".to_string()), Some(Value::Int(43)));

@@ -57,33 +57,25 @@ impl Display for TypeErrors {
 
 impl std::error::Error for TypeErrors {}
 
-/// Struct to enable type checking by encapsulating type environment.
-pub struct TypeChecker<'prog> {
-    program: &'prog BlockSeq,
-    ty_env: Rc<RefCell<TyEnv>>,
-}
-
 // type TyEnv = HashMap<String, Type>;
 
 type Env = HashMap<String, Type>;
 #[allow(dead_code)]
 struct TyEnv {
-    pub env: Rc<RefCell<Env>>,
-    pub parent: Option<Rc<RefCell<Env>>>,
+    pub env: Env,
+    pub parent: Option<Rc<RefCell<TyEnv>>>,
 }
 
 impl TyEnv {
     pub fn new() -> TyEnv {
         TyEnv {
-            env: Rc::new(RefCell::new(HashMap::new())),
+            env: HashMap::new(),
             parent: None,
         }
     }
 
     pub fn get(&self, ident: &str) -> Result<Type, TypeErrors> {
-        let env = self.env.borrow();
-
-        let ty = env.get(ident);
+        let ty = self.env.get(ident);
 
         if ty.is_none() {
             let e = format!("Identifier '{}' not declared", ident);
@@ -95,21 +87,27 @@ impl TyEnv {
     }
 
     pub fn insert(&mut self, ident: String, type_ann: Type) {
-        self.env.borrow_mut().insert(ident, type_ann);
+        self.env.insert(ident, type_ann);
     }
 
-    /// Returns a new type environment with self.env as parent
     // TODO: Add symbols to uninit
-    #[allow(dead_code)]
-    pub fn enter_scope(&self) -> TyEnv {
-        let new_env = Rc::new(RefCell::new(HashMap::new()));
-        let parent = Rc::clone(&self.env);
+    // #[allow(dead_code)]
+    // pub fn enter_scope(&self) -> TyEnv {
+    //     let new_env = HashMap::new();
+    //     let parent = Rc::clone(&self.env);
 
-        TyEnv {
-            env: new_env,
-            parent: Some(parent),
-        }
-    }
+    //     TyEnv {
+    //         env: new_env,
+    //         parent: Some(parent),
+    //     }
+    // }
+}
+
+
+/// Struct to enable type checking by encapsulating type environment.
+pub struct TypeChecker<'prog> {
+    program: &'prog BlockSeq,
+    ty_env: Rc<RefCell<TyEnv>>,
 }
 
 impl<'prog> TypeChecker<'prog> {

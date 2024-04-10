@@ -7,4 +7,7 @@ pub enum ByteCodeError {
 
     #[error("Bad type, expected {expected}, found {found}")]
     BadType { expected: String, found: String },
+
+    #[error("Unbounded name: {name}")]
+    UnboundedName { name: String },
 }

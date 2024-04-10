@@ -3,5 +3,6 @@
 		"./Cargo.toml",
 		"./vm/ignite/Cargo.toml",
 		"./src/bytecode/Cargo.toml"
-	]
+	],
+	"rust-analyzer.showUnlinkedFileNotification": false
 }

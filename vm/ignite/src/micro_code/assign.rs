@@ -14,38 +14,20 @@ use crate::{Runtime, VmError};
 /// # Errors
 ///
 /// If the stack is empty.
-use std::rc::Rc;
+/// If the symbol is not found in the environment chain.
 pub fn assign(rt: &mut Runtime, sym: Symbol) -> Result<()> {
     let val = rt
         .operand_stack
         .pop()
         .ok_or(VmError::OperandStackUnderflow)?;
-
-    // to handle e.g let x = 2; { x = 10; } x
-    // when the variable isnt in the current env we need to set the outer env's binding
-
-    let mut env_ptr = Rc::clone(&rt.env);
-    loop {
-        if env_ptr.borrow().env.contains_key(&sym) || env_ptr.borrow().parent.is_none() {
-            break;
-        }
-
-        let t = Rc::clone(env_ptr.borrow().parent.as_ref().unwrap());
-        env_ptr = t;
-    }
-
-    // parent
-    // if env_ptr.borrow().parent.is_none() && !env_ptr.borrow().env.contains_key(&sym){
-    //     return Err(VmError::SymbolNotFound(sym.to_string()).into());
-    // }
-
-    env_ptr.borrow_mut().set(sym, val);
-
+    rt.env.borrow_mut().update(sym, val)?;
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
+    use std::rc::Rc;
+
     use bytecode::{Environment, Value};
 
     use super::*;
@@ -53,22 +35,48 @@ mod tests {
     #[test]
     fn test_assign() {
         let mut rt = Runtime::new(vec![]);
+        rt.env.borrow_mut().set("x", Value::Unitialized);
         rt.operand_stack.push(Value::Int(42));
+
         assign(&mut rt, "x".to_string()).unwrap();
+
+        assert_ne!(
+            rt.env.borrow().get(&"x".to_string()),
+            Some(Value::Unitialized)
+        );
         assert_eq!(rt.env.borrow().get(&"x".to_string()), Some(Value::Int(42)));
     }
 
     #[test]
     fn test_assign_with_parent() {
-        let parent = Environment::new_wrapped();
-        parent.borrow_mut().set("x", 42);
         let mut rt = Runtime::new(vec![]);
-        let frame = Environment::new_wrapped();
-        frame.borrow_mut().set_parent(parent);
-        rt.env = frame;
-        rt.operand_stack.push(Value::Int(43));
+
+        let parent_env = Environment::new_wrapped();
+        parent_env.borrow_mut().set("x", 42);
+
+        let child_env = Environment::new_wrapped();
+        child_env.borrow_mut().set_parent(Rc::clone(&parent_env));
+        child_env.borrow_mut().set("y", Value::Unitialized);
+
+        rt.env = Rc::clone(&child_env);
+        rt.operand_stack.push(Value::Int(123));
+        assign(&mut rt, "x".to_string()).unwrap();
+
+        assert_eq!(
+            parent_env.borrow().get(&"x".to_string()),
+            Some(Value::Int(123))
+        );
+        // The child environment should not be updated.
+        assert!(!child_env.borrow().env.contains_key(&"x".to_string()));
+
+        rt.operand_stack.push(Value::Int(789));
         assign(&mut rt, "y".to_string()).unwrap();
-        assert_eq!(rt.env.borrow().get(&"x".to_string()), Some(Value::Int(42)));
-        assert_eq!(rt.env.borrow().get(&"y".to_string()), Some(Value::Int(43)));
+
+        assert!(parent_env.borrow().get(&"y".to_string()).is_none());
+        assert_eq!(
+            child_env.borrow().get(&"y".to_string()),
+            Some(Value::Int(789))
+        );
+        assert_eq!(rt.env.borrow().get(&"y".to_string()), Some(Value::Int(789)));
     }
 }

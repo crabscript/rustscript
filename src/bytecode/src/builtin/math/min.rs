@@ -2,7 +2,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use anyhow::Result;
 
-use crate::{type_of, ByteCodeError, Environment, FnType, Value, W};
+use crate::{type_of, ByteCodeError, Environment, FnType, Value};
 
 pub const MIN_SYM: &str = "min";
 
@@ -12,7 +12,7 @@ pub fn min(global_env: Rc<RefCell<Environment>>) -> Value {
         sym: MIN_SYM.into(),
         prms: vec!["v1".into(), "v2".into()],
         addr: 0,
-        env: W(global_env),
+        env: global_env,
     }
 }
 

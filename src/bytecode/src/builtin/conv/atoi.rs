@@ -2,7 +2,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use anyhow::Result;
 
-use crate::{Environment, FnType, Value, W};
+use crate::{Environment, FnType, Value};
 
 pub const ATOI_SYM: &str = "atoi";
 
@@ -12,7 +12,7 @@ pub fn atoi(global_env: Rc<RefCell<Environment>>) -> Value {
         sym: ATOI_SYM.into(),
         prms: vec!["s".into()],
         addr: 0,
-        env: W(global_env),
+        env: global_env,
     }
 }
 

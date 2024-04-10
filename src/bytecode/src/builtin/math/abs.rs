@@ -2,7 +2,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use anyhow::Result;
 
-use crate::{type_of, ByteCodeError, Environment, FnType, Value, W};
+use crate::{type_of, ByteCodeError, Environment, FnType, Value};
 
 pub const ABS_SYM: &str = "abs";
 
@@ -12,7 +12,7 @@ pub fn abs(global_env: Rc<RefCell<Environment>>) -> Value {
         sym: ABS_SYM.into(),
         prms: vec!["x".into()],
         addr: 0,
-        env: W(global_env),
+        env: global_env,
     }
 }
 

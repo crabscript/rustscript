@@ -71,7 +71,7 @@ pub fn call(rt: &mut Runtime, arity: usize) -> Result<()> {
 
     let frame = StackFrame {
         frame_type: FrameType::CallFrame,
-        env: Rc::clone(&env.0),
+        env: Rc::clone(&env),
         address: Some(rt.pc),
     };
 
@@ -85,7 +85,7 @@ pub fn call(rt: &mut Runtime, arity: usize) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bytecode::{ByteCode, Environment, FnType, W};
+    use bytecode::{ByteCode, Environment, FnType};
 
     #[test]
     fn test_call() {
@@ -99,7 +99,7 @@ mod tests {
             sym: "Closure".to_string(),
             prms: vec![],
             addr: 123,
-            env: W(Environment::new_wrapped()),
+            env: Environment::new_wrapped(),
         });
 
         let result = call(&mut rt, 0);

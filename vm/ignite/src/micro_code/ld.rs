@@ -19,7 +19,7 @@ pub fn ld(rt: &mut Runtime, sym: Symbol) -> Result<()> {
         .env
         .borrow()
         .get(&sym)
-        .ok_or_else(|| VmError::SymbolNotFound(sym.clone()))?;
+        .ok_or_else(|| VmError::UnboundedName(sym.clone()))?;
     rt.operand_stack.push(val);
     Ok(())
 }

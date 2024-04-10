@@ -60,6 +60,7 @@ impl std::error::Error for TypeErrors {}
 /// Struct to enable type checking by encapsulating type environment.
 pub struct TypeChecker<'prog> {
     program: &'prog BlockSeq,
+    ty_env: Rc<RefCell<TyEnv>>,
 }
 
 // type TyEnv = HashMap<String, Type>;
@@ -113,14 +114,17 @@ impl TyEnv {
 
 impl<'prog> TypeChecker<'prog> {
     pub fn new(program: &BlockSeq) -> TypeChecker<'_> {
-        TypeChecker { program }
+        TypeChecker {
+            program,
+            ty_env: Rc::new(RefCell::new(TyEnv::new())),
+        }
     }
 
-    fn check_unop(op: &UnOpType, expr: &Expr, ty_env: &mut TyEnv) -> Result<Type, TypeErrors> {
+    fn check_unop(&self, op: &UnOpType, expr: &Expr) -> Result<Type, TypeErrors> {
         match op {
             UnOpType::Negate => {
                 // Return err imm if operand itself is not well typed
-                let ty = TypeChecker::check_expr(expr, ty_env)?;
+                let ty = self.check_expr(expr)?;
                 match ty {
                     Type::Int | Type::Float => Ok(ty),
                     _ => {
@@ -130,7 +134,7 @@ impl<'prog> TypeChecker<'prog> {
                 }
             }
             UnOpType::Not => {
-                let ty = TypeChecker::check_expr(expr, ty_env)?;
+                let ty = self.check_expr(expr)?;
                 match ty {
                     Type::Bool => Ok(ty),
                     _ => {
@@ -142,14 +146,9 @@ impl<'prog> TypeChecker<'prog> {
         }
     }
 
-    fn check_binop(
-        op: &BinOpType,
-        lhs: &Expr,
-        rhs: &Expr,
-        ty_env: &mut TyEnv,
-    ) -> Result<Type, TypeErrors> {
-        let l_type = TypeChecker::check_expr(lhs, ty_env)?;
-        let r_type = TypeChecker::check_expr(rhs, ty_env)?;
+    fn check_binop(&self, op: &BinOpType, lhs: &Expr, rhs: &Expr) -> Result<Type, TypeErrors> {
+        let l_type = self.check_expr(lhs)?;
+        let r_type = self.check_expr(rhs)?;
 
         match (l_type, r_type) {
             (Type::Int, Type::Int) => Ok(Type::Int),
@@ -166,18 +165,18 @@ impl<'prog> TypeChecker<'prog> {
 
     /// Return the type errors out instead of using mutable ref
     // because for nested errors in the expr we want to propagate those
-    fn check_expr(expr: &Expr, ty_env: &mut TyEnv) -> Result<Type, TypeErrors> {
+    fn check_expr(&self, expr: &Expr) -> Result<Type, TypeErrors> {
         let local_errs = TypeErrors::new();
         let ty = match expr {
             Expr::Integer(_) => Type::Int,
             Expr::Float(_) => Type::Float,
             Expr::Bool(_) => Type::Bool,
-            Expr::Symbol(ident) => ty_env.get(ident)?,
+            Expr::Symbol(ident) => self.ty_env.borrow().get(ident)?,
             Expr::UnOpExpr(op, expr) => {
-                return TypeChecker::check_unop(op, expr, ty_env);
+                return self.check_unop(op, expr);
             }
             Expr::BinOpExpr(op, lhs, rhs) => {
-                return TypeChecker::check_binop(op, lhs, rhs, ty_env);
+                return self.check_binop(op, lhs, rhs);
             }
             _ => todo!(),
         };
@@ -190,14 +189,14 @@ impl<'prog> TypeChecker<'prog> {
     }
 
     /// Type check declaration and add errors if any
-    fn check_decl(decl: &Decl, ty_env: &mut TyEnv) -> Result<(), TypeErrors> {
+    fn check_decl(&self, decl: &Decl) -> Result<(), TypeErrors> {
         // dbg!("Type checking decl:", decl);
         match decl {
             Decl::LetStmt(stmt) => {
                 let mut ty_errs = TypeErrors::new();
 
                 let mut expr_type: Option<Type> = None;
-                match TypeChecker::check_expr(&stmt.expr, ty_env) {
+                match self.check_expr(&stmt.expr) {
                     Ok(res) => {
                         expr_type.replace(res);
                     }
@@ -217,20 +216,24 @@ impl<'prog> TypeChecker<'prog> {
                     // type check expr has err + we have type ann: e.g let x : int = !2;
                     // use type of annotation, continue
                     (None, Some(ty_ann)) => {
-                        ty_env.insert(stmt.ident.to_owned(), ty_ann);
+                        self.ty_env
+                            .borrow_mut()
+                            .insert(stmt.ident.to_owned(), ty_ann);
                         return Err(ty_errs);
                     }
 
                     // expr is well-typed + no type annotation e.g let x = 2+2;
                     // use expr type, no err
                     (Some(ty), None) => {
-                        ty_env.insert(stmt.ident.to_owned(), ty);
+                        self.ty_env.borrow_mut().insert(stmt.ident.to_owned(), ty);
                     }
 
                     // expr is well-typed + have ty ann: e.g let x : int = true; or let x : int  = 2;
                     // either way, insert type of binding = annotation so we can ty check rest. error out if mismatch
                     (Some(ty), Some(ty_ann)) => {
-                        ty_env.insert(stmt.ident.to_owned(), ty_ann);
+                        self.ty_env
+                            .borrow_mut()
+                            .insert(stmt.ident.to_owned(), ty_ann);
 
                         if !ty_ann.eq(&ty) {
                             let string = format!(
@@ -245,13 +248,13 @@ impl<'prog> TypeChecker<'prog> {
             }
             // Type check the expr and return any errors
             Decl::ExprStmt(expr) => {
-                TypeChecker::check_expr(expr, ty_env)?;
+                self.check_expr(expr)?;
             }
             // Check if sym is declared already. Then check expr matches type at decl
             Decl::Assign(stmt) => {
                 let sym = Expr::Symbol(stmt.ident.to_owned());
-                let sym_ty = TypeChecker::check_expr(&sym, ty_env)?;
-                let exp_ty = TypeChecker::check_expr(&stmt.expr, ty_env)?;
+                let sym_ty = self.check_expr(&sym)?;
+                let exp_ty = self.check_expr(&stmt.expr)?;
 
                 if !sym_ty.eq(&exp_ty) {
                     let e = format!(
@@ -270,10 +273,10 @@ impl<'prog> TypeChecker<'prog> {
         let mut errs = TypeErrors::new();
         // map bindings to types
         // let mut ty_env: HashMap<String, Type> = HashMap::new();
-        let mut ty_env = TyEnv::new();
+        // let mut ty_env = TyEnv::new();
 
         for decl in self.program.decls.iter() {
-            if let Err(mut decl_errs) = TypeChecker::check_decl(decl, &mut ty_env) {
+            if let Err(mut decl_errs) = self.check_decl(decl) {
                 errs.append(&mut decl_errs);
 
                 // if this err means we can't proceed, stop e.g let x = -true; let y = x + 3; - we don't know type of x since invalid
@@ -291,7 +294,7 @@ impl<'prog> TypeChecker<'prog> {
 
         // Return type of last expr if any. If errs, add to err list
         if let Some(last) = &self.program.last_expr {
-            let res = TypeChecker::check_expr(last, &mut ty_env);
+            let res = self.check_expr(last);
             match res {
                 Ok(ty) => {
                     return Ok(ty);

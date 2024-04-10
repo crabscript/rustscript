@@ -2,7 +2,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use anyhow::Result;
 
-use crate::{Environment, FnType, Value, W};
+use crate::{Environment, FnType, Value};
 
 pub const MAX_SYM: &str = "max";
 
@@ -12,7 +12,7 @@ pub fn max(global_env: Rc<RefCell<Environment>>) -> Value {
         sym: MAX_SYM.into(),
         prms: vec!["v1".into(), "v2".into()],
         addr: 0,
-        env: W(global_env),
+        env: global_env,
     }
 }
 

@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use anyhow::Result;
-use bytecode::{FnType, Symbol, Value, W};
+use bytecode::{FnType, Symbol, Value};
 
 use crate::Runtime;
 
@@ -24,7 +24,7 @@ pub fn ldf(rt: &mut Runtime, addr: usize, prms: Vec<Symbol>) -> Result<()> {
         sym: "Closure".to_string(),
         prms,
         addr,
-        env: W(Rc::clone(&rt.env)),
+        env: Rc::clone(&rt.env),
     };
 
     rt.operand_stack.push(closure);
@@ -48,7 +48,7 @@ mod tests {
                 sym: "Closure".to_string(),
                 prms: vec!["y".to_string()],
                 addr: 0,
-                env: W(Rc::clone(&rt.env)),
+                env: Rc::clone(&rt.env),
             }
         )
     }

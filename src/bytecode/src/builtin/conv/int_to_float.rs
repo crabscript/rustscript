@@ -2,7 +2,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use anyhow::Result;
 
-use crate::{Environment, FnType, Value, W};
+use crate::{Environment, FnType, Value};
 
 pub const INT_TO_FLOAT_SYM: &str = "int_to_float";
 
@@ -12,7 +12,7 @@ pub fn int_to_float(global_env: Rc<RefCell<Environment>>) -> Value {
         sym: INT_TO_FLOAT_SYM.into(),
         prms: vec!["x".into()],
         addr: 0,
-        env: W(global_env),
+        env: global_env,
     }
 }
 

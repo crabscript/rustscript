@@ -2,7 +2,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use anyhow::Result;
 
-use crate::{Environment, FnType, Value, W};
+use crate::{Environment, FnType, Value};
 
 pub const POW_SYM: &str = "pow";
 
@@ -12,7 +12,7 @@ pub fn pow(global_env: Rc<RefCell<Environment>>) -> Value {
         sym: POW_SYM.into(),
         prms: vec!["base".into(), "exp".into()],
         addr: 0,
-        env: W(global_env),
+        env: global_env,
     }
 }
 

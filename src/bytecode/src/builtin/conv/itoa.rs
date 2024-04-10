@@ -2,7 +2,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use anyhow::Result;
 
-use crate::{Environment, FnType, Value, W};
+use crate::{Environment, FnType, Value};
 
 pub const ITOA_SYM: &str = "itoa";
 
@@ -12,7 +12,7 @@ pub fn itoa(global_env: Rc<RefCell<Environment>>) -> Value {
         sym: ITOA_SYM.into(),
         prms: vec!["i".into()],
         addr: 0,
-        env: W(global_env),
+        env: global_env,
     }
 }
 

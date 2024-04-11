@@ -148,7 +148,7 @@ impl<'prog> TypeChecker<'prog> {
         }
     }
 
-    fn check_binop(&mut  self, op: &BinOpType, lhs: &Expr, rhs: &Expr) -> Result<Type, TypeErrors> {
+    fn check_binop(&mut self, op: &BinOpType, lhs: &Expr, rhs: &Expr) -> Result<Type, TypeErrors> {
         let l_type = self.check_expr(lhs)?;
         let r_type = self.check_expr(rhs)?;
 
@@ -183,10 +183,7 @@ impl<'prog> TypeChecker<'prog> {
             Expr::BinOpExpr(op, lhs, rhs) => {
                 return self.check_binop(op, lhs, rhs);
             }
-            Expr::BlockExpr(blk) => {
-                let ty = self.check_block(blk)?;
-                ty
-            },
+            Expr::BlockExpr(blk) => self.check_block(blk)?,
         };
 
         if local_errs.is_ok() {
@@ -329,7 +326,6 @@ impl<'prog> TypeChecker<'prog> {
 
     pub fn type_check(mut self) -> Result<Type, TypeErrors> {
         self.check_block(self.program)
-
 
         // let mut errs = TypeErrors::new();
         // // map bindings to types

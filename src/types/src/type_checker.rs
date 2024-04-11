@@ -184,6 +184,7 @@ impl<'prog> TypeChecker<'prog> {
                 return self.check_binop(op, lhs, rhs);
             }
             Expr::BlockExpr(blk) => self.check_block(blk)?,
+            _ => todo!(),
         };
 
         if local_errs.is_ok() {

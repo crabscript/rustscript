@@ -86,6 +86,7 @@ impl Compiler {
             Expr::BlockExpr(blk) => {
                 Compiler::compile_block(blk, arr)?;
             }
+            _ => todo!(),
         }
 
         Ok(())

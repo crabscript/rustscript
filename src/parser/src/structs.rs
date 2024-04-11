@@ -65,6 +65,7 @@ pub enum Expr {
     UnOpExpr(UnOpType, Box<Expr>),
     BinOpExpr(BinOpType, Box<Expr>, Box<Expr>),
     BlockExpr(BlockSeq), // expr can be a block
+    IfElseExpr(Box<IfElseData>),
 }
 
 impl Display for Expr {
@@ -81,6 +82,8 @@ impl Display for Expr {
             }
             Expr::Symbol(val) => val.to_string(),
             Expr::BlockExpr(seq) => format!("{{ {} }}", seq),
+            // Expr::BlockExpr(seq) => seq.to_string(),
+            Expr::IfElseExpr(expr) => expr.to_string(),
         };
 
         write!(f, "{}", string)
@@ -118,6 +121,24 @@ impl Display for AssignStmt {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct IfElseData {
+    pub cond: Expr,
+    pub if_blk: BlockSeq,
+    pub else_blk: Option<BlockSeq>,
+}
+
+impl Display for IfElseData {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut s = format!("if {} {}", self.cond, self.if_blk);
+        if let Some(ref else_blk) = self.else_blk {
+            s.push(' ');
+            s.push_str(&format!("else {}", else_blk));
+        }
+
+        write!(f, "{}", s)
+    }
+}
 // Later: LetStmt, IfStmt, FnDef, etc.
 #[derive(Debug, Clone)]
 pub enum Decl {
@@ -139,6 +160,15 @@ impl Decl {
             }
             Self::ExprStmt(expr) => Ok(expr.clone()),
         }
+    }
+
+    pub fn to_block(&self) -> Result<BlockSeq, ParseError> {
+        if let Self::ExprStmt(Expr::BlockExpr(seq)) = &self {
+            return Ok(seq.clone());
+        }
+
+        let e = format!("Expected block but got '{}'", self);
+        Err(ParseError::new(&e))
     }
 }
 

@@ -573,4 +573,115 @@ mod tests {
         let t = "let y : int = { let x = true; x }; y";
         expect_err(t, "has declared type int but assigned type bool", true);
     }
+
+    #[test]
+    fn test_type_check_blk_scope() {
+        let t = r"
+        let x : int = 2;
+        {
+            let y : int = 3;
+        }
+        y
+        ";
+        expect_err(t, "'y' not declared", true);
+
+        let t = r"
+        let x : int = 2;
+        {
+            let x : bool = true;
+            let y : bool = x;
+        }
+        x
+        ";
+        expect_pass(t, Type::Int);
+
+        let t = r"
+        let x : int = 2;
+        {
+            let x : bool = true;
+            let y : int = x;
+        }
+        x
+        ";
+        expect_err(t, "has declared type int but assigned type bool", true);
+
+        let t = r"
+        let x : int = 2;
+        let z = {
+            let x : bool = true;
+            let y : bool = x;
+            y
+        };
+        x;
+        z
+        ";
+        expect_pass(t, Type::Bool);
+    }
+
+    #[test]
+    fn test_type_check_blk_more() {
+        let t = r"
+        let x = 2; 
+        let y = 0; 
+        { 
+            let x = 3; 
+            y = 4; 
+        } 
+        x+y
+        ";
+
+        expect_pass(t, Type::Int);
+
+        let t = r"
+        let x = 2; 
+        let y : bool = true;
+        { 
+            let x = 3; 
+            y = 4; 
+        } 
+        x+y
+        ";
+
+        expect_err(t, "'y' declared with type bool but assigned type int", true);
+
+        // doesn't matter that shadowed var has diff type
+        let t = r"
+        let x : int = 20; 
+        let y = 0; 
+        let z : bool = { 
+            let x : bool = true; 
+            y = 4; 
+            x
+        };
+        x+y
+        ";
+        expect_pass(t, Type::Int);
+
+        // blk with no last expr has unit type
+        let t = r"
+        let x : int = 20; 
+        let y = 0; 
+        let z : bool = { 
+            let x : bool = true; 
+            y = 4; 
+            x;
+        };
+        x+y
+        ";
+        expect_err(t, "'z' has declared type bool but assigned type ()", true);
+    }
+
+    #[test]
+    fn test_type_check_blk_errs() {
+        let t = r"
+        let x : int = true;
+        let y = 20;
+        {
+            let y : bool = 20;
+        }
+        x + 20
+        ";
+
+        expect_err(t, "[TypeError]: 'x' has declared type int but assigned type bool\n[TypeError]: 'y' has declared type bool but assigned type int", true);
+    }
 }

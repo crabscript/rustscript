@@ -8,7 +8,8 @@ use crate::VmError;
 /// A thread of execution.
 #[derive(Debug, Default, Clone)]
 pub struct Thread {
-    pub thread_id: u64,
+    pub thread_id: i64,
+    // pub
     pub env: Rc<RefCell<Environment>>,
     pub operand_stack: Vec<Value>,
     pub runtime_stack: Vec<StackFrame>,
@@ -16,7 +17,7 @@ pub struct Thread {
 }
 
 impl Thread {
-    pub fn new(thread_id: u64) -> Self {
+    pub fn new(thread_id: i64) -> Self {
         Thread {
             thread_id,
             env: Environment::new_global(),
@@ -28,7 +29,7 @@ impl Thread {
 }
 
 impl Thread {
-    pub fn spawn_new(&self, thread_id: u64) -> Thread {
+    pub fn spawn_new(&self, thread_id: i64) -> Thread {
         let mut new_thread = self.clone();
         new_thread.thread_id = thread_id;
         new_thread

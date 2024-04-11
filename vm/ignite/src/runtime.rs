@@ -9,8 +9,7 @@ use bytecode::ByteCode;
 use crate::{micro_code, Thread, VmError};
 
 const TIME_QUANTUM: Duration = Duration::from_millis(100);
-const MAIN_THREAD_ID: u64 = 1;
-// static THREAD_COUNT: u64 = 1;
+const MAIN_THREAD_ID: i64 = 1;
 
 /// The runtime of the virtual machine.
 /// It contains the instructions to execute, the current thread, and the ready and suspended threads.
@@ -20,6 +19,7 @@ const MAIN_THREAD_ID: u64 = 1;
 /// The instructions are the bytecode instructions to execute.
 pub struct Runtime {
     pub instrs: Vec<ByteCode>,
+    pub thread_count: i64,
     pub current_thread: Thread,
     pub ready_queue: VecDeque<Thread>,
     pub suspended_queue: Vec<Thread>,
@@ -29,6 +29,7 @@ impl Runtime {
     pub fn new(instrs: Vec<ByteCode>) -> Self {
         Runtime {
             instrs,
+            thread_count: 1,
             current_thread: Thread::new(MAIN_THREAD_ID),
             ready_queue: VecDeque::new(),
             suspended_queue: vec![],
@@ -88,6 +89,7 @@ pub fn run(mut rt: Runtime) -> Result<Runtime> {
                 .expect("No threads in ready queue");
 
             rt.current_thread = next_ready_thread;
+            continue;
             // drop the current thread
         }
 
@@ -128,9 +130,9 @@ pub fn execute(rt: &mut Runtime, instr: ByteCode) -> Result<bool> {
         ByteCode::ENTERSCOPE(syms) => micro_code::enter_scope(rt, syms)?,
         ByteCode::EXITSCOPE => micro_code::exit_scope(rt)?,
         ByteCode::CALL(arity) => micro_code::call(rt, arity)?,
-        ByteCode::SPAWN => unimplemented!(),
-        ByteCode::JOIN(_) => unimplemented!(),
-        ByteCode::YIELD => unimplemented!(),
+        ByteCode::SPAWN => micro_code::spawn(rt)?,
+        ByteCode::JOIN(tid) => micro_code::join(rt, tid)?,
+        ByteCode::YIELD => micro_code::yield_(rt)?,
     }
     Ok(false)
 }

@@ -632,6 +632,7 @@ mod tests {
 
         expect_pass(t, Type::Int);
 
+        // gets type from parent scope correctly during assign
         let t = r"
         let x = 2; 
         let y : bool = true;
@@ -679,7 +680,7 @@ mod tests {
         {
             let y : bool = 20;
         }
-        x + 20
+        x + false
         ";
 
         expect_err(t, "[TypeError]: 'x' has declared type int but assigned type bool\n[TypeError]: 'y' has declared type bool but assigned type int", true);

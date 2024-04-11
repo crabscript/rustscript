@@ -277,15 +277,15 @@ impl<'prog> TypeChecker<'prog> {
         Ok(())
     }
 
-    pub fn type_check(mut self) -> Result<Type, TypeErrors> {
+    fn check_block(&mut self, program: &BlockSeq) -> Result<Type, TypeErrors> {
         let mut errs = TypeErrors::new();
         // map bindings to types
         // let mut ty_env: HashMap<String, Type> = HashMap::new();
         // let mut ty_env = TyEnv::new();
-        let env = new_env_with_syms(self.program.symbols.clone());
+        let env = new_env_with_syms(program.symbols.clone());
         self.envs.push(env);
 
-        for decl in self.program.decls.iter() {
+        for decl in program.decls.iter() {
             if let Err(mut decl_errs) = self.check_decl(decl) {
                 errs.append(&mut decl_errs);
 
@@ -303,7 +303,7 @@ impl<'prog> TypeChecker<'prog> {
         }
 
         // Return type of last expr if any. If errs, add to err list
-        if let Some(last) = &self.program.last_expr {
+        if let Some(last) = &program.last_expr {
             let res = self.check_expr(last);
             match res {
                 Ok(ty) => {
@@ -318,6 +318,50 @@ impl<'prog> TypeChecker<'prog> {
         } else {
             Err(errs)
         }
+    }
+
+    pub fn type_check(mut self) -> Result<Type, TypeErrors> {
+        self.check_block(&self.program)
+        // let mut errs = TypeErrors::new();
+        // // map bindings to types
+        // // let mut ty_env: HashMap<String, Type> = HashMap::new();
+        // // let mut ty_env = TyEnv::new();
+        // let env = new_env_with_syms(self.program.symbols.clone());
+        // self.envs.push(env);
+
+        // for decl in self.program.decls.iter() {
+        //     if let Err(mut decl_errs) = self.check_decl(decl) {
+        //         errs.append(&mut decl_errs);
+
+        //         // if this err means we can't proceed, stop e.g let x = -true; let y = x + 3; - we don't know type of x since invalid
+        //         if !decl_errs.cont {
+        //             break;
+        //         }
+        //     }
+        // }
+
+        // // return errors for decls first if any, without checking expr
+        // // because expr may be dependent
+        // if !errs.is_ok() {
+        //     return Err(errs);
+        // }
+
+        // // Return type of last expr if any. If errs, add to err list
+        // if let Some(last) = &self.program.last_expr {
+        //     let res = self.check_expr(last);
+        //     match res {
+        //         Ok(ty) => {
+        //             return Ok(ty);
+        //         }
+        //         Err(mut expr_errs) => errs.append(&mut expr_errs),
+        //     };
+        // }
+
+        // if errs.is_ok() {
+        //     Ok(Type::Unit)
+        // } else {
+        //     Err(errs)
+        // }
     }
 }
 

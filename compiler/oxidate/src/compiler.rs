@@ -1,7 +1,5 @@
 use anyhow::Result;
 use std::fmt::Display;
-use std::rc::Rc;
-
 use types::type_checker::TypeChecker;
 
 use bytecode::{ByteCode, Value};
@@ -135,12 +133,12 @@ impl Compiler {
         Ok(())
     }
 
-    // is_none_like: true if
-    fn is_none_like(last_expr: Option<Rc<Expr>>) -> bool {
-        if let Some(expr) = last_expr {
+    // blk is_none_like if: last_expr is none, or last_expr is a block and the block is none_like
+    // none_like meaning the last expr actually leaves nothing on the stack
+    fn is_none_like(blk: &BlockSeq) -> bool {
+        if let Some(expr) = &blk.last_expr {
             if let Expr::BlockExpr(seq) = expr.as_ref() {
-                let cl = seq.last_expr.clone();
-                Compiler::is_none_like(cl)
+                Compiler::is_none_like(seq)
             } else {
                 // have last expr and it's not a block: not none like
                 false
@@ -156,13 +154,11 @@ impl Compiler {
             Decl::ExprStmt(expr) => {
                 Compiler::compile_expr(expr, arr)?;
 
-                // avoid pop underflow when block has no value pushed at the end
+                // avoid pop underflow when block has no value pushed at the end (last expr pushes no value)
+                // this happens when last_expr is a block
+                // because we have POP after every decl by default
                 if let Expr::BlockExpr(seq) = expr {
-                    // if seq.last_expr.is_none() {
-                    //     arr.push(ByteCode::ldc(Value::Unit))
-                    // }
-
-                    if Compiler::is_none_like(seq.last_expr.clone()) {
+                    if Compiler::is_none_like(seq) {
                         arr.push(ByteCode::ldc(Value::Unit))
                     }
                 }

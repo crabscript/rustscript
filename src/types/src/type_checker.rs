@@ -122,7 +122,7 @@ impl<'prog> TypeChecker<'prog> {
         Ok(())
     }
 
-    fn check_unop(&self, op: &UnOpType, expr: &Expr) -> Result<Type, TypeErrors> {
+    fn check_unop(&mut self, op: &UnOpType, expr: &Expr) -> Result<Type, TypeErrors> {
         match op {
             UnOpType::Negate => {
                 // Return err imm if operand itself is not well typed
@@ -148,7 +148,7 @@ impl<'prog> TypeChecker<'prog> {
         }
     }
 
-    fn check_binop(&self, op: &BinOpType, lhs: &Expr, rhs: &Expr) -> Result<Type, TypeErrors> {
+    fn check_binop(&mut  self, op: &BinOpType, lhs: &Expr, rhs: &Expr) -> Result<Type, TypeErrors> {
         let l_type = self.check_expr(lhs)?;
         let r_type = self.check_expr(rhs)?;
 
@@ -167,7 +167,7 @@ impl<'prog> TypeChecker<'prog> {
 
     /// Return the type errors out instead of using mutable ref
     // because for nested errors in the expr we want to propagate those
-    fn check_expr(&self, expr: &Expr) -> Result<Type, TypeErrors> {
+    fn check_expr(&mut self, expr: &Expr) -> Result<Type, TypeErrors> {
         let local_errs = TypeErrors::new();
         let ty = match expr {
             Expr::Integer(_) => Type::Int,
@@ -183,7 +183,10 @@ impl<'prog> TypeChecker<'prog> {
             Expr::BinOpExpr(op, lhs, rhs) => {
                 return self.check_binop(op, lhs, rhs);
             }
-            _ => todo!(),
+            Expr::BlockExpr(blk) => {
+                let ty = self.check_block(blk)?;
+                ty
+            },
         };
 
         if local_errs.is_ok() {
@@ -299,6 +302,7 @@ impl<'prog> TypeChecker<'prog> {
         // return errors for decls first if any, without checking expr
         // because expr may be dependent
         if !errs.is_ok() {
+            self.envs.pop();
             return Err(errs);
         }
 
@@ -307,11 +311,14 @@ impl<'prog> TypeChecker<'prog> {
             let res = self.check_expr(last);
             match res {
                 Ok(ty) => {
+                    self.envs.pop();
                     return Ok(ty);
                 }
                 Err(mut expr_errs) => errs.append(&mut expr_errs),
             };
         }
+
+        self.envs.pop();
 
         if errs.is_ok() {
             Ok(Type::Unit)
@@ -322,6 +329,8 @@ impl<'prog> TypeChecker<'prog> {
 
     pub fn type_check(mut self) -> Result<Type, TypeErrors> {
         self.check_block(self.program)
+
+
         // let mut errs = TypeErrors::new();
         // // map bindings to types
         // // let mut ty_env: HashMap<String, Type> = HashMap::new();
@@ -549,8 +558,23 @@ mod tests {
     }
 
     #[test]
-    fn test_type_check_blk() {
+    fn test_type_check_blk_simple() {
         let t = "{ 2 }";
-        // expect_pass(t, Type::Int);
+        expect_pass(t, Type::Int);
+
+        let t = "{ 2; true }";
+        expect_pass(t, Type::Bool);
+
+        let t = "{ let x : float = 2.4; x }";
+        expect_pass(t, Type::Float);
+
+        let t = "{ let x = 2.4; x; }";
+        expect_pass(t, Type::Unit);
+
+        let t = "let y = { let x = true; x }; y";
+        expect_pass(t, Type::Bool);
+
+        let t = "let y : int = { let x = true; x }; y";
+        expect_err(t, "has declared type int but assigned type bool", true);
     }
 }

@@ -128,6 +128,9 @@ pub fn execute(rt: &mut Runtime, instr: ByteCode) -> Result<bool> {
         ByteCode::ENTERSCOPE(syms) => micro_code::enter_scope(rt, syms)?,
         ByteCode::EXITSCOPE => micro_code::exit_scope(rt)?,
         ByteCode::CALL(arity) => micro_code::call(rt, arity)?,
+        ByteCode::SPAWN => unimplemented!(),
+        ByteCode::JOIN(_) => unimplemented!(),
+        ByteCode::YIELD => unimplemented!(),
     }
     Ok(false)
 }

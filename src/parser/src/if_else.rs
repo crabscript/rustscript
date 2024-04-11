@@ -73,7 +73,7 @@ mod tests {
     use crate::tests::*;
 
     #[test]
-    fn parse_if_basic() {
+    fn test_parse_if_basic() {
         let t = r"
         if (true) {
             30;
@@ -107,5 +107,120 @@ mod tests {
         }
         ";
         test_parse(t, "if (!true) { 30;40; }");
+    }
+
+    #[test]
+    fn test_parse_if_consec() {
+        // if becomes last expr (fine in both variants, unless 40 without semicolon)
+        let t = r"
+        if true {
+            30;
+        }
+
+        if !true {
+            40;
+        }
+        ";
+
+        test_parse(t, "if true { 30; };if (!true) { 40; }");
+
+        // with semicolon if becomes just a stmt (fine in both variants)
+        let t = r"
+        if true {
+            30;
+        }
+
+        if !true {
+            40;
+        };
+        ";
+
+        test_parse(t, "if true { 30; };if (!true) { 40; };");
+
+        // if, if-else
+        let t = r"
+        if true {
+            30;
+        }
+
+        if some_cond {
+            40; 60
+        } else {
+            50; 70;
+        }
+        ";
+
+        test_parse(t, "if true { 30; };if some_cond { 40;60 } else { 50;70; }");
+
+        // if, if-else (stmt)
+        let t = r"
+        if true {
+            30;
+        }
+
+        if some_cond {
+            40; 60
+        } else {
+            50; 70;
+        };
+        ";
+
+        test_parse(t, "if true { 30; };if some_cond { 40;60 } else { 50;70; };");
+
+        // if-else, if
+        let t = r"
+        if true {
+            30;
+        } else {
+            x
+        }
+
+        if some_cond {
+            40; 60
+        };
+        ";
+
+        test_parse(t, "if true { 30; } else { x };if some_cond { 40;60 };");
+
+        // if-else, if-else
+        let t = r"
+        if true {
+            30;
+        } else {
+            x
+        }
+
+        if some_cond {
+            40; 60
+        } else {
+            y;
+        }
+        ";
+
+        test_parse(
+            t,
+            "if true { 30; } else { x };if some_cond { 40;60 } else { y; }",
+        );
+
+        let t = r"
+        if true {
+            x;
+        }
+
+        if y {
+            200;
+        } else {
+            300;
+        }
+
+        if false {
+            400;
+        }
+        ";
+
+        test_parse(
+            t,
+            "if true { x; };if y { 200; } else { 300; };if false { 400; }",
+        );
     }
 }

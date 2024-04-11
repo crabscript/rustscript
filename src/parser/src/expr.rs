@@ -44,17 +44,21 @@ impl<'inp> Parser<'inp> {
                 self.parse_ident(id.to_string(), min_bp)
             }
             Token::OpenBrace => self.parse_blk(min_bp),
+            Token::If => self.parse_if_else(min_bp),
             _ => Err(ParseError::new(&format!(
                 "Unexpected token - not an expression: '{}'",
                 prev_tok
             ))),
         }?;
 
+        dbg!("LHS:", &lhs);
         loop {
             if self.lexer.peek().is_none()
                 || self.is_peek_token_type(Token::Semi)
                 || self.is_peek_token_type(Token::CloseBrace)
                 || self.is_peek_token_type(Token::CloseParen)
+                // to deal with if and bracket
+                || self.is_peek_token_type(Token::OpenBrace)
             {
                 break;
             }

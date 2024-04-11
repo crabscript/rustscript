@@ -5,6 +5,7 @@ use structs::*;
 
 pub mod blk;
 pub mod expr;
+pub mod if_else;
 pub mod let_stmt;
 pub mod seq;
 pub mod structs;
@@ -67,7 +68,7 @@ impl<'inp> Parser<'inp> {
         }
     }
 
-    // To expect token types at peek that have no value (most of them)
+    /// To expect token types at peek that have no value (most of them)
     fn expect_token_type(&mut self, token: Token, expected_msg: &str) -> Result<(), ParseError> {
         if !self.is_peek_token_type(token) {
             Err(ParseError::new(expected_msg))
@@ -76,7 +77,7 @@ impl<'inp> Parser<'inp> {
         }
     }
 
-    // Expect token type at peek and advance if it was there
+    /// Expect token type at peek and advance if it was there
     fn consume_token_type(&mut self, token: Token, expected_msg: &str) -> Result<(), ParseError> {
         if !self.is_peek_token_type(token) {
             Err(ParseError::new(expected_msg))
@@ -138,40 +139,6 @@ impl<'inp> Parser<'inp> {
         Ok(type_ann)
     }
 
-    // // Parse let statement
-    // // let x = 2;
-    // fn parse_let(&mut self) -> Result<Decl, ParseError> {
-    //     expect_token_body!(self.lexer.peek(), Ident, "identifier")?;
-    //     let ident = Parser::string_from_ident(self.lexer.peek());
-    //     self.advance();
-
-    //     let mut type_ann: Option<Type> = None;
-
-    //     // Do nothing if not colon: allow no annotation to let prev tests pass (for now)
-    //     if self.is_peek_token_type(Token::Colon) {
-    //         // Parse type annotation if any
-    //         let ty = self.parse_type_annotation()?;
-    //         type_ann.replace(ty);
-    //     }
-
-    //     self.consume_token_type(Token::Eq, "Expected '='")?;
-
-    //     self.advance(); // store the start tok of the next expr as prev_tok
-
-    //     // ensure we are assigning to an expression
-    //     let expr = self.parse_decl()?.to_expr()?;
-
-    //     self.expect_token_type(Token::Semi, "Expected semicolon after let")?;
-
-    //     let stmt = LetStmtData {
-    //         ident,
-    //         expr,
-    //         type_ann,
-    //     };
-
-    //     Ok(LetStmt(stmt))
-    // }
-
     /* Precedence */
 
     // Return (left bp, right bp)
@@ -222,7 +189,8 @@ impl<'inp> Parser<'inp> {
             | Token::Ident(_)
             | Token::OpenParen
             | Token::Bang
-            | Token::OpenBrace => self.parse_expr(0),
+            | Token::OpenBrace
+            | Token::If => self.parse_expr(0),
             Token::Let => self.parse_let(),
             _ => Err(ParseError::new(&format!(
                 "Unexpected token: '{}'",

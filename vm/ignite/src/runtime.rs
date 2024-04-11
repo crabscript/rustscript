@@ -483,6 +483,40 @@ mod tests {
             Some(Value::Unitialized) // The parent thread environment should be unchanged
         );
 
+        let instrs = vec![
+            ByteCode::enterscope(vec!["count"]), // Line 0
+            ByteCode::ldc(0),                    // Line 1
+            ByteCode::assign("count"),           // Line 2
+            ByteCode::SPAWN, // Line 3: Parent operand stack will have child tid 2, child operand stack will have 0
+            ByteCode::enterscope(vec!["tid"]), // Line 4
+            ByteCode::assign("tid"), // Line 5: Parent thread assigns the child tid to the tid symbol (2), child tid is 0
+            ByteCode::ld("tid"),     // Line 6
+            ByteCode::ldc(0),        // Line 7
+            ByteCode::BINOP(BinOp::Eq), // Line 8: Check if the child operand stack has 0
+            ByteCode::JOF(15),       // Line 9: Parent jumps since (child_tid == 0) == false
+            ByteCode::ldc(1),        // Line 10: Child thread loads the value onto its operand stack
+            ByteCode::ld("count"), // Line 11: Child thread loads the value of count onto the stack
+            ByteCode::BINOP(BinOp::Add), // Line 12: Child thread adds the value of count and 1
+            ByteCode::assign("count"), // Line 13: Child thread sets the value of count in the environment
+            ByteCode::GOTO(10), // Line 14: Child loops infinitely (until time quantum expires)
+            ByteCode::YIELD,    // Line 15: Parent thread yields
+            ByteCode::DONE,     // Line 16
+        ];
+
+        let mut rt = Runtime::new(instrs);
+        rt.set_time_quantum(Duration::from_millis(1000)); // Set the time quantum to 1 second
+        let rt = run(rt)?;
+
+        let final_count: i64 = rt
+            .current_thread
+            .env
+            .borrow()
+            .get(&"count".to_string())
+            .expect("Count not in environment")
+            .try_into()?;
+
+        assert!(final_count > 0);
+
         Ok(())
     }
 }

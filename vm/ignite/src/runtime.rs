@@ -6,34 +6,42 @@ use std::{
 use anyhow::Result;
 use bytecode::ByteCode;
 
-use crate::{micro_code, Thread, VmError};
+use crate::{micro_code, Thread, ThreadState, VmError};
 
-const TIME_QUANTUM: Duration = Duration::from_millis(100);
+const DEFAULT_TIME_QUANTUM: Duration = Duration::from_millis(100);
 const MAIN_THREAD_ID: i64 = 1;
 
 /// The runtime of the virtual machine.
 /// It contains the instructions to execute, the current thread, and the ready and suspended threads.
-/// The ready queue is a list of threads that are ready to run.
-/// The suspended queue is a list of threads that are waiting for some event to occur.
-/// The running thread is the thread that is currently executing.
 /// The instructions are the bytecode instructions to execute.
+/// The ready queue is a queue of threads that are ready to run.
+/// The suspended queue is a queue of threads that are waiting for some event to occur.
+/// The running thread is the thread that is currently executing.
 pub struct Runtime {
+    time: Instant,
+    time_quantum: Duration,
     pub instrs: Vec<ByteCode>,
     pub thread_count: i64,
     pub current_thread: Thread,
     pub ready_queue: VecDeque<Thread>,
-    pub suspended_queue: Vec<Thread>,
+    pub suspended_queue: VecDeque<Thread>,
 }
 
 impl Runtime {
     pub fn new(instrs: Vec<ByteCode>) -> Self {
         Runtime {
+            time: Instant::now(),
+            time_quantum: DEFAULT_TIME_QUANTUM,
             instrs,
             thread_count: 1,
             current_thread: Thread::new(MAIN_THREAD_ID),
             ready_queue: VecDeque::new(),
-            suspended_queue: vec![],
+            suspended_queue: VecDeque::new(),
         }
+    }
+
+    pub fn set_time_quantum(&mut self, time_quantum: Duration) {
+        self.time_quantum = time_quantum;
     }
 }
 
@@ -51,48 +59,33 @@ impl Runtime {
 ///
 /// If an error occurs during execution.
 pub fn run(mut rt: Runtime) -> Result<Runtime> {
-    let now = Instant::now();
-
     loop {
-        let elapsed_time = now.elapsed();
-
-        if elapsed_time >= TIME_QUANTUM {
-            let current_thread = rt.current_thread;
-            rt.ready_queue.push_back(current_thread);
-
-            let next_ready_thread = rt
-                .ready_queue
-                .pop_front()
-                .expect("No threads in ready queue");
-
-            rt.current_thread = next_ready_thread;
-            break;
+        if rt.time_quantum_expired() {
+            rt = rt.yield_current_thread();
         }
 
-        let instr = rt
-            .instrs
-            .get(rt.current_thread.pc)
-            .ok_or(VmError::PcOutOfBounds(rt.current_thread.pc))?
-            .clone();
-        rt.current_thread.pc += 1;
+        if rt.should_yield_current_thread() {
+            rt = rt.yield_current_thread();
+        }
 
-        let is_done = execute(&mut rt, instr)?;
-        if !is_done {
+        if rt.is_current_thread_joining() {
+            rt = rt.join_current_thread();
+        }
+
+        let instr = rt.fetch_instr()?;
+
+        execute(&mut rt, instr)?;
+
+        if !rt.is_current_thread_done() {
             continue;
         }
 
-        let is_main_thread = rt.current_thread.thread_id == MAIN_THREAD_ID;
-        if !is_main_thread {
-            let next_ready_thread = rt
-                .ready_queue
-                .pop_front()
-                .expect("No threads in ready queue");
-
-            rt.current_thread = next_ready_thread;
+        if !rt.is_current_main_thread() {
+            rt = rt.drop_current_thread();
             continue;
-            // drop the current thread
         }
 
+        // If the main thread is done, then the program is done.
         break;
     }
 
@@ -114,9 +107,9 @@ pub fn run(mut rt: Runtime) -> Result<Runtime> {
 /// # Errors
 ///
 /// If an error occurs during execution.
-pub fn execute(rt: &mut Runtime, instr: ByteCode) -> Result<bool> {
+pub fn execute(rt: &mut Runtime, instr: ByteCode) -> Result<()> {
     match instr {
-        ByteCode::DONE => return Ok(true),
+        ByteCode::DONE => micro_code::done(rt)?,
         ByteCode::ASSIGN(sym) => micro_code::assign(rt, sym)?,
         ByteCode::LD(sym) => micro_code::ld(rt, sym)?,
         ByteCode::LDC(val) => micro_code::ldc(rt, val)?,
@@ -134,7 +127,106 @@ pub fn execute(rt: &mut Runtime, instr: ByteCode) -> Result<bool> {
         ByteCode::JOIN(tid) => micro_code::join(rt, tid)?,
         ByteCode::YIELD => micro_code::yield_(rt)?,
     }
-    Ok(false)
+    Ok(())
+}
+
+impl Runtime {
+    /// Check if the time quantum has expired.
+    /// The time quantum is the maximum amount of time a thread can run before it is preempted.
+    pub fn time_quantum_expired(&self) -> bool {
+        self.time.elapsed() >= self.time_quantum
+    }
+
+    /// Check if the current thread should yield.
+    /// This is set by the `YIELD` instruction.
+    pub fn should_yield_current_thread(&self) -> bool {
+        self.current_thread.state == ThreadState::Yielded
+    }
+
+    /// Yield the current thread. Set the state of the current thread to `Ready` and push it onto the ready queue.
+    /// Pop the next thread from the ready queue and set it as the current thread.
+    /// The timer is reset to the current time.
+    pub fn yield_current_thread(mut self) -> Self {
+        let mut current_thread = self.current_thread;
+        current_thread.state = ThreadState::Ready; // Reset the state
+        self.ready_queue.push_back(current_thread);
+
+        let next_ready_thread = self
+            .ready_queue
+            .pop_front()
+            .expect("No threads in ready queue");
+
+        self.current_thread = next_ready_thread;
+        self.time = Instant::now(); // Reset the time
+        self
+    }
+
+    pub fn drop_current_thread(mut self) -> Self {
+        let next_ready_thread = self
+            .ready_queue
+            .pop_front()
+            .expect("No threads in ready queue");
+
+        self.current_thread = next_ready_thread;
+        self
+    }
+
+    pub fn is_current_thread_done(&self) -> bool {
+        self.current_thread.state == ThreadState::Done
+    }
+
+    pub fn is_current_main_thread(&self) -> bool {
+        self.current_thread.thread_id == MAIN_THREAD_ID
+    }
+
+    pub fn is_current_thread_joining(&self) -> bool {
+        matches!(self.current_thread.state, ThreadState::Joining(_))
+    }
+
+    pub fn join_current_thread(mut self) -> Self {
+        if let ThreadState::Joining(tid) = self.current_thread.state {
+            let thread_to_join = self
+                .ready_queue
+                .iter()
+                .chain(self.suspended_queue.iter())
+                .find(|t| t.thread_id == tid);
+
+            if thread_to_join.is_some() {
+                // If the thread to join in the ready or suspended queue, then we need to yield the current thread.
+                let rt = self.yield_current_thread();
+                return rt;
+            };
+
+            // Otherwise we can just set the current thread to ready.
+            self.current_thread.state = ThreadState::Ready;
+        } else {
+            panic!("Current thread is not joining");
+        }
+
+        self
+    }
+}
+
+impl Runtime {
+    /// Fetch the next instruction to execute.
+    /// This will increment the program counter of the current thread.
+    ///
+    /// # Returns
+    ///
+    /// The next instruction to execute.
+    ///
+    /// # Errors
+    ///
+    /// If the program counter is out of bounds.
+    pub fn fetch_instr(&mut self) -> Result<ByteCode> {
+        let instr = self
+            .instrs
+            .get(self.current_thread.pc)
+            .cloned()
+            .ok_or(VmError::PcOutOfBounds(self.current_thread.pc))?;
+        self.current_thread.pc += 1;
+        Ok(instr)
+    }
 }
 
 #[cfg(test)]

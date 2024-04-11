@@ -6,7 +6,7 @@ use crate::{BinOp, FrameType, UnOp, Value};
 pub type Symbol = String;
 
 /// A thread ID is a unique identifier for a thread.
-pub type ThreadID = u64;
+pub type ThreadID = i64;
 
 /// The bytecode instructions that the VM can execute. See ignite::micro_code crate for more information
 /// and implementation details.

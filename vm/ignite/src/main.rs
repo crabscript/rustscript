@@ -1,4 +1,5 @@
 use std::path::Path;
+use std::time::Duration;
 
 use anyhow::{Error, Result};
 use bytecode::{builtin, read_bytecode};
@@ -26,6 +27,11 @@ struct Args {
     /// If true, launch in REPL mode. False by default.
     #[arg(long, short)]
     repl: bool,
+
+    /// Set custom time quantum for the VM.
+    /// Default is 1000.
+    #[arg(short, long)]
+    quantum: Option<usize>,
 
     /// Turn debugging information on
     #[arg(short, long, action = clap::ArgAction::Count)]
@@ -64,7 +70,12 @@ fn main() -> Result<()> {
     let mut file = std::fs::File::open(file)?;
     let bytecode_vec = read_bytecode(&mut file)?;
 
-    let rt = Runtime::new(bytecode_vec);
+    let mut rt = Runtime::new(bytecode_vec);
+
+    if let Some(quantum) = args.quantum {
+        rt.set_time_quantum(Duration::from_millis(quantum as u64));
+    }
+
     let rt = run(rt)?;
 
     // Print last value on op stack if there (result of program)

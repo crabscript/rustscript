@@ -1,15 +1,26 @@
 use std::{cell::RefCell, rc::Rc};
 
 use anyhow::Result;
-use bytecode::{Environment, StackFrame, Symbol, Value};
+use bytecode::{Environment, StackFrame, Symbol, ThreadID, Value};
 
 use crate::VmError;
+
+#[derive(Debug, Default, Clone, PartialEq)]
+pub enum ThreadState {
+    Running,
+    #[default]
+    Ready,
+    Joining(ThreadID),
+    Yielded,
+    Done,
+}
 
 /// A thread of execution.
 #[derive(Debug, Default, Clone)]
 pub struct Thread {
-    pub thread_id: i64,
-    // pub
+    /// The unique identifier of the thread.
+    pub thread_id: ThreadID,
+    pub state: ThreadState,
     pub env: Rc<RefCell<Environment>>,
     pub operand_stack: Vec<Value>,
     pub runtime_stack: Vec<StackFrame>,

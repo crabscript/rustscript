@@ -90,7 +90,7 @@ impl Compiler {
             Expr::BlockExpr(blk) => {
                 Compiler::compile_block(blk, as_stmt, arr)?;
             }
-            Expr::IfElseExpr(if_else) => Compiler::compile_if_else(if_else, false, arr)?,
+            Expr::IfElseExpr(if_else) => Compiler::compile_if_else(if_else, as_stmt, arr)?,
         }
 
         Ok(())
@@ -676,7 +676,7 @@ mod tests {
         }
         ";
 
-        // I just copied this from the print
+        // // I just copied this from the print
         let exp = vec![
             LDC(Bool(true)),
             JOF(6),
@@ -690,5 +690,23 @@ mod tests {
             DONE,
         ];
         test_comp(t, exp);
+
+        let t = r"
+        if (true) { 10; }; 20
+        ";
+        test_comp(
+            t,
+            vec![
+                LDC(Bool(true)),
+                JOF(6),
+                LDC(Int(10)),
+                POP,
+                LDC(Unit),
+                GOTO(6),
+                POP,
+                LDC(Int(20)),
+                DONE,
+            ],
+        );
     }
 }

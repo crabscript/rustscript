@@ -1,6 +1,4 @@
 use parser::structs::*;
-use std::cell::RefCell;
-use std::rc::Rc;
 use std::{collections::HashMap, fmt::Display};
 
 use parser::structs::{BlockSeq, Decl, Expr, Type};
@@ -60,61 +58,68 @@ impl std::error::Error for TypeErrors {}
 // type TyEnv = HashMap<String, Type>;
 
 type Env = HashMap<String, Type>;
-#[allow(dead_code)]
-struct TyEnv {
-    pub env: Env,
-    pub parent: Option<Rc<RefCell<TyEnv>>>,
-}
+// struct TyEnv {
+//     pub env: Env,
+// }
 
-impl TyEnv {
-    pub fn new() -> TyEnv {
-        TyEnv {
-            env: HashMap::new(),
-            parent: None,
-        }
+// impl TyEnv {
+//     /// new tyenv with symbols set to uninit
+//     pub fn new_with_syms(syms:Vec<String>) -> TyEnv {
+//         let mut env: Env = HashMap::new();
+//         for sym in syms.iter() {
+//             env.insert(sym.to_owned(), Type::Unit);
+//         }
+//         TyEnv {
+//             env,
+//         }
+//     }
+// }
+
+pub fn new_env_with_syms(syms: Vec<String>) -> Env {
+    let mut env: Env = HashMap::new();
+    for sym in syms.iter() {
+        env.insert(sym.to_owned(), Type::Unit);
     }
 
-    pub fn get(&self, ident: &str) -> Result<Type, TypeErrors> {
-        let ty = self.env.get(ident);
-
-        if ty.is_none() {
-            let e = format!("Identifier '{}' not declared", ident);
-            return Err(TypeErrors::new_err(&e));
-        }
-
-        let ty = ty.unwrap().to_owned();
-        Ok(ty)
-    }
-
-    pub fn insert(&mut self, ident: String, type_ann: Type) {
-        self.env.insert(ident, type_ann);
-    }
-
-    // TODO: Add symbols to uninit
-    // #[allow(dead_code)]
-    // pub fn enter_scope(&self) -> TyEnv {
-    //     let new_env = HashMap::new();
-    //     let parent = Rc::clone(&self.env);
-
-    //     TyEnv {
-    //         env: new_env,
-    //         parent: Some(parent),
-    //     }
-    // }
+    env
 }
 
 /// Struct to enable type checking by encapsulating type environment.
 pub struct TypeChecker<'prog> {
     program: &'prog BlockSeq,
-    ty_env: Rc<RefCell<TyEnv>>,
+    envs: Vec<Env>,
 }
 
 impl<'prog> TypeChecker<'prog> {
     pub fn new(program: &BlockSeq) -> TypeChecker<'_> {
         TypeChecker {
             program,
-            ty_env: Rc::new(RefCell::new(TyEnv::new())),
+            envs: vec![],
         }
+    }
+
+    /// Return type of identifier by looking up nested scopes, or error if not there.
+    fn get_type(&self, ident: &str) -> Result<Type, TypeErrors> {
+        for env in self.envs.iter().rev() {
+            let ty = env.get(ident);
+            if let Some(ty) = ty {
+                return Ok(ty.to_owned());
+            }
+        }
+
+        let e = format!("Identifier '{}' not declared", ident);
+        Err(TypeErrors::new_err(&e))
+    }
+
+    /// Assign type to identifier if exists (either Unit or actual type). Else, error
+    /// Only for LetStmt so we only assign in the last env (e.g x = 2; means x already declared with let)
+    fn assign_ident(&mut self, ident: &str, ty: Type) -> Result<(), TypeErrors> {
+        self.get_type(ident)?; // actually we should only check last env?
+        if let Some(env) = self.envs.last_mut() {
+            env.insert(ident.to_string(), ty);
+        }
+
+        Ok(())
     }
 
     fn check_unop(&self, op: &UnOpType, expr: &Expr) -> Result<Type, TypeErrors> {
@@ -168,7 +173,10 @@ impl<'prog> TypeChecker<'prog> {
             Expr::Integer(_) => Type::Int,
             Expr::Float(_) => Type::Float,
             Expr::Bool(_) => Type::Bool,
-            Expr::Symbol(ident) => self.ty_env.borrow().get(ident)?,
+            Expr::Symbol(ident) => {
+                // self.ty_env.borrow().get(ident)?
+                self.get_type(ident)?
+            }
             Expr::UnOpExpr(op, expr) => {
                 return self.check_unop(op, expr);
             }
@@ -186,7 +194,7 @@ impl<'prog> TypeChecker<'prog> {
     }
 
     /// Type check declaration and add errors if any
-    fn check_decl(&self, decl: &Decl) -> Result<(), TypeErrors> {
+    fn check_decl(&mut self, decl: &Decl) -> Result<(), TypeErrors> {
         // dbg!("Type checking decl:", decl);
         match decl {
             Decl::LetStmt(stmt) => {
@@ -213,24 +221,27 @@ impl<'prog> TypeChecker<'prog> {
                     // type check expr has err + we have type ann: e.g let x : int = !2;
                     // use type of annotation, continue
                     (None, Some(ty_ann)) => {
-                        self.ty_env
-                            .borrow_mut()
-                            .insert(stmt.ident.to_owned(), ty_ann);
+                        // self.ty_env
+                        //     .borrow_mut()
+                        //     .insert(stmt.ident.to_owned(), ty_ann);
+                        self.assign_ident(&stmt.ident.to_owned(), ty_ann)?;
                         return Err(ty_errs);
                     }
 
                     // expr is well-typed + no type annotation e.g let x = 2+2;
                     // use expr type, no err
                     (Some(ty), None) => {
-                        self.ty_env.borrow_mut().insert(stmt.ident.to_owned(), ty);
+                        // self.ty_env.borrow_mut().insert(stmt.ident.to_owned(), ty);
+                        self.assign_ident(&stmt.ident.to_owned(), ty)?;
                     }
 
                     // expr is well-typed + have ty ann: e.g let x : int = true; or let x : int  = 2;
                     // either way, insert type of binding = annotation so we can ty check rest. error out if mismatch
                     (Some(ty), Some(ty_ann)) => {
-                        self.ty_env
-                            .borrow_mut()
-                            .insert(stmt.ident.to_owned(), ty_ann);
+                        // self.ty_env
+                        //     .borrow_mut()
+                        //     .insert(stmt.ident.to_owned(), ty_ann);
+                        self.assign_ident(&stmt.ident.to_owned(), ty_ann)?;
 
                         if !ty_ann.eq(&ty) {
                             let string = format!(
@@ -266,11 +277,13 @@ impl<'prog> TypeChecker<'prog> {
         Ok(())
     }
 
-    pub fn type_check(self) -> Result<Type, TypeErrors> {
+    pub fn type_check(mut self) -> Result<Type, TypeErrors> {
         let mut errs = TypeErrors::new();
         // map bindings to types
         // let mut ty_env: HashMap<String, Type> = HashMap::new();
         // let mut ty_env = TyEnv::new();
+        let env = new_env_with_syms(self.program.symbols.clone());
+        self.envs.push(env);
 
         for decl in self.program.decls.iter() {
             if let Err(mut decl_errs) = self.check_decl(decl) {

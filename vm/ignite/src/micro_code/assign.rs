@@ -1,7 +1,7 @@
 use anyhow::{Ok, Result};
 use bytecode::Symbol;
 
-use crate::{Runtime, VmError};
+use crate::{Thread, VmError};
 
 /// Assign a value to a symbol.
 ///
@@ -15,12 +15,12 @@ use crate::{Runtime, VmError};
 ///
 /// If the stack is empty.
 /// If the symbol is not found in the environment chain.
-pub fn assign(rt: &mut Runtime, sym: Symbol) -> Result<()> {
-    let val = rt
+pub fn assign(t: &mut Thread, sym: Symbol) -> Result<()> {
+    let val = t
         .operand_stack
         .pop()
         .ok_or(VmError::OperandStackUnderflow)?;
-    rt.env.borrow_mut().update(sym, val)?;
+    t.env.borrow_mut().update(sym, val)?;
     Ok(())
 }
 
@@ -34,22 +34,22 @@ mod tests {
 
     #[test]
     fn test_assign() {
-        let mut rt = Runtime::new(vec![]);
-        rt.env.borrow_mut().set("x", Value::Unitialized);
-        rt.operand_stack.push(Value::Int(42));
+        let mut t = Thread::new(vec![]);
+        t.env.borrow_mut().set("x", Value::Unitialized);
+        t.operand_stack.push(Value::Int(42));
 
-        assign(&mut rt, "x".to_string()).unwrap();
+        assign(&mut t, "x".to_string()).unwrap();
 
         assert_ne!(
-            rt.env.borrow().get(&"x".to_string()),
+            t.env.borrow().get(&"x".to_string()),
             Some(Value::Unitialized)
         );
-        assert_eq!(rt.env.borrow().get(&"x".to_string()), Some(Value::Int(42)));
+        assert_eq!(t.env.borrow().get(&"x".to_string()), Some(Value::Int(42)));
     }
 
     #[test]
     fn test_assign_with_parent() {
-        let mut rt = Runtime::new(vec![]);
+        let mut rt = Thread::new(vec![]);
 
         let parent_env = Environment::new_wrapped();
         parent_env.borrow_mut().set("x", 42);

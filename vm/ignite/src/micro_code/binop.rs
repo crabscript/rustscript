@@ -1,7 +1,7 @@
 use anyhow::Result;
-use bytecode::{BinOp, Value};
+use bytecode::{type_of, BinOp, Value};
 
-use crate::{Runtime, VmError};
+use crate::{Thread, VmError};
 
 /// Executes a binary operation on the top two values of the stack.
 /// It pops the two values off the top of the stack, applies the
@@ -20,23 +20,29 @@ use crate::{Runtime, VmError};
 ///
 /// If the stack has fewer than two values or the operation is not supported
 /// for the types of the values on the stack.
-pub fn binop(rt: &mut Runtime, op: BinOp) -> Result<()> {
-    let rhs = rt
+pub fn binop(t: &mut Thread, op: BinOp) -> Result<()> {
+    let rhs_val = t
         .operand_stack
         .pop()
         .ok_or(VmError::OperandStackUnderflow)?;
-    let lhs = rt
+    let lhs_val = t
         .operand_stack
         .pop()
         .ok_or(VmError::OperandStackUnderflow)?;
 
-    match (lhs, rhs) {
+    match (lhs_val.clone(), rhs_val.clone()) {
         (Value::Unit, Value::Unit) => {
             let result = match op {
                 BinOp::Eq => Value::Bool(true),
-                _ => return Err(VmError::IllegalArgument("unit not supported".to_string()).into()),
+                _ => {
+                    return Err(VmError::UnsupportedOperation(
+                        BinOp::Eq.into(),
+                        type_of(&rhs_val).to_string(),
+                    )
+                    .into())
+                }
             };
-            rt.operand_stack.push(result);
+            t.operand_stack.push(result);
         }
         (Value::Int(lhs), Value::Int(rhs)) => {
             let result = match op {
@@ -49,17 +55,21 @@ pub fn binop(rt: &mut Runtime, op: BinOp) -> Result<()> {
                 BinOp::Lt => Value::Bool(lhs < rhs),  // Less Than
                 BinOp::Eq => Value::Bool(lhs == rhs), // Equality
                 BinOp::And => {
-                    return Err(
-                        VmError::IllegalArgument("integer not supported".to_string()).into(),
+                    return Err(VmError::UnsupportedOperation(
+                        BinOp::And.into(),
+                        type_of(&rhs_val).to_string(),
                     )
+                    .into())
                 }
                 BinOp::Or => {
-                    return Err(
-                        VmError::IllegalArgument("integer not supported".to_string()).into(),
+                    return Err(VmError::UnsupportedOperation(
+                        BinOp::Or.into(),
+                        type_of(&rhs_val).to_string(),
                     )
+                    .into())
                 }
             };
-            rt.operand_stack.push(result);
+            t.operand_stack.push(result);
         }
         (Value::Float(lhs), Value::Float(rhs)) => {
             let result = match op {
@@ -71,37 +81,65 @@ pub fn binop(rt: &mut Runtime, op: BinOp) -> Result<()> {
                 BinOp::Lt => Value::Bool(lhs < rhs),   // Less Than
                 BinOp::Eq => Value::Bool(lhs == rhs),  // Equality
                 BinOp::Or => {
-                    return Err(VmError::IllegalArgument("float not supported".to_string()).into())
+                    return Err(VmError::UnsupportedOperation(
+                        BinOp::Or.into(),
+                        type_of(&rhs_val).to_string(),
+                    )
+                    .into())
                 }
                 BinOp::And => {
-                    return Err(VmError::IllegalArgument("float not supported".to_string()).into())
+                    return Err(VmError::UnsupportedOperation(
+                        BinOp::And.into(),
+                        type_of(&rhs_val).to_string(),
+                    )
+                    .into())
                 }
                 BinOp::Mod => {
-                    return Err(VmError::IllegalArgument("float not supported".to_string()).into())
+                    return Err(VmError::UnsupportedOperation(
+                        BinOp::Mod.into(),
+                        type_of(&rhs_val).to_string(),
+                    )
+                    .into())
                 }
             };
-            rt.operand_stack.push(result);
+            t.operand_stack.push(result);
         }
         (Value::Bool(lhs), Value::Bool(rhs)) => {
             let result = match op {
                 BinOp::And => Value::Bool(lhs && rhs), // Logical And
                 BinOp::Or => Value::Bool(lhs || rhs),  // Logical Or
                 BinOp::Eq => Value::Bool(lhs == rhs),  // Equality
-                _ => return Err(VmError::IllegalArgument("bool not supported".to_string()).into()),
+                _ => {
+                    return Err(VmError::UnsupportedOperation(
+                        BinOp::Eq.into(),
+                        type_of(&rhs_val).to_string(),
+                    )
+                    .into())
+                }
             };
-            rt.operand_stack.push(result);
+            t.operand_stack.push(result);
         }
         (Value::String(lhs), Value::String(rhs)) => {
             let result = match op {
                 BinOp::Add => Value::String(lhs + &rhs),
                 BinOp::Eq => Value::Bool(lhs == rhs),
                 _ => {
-                    return Err(VmError::IllegalArgument("string not supported".to_string()).into())
+                    return Err(VmError::UnsupportedOperation(
+                        BinOp::Eq.into(),
+                        type_of(&rhs_val).to_string(),
+                    )
+                    .into())
                 }
             };
-            rt.operand_stack.push(result);
+            t.operand_stack.push(result);
         }
-        _ => return Err(VmError::IllegalArgument("type mismatch".to_string()).into()),
+        _ => {
+            return Err(VmError::TypeMismatch {
+                expected: type_of(&lhs_val).to_string(),
+                found: type_of(&rhs_val).to_string(),
+            }
+            .into())
+        }
     }
 
     Ok(())
@@ -113,11 +151,11 @@ mod tests {
     use bytecode::{BinOp, Value};
 
     use crate::micro_code::ldc;
-    use crate::Runtime;
+    use crate::Thread;
 
     #[test]
     fn test_binop() {
-        let mut rt = Runtime::new(vec![]);
+        let mut rt = Thread::new(vec![]);
         ldc(&mut rt, Value::Int(42)).unwrap();
         ldc(&mut rt, Value::Int(42)).unwrap();
         binop(&mut rt, BinOp::Add).unwrap();

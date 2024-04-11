@@ -6,12 +6,13 @@ use clap::Parser;
 use repl::{ignite_repl, print_value};
 
 pub use crate::error::*;
-pub use crate::runtime::Runtime;
+pub use crate::thread::*;
 
 mod error;
 mod micro_code;
 mod repl;
 mod runtime;
+mod thread;
 
 #[derive(Parser, Debug)]
 #[command(name = "Ignite")]
@@ -62,7 +63,7 @@ fn main() -> Result<()> {
     let mut file = std::fs::File::open(file)?;
     let bytecode_vec = read_bytecode(&mut file)?;
 
-    let mut rt = Runtime::new(bytecode_vec);
+    let mut rt = Thread::new(bytecode_vec);
     rt = runtime::run(rt)?;
 
     // Print last value on op stack if there (result of program)

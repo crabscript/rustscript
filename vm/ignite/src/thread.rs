@@ -1,0 +1,101 @@
+use std::{cell::RefCell, rc::Rc};
+
+use anyhow::Result;
+use bytecode::{ByteCode, Environment, StackFrame, Symbol, Value};
+
+use crate::VmError;
+
+/// A thread of execution.
+#[derive(Debug, Default)]
+pub struct Thread {
+    pub env: Rc<RefCell<Environment>>,
+    pub operand_stack: Vec<Value>,
+    pub runtime_stack: Vec<StackFrame>,
+    pub instrs: Vec<ByteCode>,
+    pub pc: usize,
+}
+
+impl Thread {
+    pub fn new(instrs: Vec<ByteCode>) -> Self {
+        Thread {
+            env: Environment::new_global(),
+            operand_stack: Vec::new(),
+            runtime_stack: Vec::new(),
+            instrs,
+            ..Default::default()
+        }
+    }
+}
+
+/// Extend the current environment with new symbols and values.
+///
+/// # Arguments
+///
+/// * `rt` - The runtime to extend the environment of.
+///
+/// * `syms` - The symbols to add to the environment.
+///
+/// * `vals` - The values to add to the environment.
+///
+/// # Errors
+///
+/// If the symbols and values are not the same length.
+pub fn extend_environment<S, V>(t: &mut Thread, syms: Vec<S>, vals: Vec<V>) -> Result<()>
+where
+    S: Into<Symbol>,
+    V: Into<Value>,
+{
+    if syms.len() != vals.len() {
+        return Err(VmError::IllegalArgument(
+            "symbols and values must be the same length".to_string(),
+        )
+        .into());
+    }
+
+    let current_env = Rc::clone(&t.env);
+    let new_env = Environment::new_wrapped();
+    new_env.borrow_mut().set_parent(current_env);
+
+    for (sym, val) in syms.into_iter().zip(vals.into_iter()) {
+        new_env.borrow_mut().set(sym, val);
+    }
+
+    t.env = new_env;
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bytecode::Value;
+
+    #[test]
+    fn test_extend_environment() -> Result<()> {
+        let mut t = Thread::new(vec![]);
+        t.env.borrow_mut().set("a", 42);
+        t.env.borrow_mut().set("b", 123);
+
+        let empty: Vec<String> = Vec::new();
+        assert!(extend_environment(&mut t, vec!["c", "d"], empty).is_err());
+
+        extend_environment(
+            &mut t,
+            vec!["c", "d"],
+            vec![Value::Float(12.3), Value::Bool(true)],
+        )?;
+
+        assert_eq!(t.env.borrow().get(&"a".to_string()), Some(Value::Int(42)));
+        assert_eq!(t.env.borrow().get(&"b".to_string()), Some(Value::Int(123)));
+        assert_eq!(
+            t.env.borrow().get(&"c".to_string()),
+            Some(Value::Float(12.3))
+        );
+        assert_eq!(
+            t.env.borrow().get(&"d".to_string()),
+            Some(Value::Bool(true))
+        );
+
+        Ok(())
+    }
+}

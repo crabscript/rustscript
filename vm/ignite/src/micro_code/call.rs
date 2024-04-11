@@ -3,7 +3,7 @@ use std::rc::Rc;
 use anyhow::Result;
 use bytecode::{type_of, FnType, FrameType, StackFrame, Value};
 
-use crate::{runtime::extend_environment, Runtime, VmError};
+use crate::{thread::extend_environment, Thread, VmError};
 
 use super::apply_builtin::apply_builtin;
 
@@ -26,18 +26,18 @@ use super::apply_builtin::apply_builtin;
 ///
 /// If the operand stack does not contain enough values to pop (arity + 1).
 /// If the closure is not of type closure or the arity of the closure does not match the number of arguments.
-pub fn call(rt: &mut Runtime, arity: usize) -> Result<()> {
+pub fn call(t: &mut Thread, arity: usize) -> Result<()> {
     let mut args = Vec::new();
 
     for _ in 0..arity {
         args.push(
-            rt.operand_stack
+            t.operand_stack
                 .pop()
                 .ok_or(VmError::OperandStackUnderflow)?,
         );
     }
 
-    let value = rt
+    let value = t
         .operand_stack
         .pop()
         .ok_or(VmError::OperandStackUnderflow)?;
@@ -66,18 +66,18 @@ pub fn call(rt: &mut Runtime, arity: usize) -> Result<()> {
     }
 
     if let FnType::Builtin = fn_type {
-        return apply_builtin(rt, sym.as_str(), args);
+        return apply_builtin(t, sym.as_str(), args);
     }
 
     let frame = StackFrame {
         frame_type: FrameType::CallFrame,
         env: Rc::clone(&env),
-        address: Some(rt.pc),
+        address: Some(t.pc),
     };
 
-    rt.runtime_stack.push(frame);
-    extend_environment(rt, prms, args)?;
-    rt.pc = addr;
+    t.runtime_stack.push(frame);
+    extend_environment(t, prms, args)?;
+    t.pc = addr;
 
     Ok(())
 }
@@ -89,7 +89,7 @@ mod tests {
 
     #[test]
     fn test_call() {
-        let mut rt = Runtime::new(vec![ByteCode::CALL(0), ByteCode::DONE]);
+        let mut rt = Thread::new(vec![ByteCode::CALL(0), ByteCode::DONE]);
         let result = call(&mut rt, 0);
 
         assert!(result.is_err());

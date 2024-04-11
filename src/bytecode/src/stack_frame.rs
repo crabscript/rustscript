@@ -8,6 +8,7 @@ use crate::Environment;
 pub enum FrameType {
     BlockFrame,
     CallFrame,
+    ThreadFrame,
 }
 
 #[derive(Debug)]

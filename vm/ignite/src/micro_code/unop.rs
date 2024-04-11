@@ -1,4 +1,4 @@
-use crate::{Runtime, VmError};
+use crate::{Thread, VmError};
 use anyhow::Result;
 use bytecode::{UnOp, Value};
 
@@ -16,8 +16,8 @@ use bytecode::{UnOp, Value};
 ///
 /// If the stack is empty or the operation is not supported for
 /// the type of the value on the stack.
-pub fn unop(rt: &mut Runtime, op: UnOp) -> Result<()> {
-    let val = rt
+pub fn unop(t: &mut Thread, op: UnOp) -> Result<()> {
+    let val = t
         .operand_stack
         .pop()
         .ok_or(VmError::OperandStackUnderflow)?;
@@ -31,21 +31,21 @@ pub fn unop(rt: &mut Runtime, op: UnOp) -> Result<()> {
                 UnOp::Neg => Value::Int(-i), // Negation
                 UnOp::Not => Value::Int(!i), // Bitwise Not
             };
-            rt.operand_stack.push(result);
+            t.operand_stack.push(result);
         }
         Value::Float(f) => {
             let result = match op {
                 UnOp::Neg => Value::Float(-f), // Negation
                 _ => return Err(VmError::IllegalArgument("float not supported".to_string()).into()),
             };
-            rt.operand_stack.push(result);
+            t.operand_stack.push(result);
         }
         Value::Bool(b) => {
             let result = match op {
                 UnOp::Not => Value::Bool(!b), // Logical Not
                 _ => return Err(VmError::IllegalArgument("bool not supported".to_string()).into()),
             };
-            rt.operand_stack.push(result);
+            t.operand_stack.push(result);
         }
         Value::String(_) => {
             return Err(VmError::IllegalArgument("string not supported".to_string()).into())
@@ -69,12 +69,12 @@ pub fn unop(rt: &mut Runtime, op: UnOp) -> Result<()> {
 mod tests {
     use super::*;
     use crate::micro_code::ldc;
-    use crate::Runtime;
+    use crate::Thread;
     use bytecode::{UnOp, Value};
 
     #[test]
     fn test_unop() {
-        let mut rt = Runtime::new(vec![]);
+        let mut rt = Thread::new(vec![]);
         ldc(&mut rt, Value::Int(42)).unwrap();
         unop(&mut rt, UnOp::Neg).unwrap();
         assert_eq!(rt.operand_stack.pop().unwrap(), Value::Int(-42));

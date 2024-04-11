@@ -29,6 +29,12 @@ pub enum VmError {
     #[error("Illegal argument: {0}")]
     IllegalArgument(String),
 
+    #[error("Unsupported operation {0} on type {1}")]
+    UnsupportedOperation(String, String),
+
+    #[error("Type mismatch: expected {expected}, found {found}")]
+    TypeMismatch { expected: String, found: String },
+
     #[error("Arity and params mismatch: arity {arity}, found {params} params")]
     ArityParamsMismatch { arity: usize, params: usize },
 

@@ -1,4 +1,4 @@
-use crate::{Runtime, VmError};
+use crate::{Thread, VmError};
 use anyhow::Result;
 use bytecode::FrameType;
 
@@ -14,22 +14,22 @@ use bytecode::FrameType;
 /// # Errors
 ///
 /// If the runtime stack underflows. i.e. there are no frames of the given type.
-pub fn reset(rt: &mut Runtime, t: FrameType) -> Result<()> {
+pub fn reset(t: &mut Thread, ft: FrameType) -> Result<()> {
     loop {
-        let frame = rt
+        let frame = t
             .runtime_stack
             .pop()
             .ok_or(VmError::RuntimeStackUnderflow)?;
 
-        if frame.frame_type != t {
+        if frame.frame_type != ft {
             continue;
         }
 
         if let Some(address) = frame.address {
-            rt.pc = address;
+            t.pc = address;
         }
 
-        rt.env = frame.env;
+        t.env = frame.env;
         break;
     }
 
@@ -43,11 +43,11 @@ mod tests {
     use super::*;
     use bytecode::{ByteCode, Environment, FrameType, StackFrame, Value};
 
-    use crate::Runtime;
+    use crate::Thread;
 
     #[test]
     fn test_reset_restore_env() {
-        let mut rt = Runtime::new(vec![ByteCode::RESET(FrameType::BlockFrame)]);
+        let mut t = Thread::new(vec![ByteCode::RESET(FrameType::BlockFrame)]);
 
         let env_a = Environment::new_wrapped();
         let env_b = Environment::new_wrapped();
@@ -58,21 +58,21 @@ mod tests {
         let block_frame = StackFrame::new(FrameType::BlockFrame, Rc::clone(&env_c));
         let call_frame = StackFrame::new(FrameType::CallFrame, Rc::clone(&env_b));
 
-        rt.runtime_stack.push(some_frame);
-        rt.runtime_stack.push(block_frame);
-        rt.runtime_stack.push(call_frame);
+        t.runtime_stack.push(some_frame);
+        t.runtime_stack.push(block_frame);
+        t.runtime_stack.push(call_frame);
 
-        assert!(rt.runtime_stack.len() == 3);
+        assert!(t.runtime_stack.len() == 3);
 
-        reset(&mut rt, FrameType::BlockFrame).unwrap();
+        reset(&mut t, FrameType::BlockFrame).unwrap();
 
-        assert!(rt.runtime_stack.len() == 1);
-        assert_eq!(rt.env.borrow().get(&"a".to_string()), Some(Value::Int(42)));
+        assert!(t.runtime_stack.len() == 1);
+        assert_eq!(t.env.borrow().get(&"a".to_string()), Some(Value::Int(42)));
     }
 
     #[test]
     fn test_set_pc() {
-        let mut rt = Runtime::new(vec![ByteCode::RESET(FrameType::BlockFrame)]);
+        let mut t = Thread::new(vec![ByteCode::RESET(FrameType::BlockFrame)]);
 
         let env_a = Environment::new_wrapped();
         let env_b = Environment::new_wrapped();
@@ -84,15 +84,15 @@ mod tests {
             StackFrame::new_with_address(FrameType::BlockFrame, 123, Rc::clone(&env_c));
         let call_frame = StackFrame::new(FrameType::CallFrame, Rc::clone(&env_b));
 
-        rt.runtime_stack.push(some_frame);
-        rt.runtime_stack.push(block_frame);
-        rt.runtime_stack.push(call_frame);
+        t.runtime_stack.push(some_frame);
+        t.runtime_stack.push(block_frame);
+        t.runtime_stack.push(call_frame);
 
-        assert!(rt.runtime_stack.len() == 3);
+        assert!(t.runtime_stack.len() == 3);
 
-        reset(&mut rt, FrameType::BlockFrame).unwrap();
+        reset(&mut t, FrameType::BlockFrame).unwrap();
 
-        assert!(rt.runtime_stack.len() == 1);
-        assert_eq!(rt.pc, 123);
+        assert!(t.runtime_stack.len() == 1);
+        assert_eq!(t.pc, 123);
     }
 }

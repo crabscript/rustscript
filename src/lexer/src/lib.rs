@@ -87,6 +87,12 @@ pub enum Token {
     #[token("let")]
     Let,
 
+    #[token("if")]
+    If,
+
+    #[token("else")]
+    Else,
+
     #[regex(r#"[a-zA-Z_][a-zA-Z0-9_]*"#, |lex| lex.slice().to_owned())]
     Ident(String),
 
@@ -153,6 +159,8 @@ impl Token {
             Self::Bool(val) => val.to_string(),
             Self::Integer(val) => val.to_string(),
             Self::Float(val) => val.to_string(),
+            Self::If => "if".to_string(),
+            Self::Else => "else".to_string(),
         }
     }
 }

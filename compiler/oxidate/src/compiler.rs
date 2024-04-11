@@ -84,7 +84,7 @@ impl Compiler {
                 arr.push(ByteCode::LD(sym.to_string()));
             }
             Expr::BlockExpr(blk) => {
-                Compiler::compile_block(blk, arr)?;
+                Compiler::compile_block(blk, false, arr)?;
             }
             _ => todo!(),
         }
@@ -108,7 +108,12 @@ impl Compiler {
         Ok(())
     }
 
-    fn compile_block(blk: &BlockSeq, arr: &mut Vec<ByteCode>) -> Result<(), CompileError> {
+    /// Compile block appropriately based on whether it is none-like and whether we intend to compile as expr or stmt
+    fn compile_block(
+        blk: &BlockSeq,
+        as_stmt: bool,
+        arr: &mut Vec<ByteCode>,
+    ) -> Result<(), CompileError> {
         let decls = &blk.decls;
         let syms = &blk.symbols;
 
@@ -131,15 +136,20 @@ impl Compiler {
             arr.push(ByteCode::EXITSCOPE);
         }
 
+        // does not produce value AND treated as stmt: push unit so pop does not underflow
+        if Compiler::blk_produces_nothing(blk) && as_stmt {
+            arr.push(ByteCode::ldc(Value::Unit));
+        }
+
         Ok(())
     }
 
     // blk is_none_like if: last_expr is none, or last_expr is a block and the block is none_like
     // none_like meaning the last expr actually leaves nothing on the stack
-    fn is_none_like(blk: &BlockSeq) -> bool {
+    fn blk_produces_nothing(blk: &BlockSeq) -> bool {
         if let Some(expr) = &blk.last_expr {
             if let Expr::BlockExpr(seq) = expr.as_ref() {
-                Compiler::is_none_like(seq)
+                Compiler::blk_produces_nothing(seq)
             } else {
                 // have last expr and it's not a block: not none like
                 false
@@ -153,15 +163,21 @@ impl Compiler {
     fn compile_decl(decl: &Decl, arr: &mut Vec<ByteCode>) -> Result<(), CompileError> {
         match decl {
             Decl::ExprStmt(expr) => {
-                Compiler::compile_expr(expr, arr)?;
+                // Compiler::compile_expr(expr, arr)?;
 
                 // avoid pop underflow when block has no value pushed at the end (last expr pushes no value)
                 // this happens when last_expr is a block
                 // because we have POP after every decl by default
+                // if let Expr::BlockExpr(seq) = expr {
+                //     if Compiler::blk_produces_nothing(seq) {
+                //         arr.push(ByteCode::ldc(Value::Unit))
+                //     }
+                // }
+
                 if let Expr::BlockExpr(seq) = expr {
-                    if Compiler::is_none_like(seq) {
-                        arr.push(ByteCode::ldc(Value::Unit))
-                    }
+                    Compiler::compile_block(seq, true, arr)?;
+                } else {
+                    Compiler::compile_expr(expr, arr)?;
                 }
             }
             Decl::LetStmt(stmt) => {
@@ -177,7 +193,7 @@ impl Compiler {
 
     pub fn compile(self) -> anyhow::Result<Vec<ByteCode>, CompileError> {
         let mut bytecode: Vec<ByteCode> = vec![];
-        Compiler::compile_block(&self.program, &mut bytecode)?;
+        Compiler::compile_block(&self.program, false, &mut bytecode)?;
         bytecode.push(ByteCode::DONE);
 
         Ok(bytecode)

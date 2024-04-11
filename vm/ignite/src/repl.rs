@@ -58,6 +58,8 @@ pub fn ignite_repl(type_check: bool) -> Result<()> {
 
             // For now, make a new Runtime for each line
             // Later: try to introduce global state
+            // dbg!(&compiled);
+
             let mut rt = Runtime::new(compiled);
             let run_res = run(rt);
 

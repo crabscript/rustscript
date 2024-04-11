@@ -3,7 +3,7 @@ use std::fmt::Display;
 use types::type_checker::TypeChecker;
 
 use bytecode::{ByteCode, Value};
-use parser::structs::{BinOpType, BlockSeq, Decl, Expr, UnOpType};
+use parser::structs::{BinOpType, BlockSeq, Decl, Expr, IfElseData, UnOpType};
 
 pub struct Compiler {
     program: BlockSeq,
@@ -90,9 +90,7 @@ impl Compiler {
             Expr::BlockExpr(blk) => {
                 Compiler::compile_block(blk, as_stmt, arr)?;
             }
-            _ => todo!(), // Expr::IfElseExpr(if_else) => {
-                          //     Compiler::compile_if_else(if_else, false, arr)?
-                          // },
+            Expr::IfElseExpr(if_else) => Compiler::compile_if_else(if_else, false, arr)?,
         }
 
         Ok(())
@@ -189,10 +187,46 @@ impl Compiler {
     }
 
     /// Compile if_else as statement or as expr - changes how blocks are compiled
-    // fn compile_if_else(_if_else: &IfElseData, _as_stmt: bool, _arr: &mut Vec<ByteCode>) -> Result<(), CompileError> {
-    //     dbg!("COMPILE IF ELSE");
-    //     Ok(())
-    // }
+    fn compile_if_else(
+        if_else: &IfElseData,
+        as_stmt: bool,
+        arr: &mut Vec<ByteCode>,
+    ) -> Result<(), CompileError> {
+        dbg!("COMPILE IF ELSE");
+        Compiler::compile_expr(&if_else.cond, false, arr)?;
+
+        let jof_idx = arr.len();
+        arr.push(ByteCode::JOF(0));
+
+        Compiler::compile_block(&if_else.if_blk, as_stmt, arr)?;
+
+        let goto_idx = arr.len();
+        arr.push(ByteCode::GOTO(0));
+
+        let jof_addr = arr.len(); // jump to after the GOTO
+
+        if let Some(else_blk) = &if_else.else_blk {
+            Compiler::compile_block(else_blk, as_stmt, arr)?;
+        }
+
+        let goto_addr = arr.len(); // jump to after else blk
+
+        // set JOF arg
+        if let Some(ByteCode::JOF(idx)) = arr.get_mut(jof_idx) {
+            *idx = jof_addr;
+            // if let ByteCode::JOF(idx) = inst {
+            //     *idx = jof_addr;
+            // }
+        }
+
+        if let Some(ByteCode::GOTO(idx)) = arr.get_mut(goto_idx) {
+            // if let ByteCode::GOTO(idx) = inst {
+            //     *idx = goto_addr;
+            // }
+            *idx = goto_addr;
+        }
+        Ok(())
+    }
 
     pub fn compile(self) -> anyhow::Result<Vec<ByteCode>, CompileError> {
         let mut bytecode: Vec<ByteCode> = vec![];
@@ -628,5 +662,33 @@ mod tests {
                 DONE,
             ],
         );
+    }
+
+    #[test]
+    fn test_compile_if() {
+        let t = r"
+        if (true) {
+            10;
+            2
+        } else {
+            20;
+            3
+        }
+        ";
+
+        // I just copied this from the print
+        let exp = vec![
+            LDC(Bool(true)),
+            JOF(6),
+            LDC(Int(10)),
+            POP,
+            LDC(Int(2)),
+            GOTO(9),
+            LDC(Int(20)),
+            POP,
+            LDC(Int(3)),
+            DONE,
+        ];
+        test_comp(t, exp);
     }
 }

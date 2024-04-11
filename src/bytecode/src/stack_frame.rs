@@ -11,7 +11,7 @@ pub enum FrameType {
     ThreadFrame,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct StackFrame {
     pub frame_type: FrameType,
     pub address: Option<usize>,

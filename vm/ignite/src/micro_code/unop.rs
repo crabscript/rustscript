@@ -1,4 +1,4 @@
-use crate::{Thread, VmError};
+use crate::{Runtime, VmError};
 use anyhow::Result;
 use bytecode::{UnOp, Value};
 
@@ -16,8 +16,9 @@ use bytecode::{UnOp, Value};
 ///
 /// If the stack is empty or the operation is not supported for
 /// the type of the value on the stack.
-pub fn unop(t: &mut Thread, op: UnOp) -> Result<()> {
-    let val = t
+pub fn unop(rt: &mut Runtime, op: UnOp) -> Result<()> {
+    let val = rt
+        .current_thread
         .operand_stack
         .pop()
         .ok_or(VmError::OperandStackUnderflow)?;
@@ -31,21 +32,21 @@ pub fn unop(t: &mut Thread, op: UnOp) -> Result<()> {
                 UnOp::Neg => Value::Int(-i), // Negation
                 UnOp::Not => Value::Int(!i), // Bitwise Not
             };
-            t.operand_stack.push(result);
+            rt.current_thread.operand_stack.push(result);
         }
         Value::Float(f) => {
             let result = match op {
                 UnOp::Neg => Value::Float(-f), // Negation
                 _ => return Err(VmError::IllegalArgument("float not supported".to_string()).into()),
             };
-            t.operand_stack.push(result);
+            rt.current_thread.operand_stack.push(result);
         }
         Value::Bool(b) => {
             let result = match op {
                 UnOp::Not => Value::Bool(!b), // Logical Not
                 _ => return Err(VmError::IllegalArgument("bool not supported".to_string()).into()),
             };
-            t.operand_stack.push(result);
+            rt.current_thread.operand_stack.push(result);
         }
         Value::String(_) => {
             return Err(VmError::IllegalArgument("string not supported".to_string()).into())
@@ -69,27 +70,38 @@ pub fn unop(t: &mut Thread, op: UnOp) -> Result<()> {
 mod tests {
     use super::*;
     use crate::micro_code::ldc;
-    use crate::Thread;
     use bytecode::{UnOp, Value};
 
     #[test]
     fn test_unop() {
-        let mut rt = Thread::new(vec![]);
+        let mut rt = Runtime::new(vec![]);
         ldc(&mut rt, Value::Int(42)).unwrap();
         unop(&mut rt, UnOp::Neg).unwrap();
-        assert_eq!(rt.operand_stack.pop().unwrap(), Value::Int(-42));
+        assert_eq!(
+            rt.current_thread.operand_stack.pop().unwrap(),
+            Value::Int(-42)
+        );
 
         ldc(&mut rt, Value::Float(42.0)).unwrap();
         unop(&mut rt, UnOp::Neg).unwrap();
-        assert_eq!(rt.operand_stack.pop().unwrap(), Value::Float(-42.0));
+        assert_eq!(
+            rt.current_thread.operand_stack.pop().unwrap(),
+            Value::Float(-42.0)
+        );
 
         ldc(&mut rt, Value::Bool(true)).unwrap();
         unop(&mut rt, UnOp::Not).unwrap();
-        assert_eq!(rt.operand_stack.pop().unwrap(), Value::Bool(false));
+        assert_eq!(
+            rt.current_thread.operand_stack.pop().unwrap(),
+            Value::Bool(false)
+        );
 
         ldc(&mut rt, Value::Bool(false)).unwrap();
         unop(&mut rt, UnOp::Not).unwrap();
-        assert_eq!(rt.operand_stack.pop().unwrap(), Value::Bool(true));
+        assert_eq!(
+            rt.current_thread.operand_stack.pop().unwrap(),
+            Value::Bool(true)
+        );
 
         ldc(&mut rt, Value::Unit).unwrap();
         let result = unop(&mut rt, UnOp::Not);
@@ -102,6 +114,9 @@ mod tests {
         ldc(&mut rt, Value::Int(42)).unwrap();
         unop(&mut rt, UnOp::Not).unwrap();
         unop(&mut rt, UnOp::Neg).unwrap();
-        assert_eq!(rt.operand_stack.pop().unwrap(), Value::Int(43));
+        assert_eq!(
+            rt.current_thread.operand_stack.pop().unwrap(),
+            Value::Int(43)
+        );
     }
 }

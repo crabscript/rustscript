@@ -1,29 +1,37 @@
 use std::{cell::RefCell, rc::Rc};
 
 use anyhow::Result;
-use bytecode::{ByteCode, Environment, StackFrame, Symbol, Value};
+use bytecode::{Environment, StackFrame, Symbol, Value};
 
 use crate::VmError;
 
 /// A thread of execution.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Thread {
+    pub thread_id: u64,
     pub env: Rc<RefCell<Environment>>,
     pub operand_stack: Vec<Value>,
     pub runtime_stack: Vec<StackFrame>,
-    pub instrs: Vec<ByteCode>,
     pub pc: usize,
 }
 
 impl Thread {
-    pub fn new(instrs: Vec<ByteCode>) -> Self {
+    pub fn new(thread_id: u64) -> Self {
         Thread {
+            thread_id,
             env: Environment::new_global(),
             operand_stack: Vec::new(),
             runtime_stack: Vec::new(),
-            instrs,
             ..Default::default()
         }
+    }
+}
+
+impl Thread {
+    pub fn spawn_new(&self, thread_id: u64) -> Thread {
+        let mut new_thread = self.clone();
+        new_thread.thread_id = thread_id;
+        new_thread
     }
 }
 
@@ -72,7 +80,7 @@ mod tests {
 
     #[test]
     fn test_extend_environment() -> Result<()> {
-        let mut t = Thread::new(vec![]);
+        let mut t = Thread::new(1);
         t.env.borrow_mut().set("a", 42);
         t.env.borrow_mut().set("b", 123);
 

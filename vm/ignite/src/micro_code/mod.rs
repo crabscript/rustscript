@@ -1,3 +1,4 @@
+pub use apply_builtin::apply_builtin;
 pub use assign::assign;
 pub use binop::binop;
 pub use call::call;

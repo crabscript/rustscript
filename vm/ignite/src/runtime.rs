@@ -1,7 +1,16 @@
+use std::{
+    collections::VecDeque,
+    time::{Duration, Instant},
+};
+
 use anyhow::Result;
 use bytecode::ByteCode;
 
 use crate::{micro_code, Thread, VmError};
+
+const TIME_QUANTUM: Duration = Duration::from_millis(100);
+const MAIN_THREAD_ID: u64 = 1;
+// static THREAD_COUNT: u64 = 1;
 
 /// The runtime of the virtual machine.
 /// It contains the instructions to execute, the current thread, and the ready and suspended threads.
@@ -11,9 +20,20 @@ use crate::{micro_code, Thread, VmError};
 /// The instructions are the bytecode instructions to execute.
 pub struct Runtime {
     pub instrs: Vec<ByteCode>,
-    pub running_thread: Thread,
-    pub ready_queue: Vec<Thread>,
+    pub current_thread: Thread,
+    pub ready_queue: VecDeque<Thread>,
     pub suspended_queue: Vec<Thread>,
+}
+
+impl Runtime {
+    pub fn new(instrs: Vec<ByteCode>) -> Self {
+        Runtime {
+            instrs,
+            current_thread: Thread::new(MAIN_THREAD_ID),
+            ready_queue: VecDeque::new(),
+            suspended_queue: vec![],
+        }
+    }
 }
 
 /// Run the program until it is done.
@@ -29,19 +49,49 @@ pub struct Runtime {
 /// # Errors
 ///
 /// If an error occurs during execution.
-pub fn run(mut rt: Thread) -> Result<Thread> {
-    loop {
-        let instr = rt
-            .instrs
-            .get(rt.pc)
-            .ok_or(VmError::PcOutOfBounds(rt.pc))?
-            .clone();
-        rt.pc += 1;
+pub fn run(mut rt: Runtime) -> Result<Runtime> {
+    let now = Instant::now();
 
-        let is_done = execute(&mut rt, instr)?;
-        if is_done {
+    loop {
+        let elapsed_time = now.elapsed();
+
+        if elapsed_time >= TIME_QUANTUM {
+            let current_thread = rt.current_thread;
+            rt.ready_queue.push_back(current_thread);
+
+            let next_ready_thread = rt
+                .ready_queue
+                .pop_front()
+                .expect("No threads in ready queue");
+
+            rt.current_thread = next_ready_thread;
             break;
         }
+
+        let instr = rt
+            .instrs
+            .get(rt.current_thread.pc)
+            .ok_or(VmError::PcOutOfBounds(rt.current_thread.pc))?
+            .clone();
+        rt.current_thread.pc += 1;
+
+        let is_done = execute(&mut rt, instr)?;
+        if !is_done {
+            continue;
+        }
+
+        let is_main_thread = rt.current_thread.thread_id == MAIN_THREAD_ID;
+        if !is_main_thread {
+            let next_ready_thread = rt
+                .ready_queue
+                .pop_front()
+                .expect("No threads in ready queue");
+
+            rt.current_thread = next_ready_thread;
+            // drop the current thread
+        }
+
+        break;
     }
 
     Ok(rt)
@@ -62,22 +112,22 @@ pub fn run(mut rt: Thread) -> Result<Thread> {
 /// # Errors
 ///
 /// If an error occurs during execution.
-pub fn execute(t: &mut Thread, instr: ByteCode) -> Result<bool> {
+pub fn execute(rt: &mut Runtime, instr: ByteCode) -> Result<bool> {
     match instr {
         ByteCode::DONE => return Ok(true),
-        ByteCode::ASSIGN(sym) => micro_code::assign(t, sym)?,
-        ByteCode::LD(sym) => micro_code::ld(t, sym)?,
-        ByteCode::LDC(val) => micro_code::ldc(t, val)?,
-        ByteCode::LDF(addr, prms) => micro_code::ldf(t, addr, prms)?,
-        ByteCode::POP => micro_code::pop(t)?,
-        ByteCode::UNOP(op) => micro_code::unop(t, op)?,
-        ByteCode::BINOP(op) => micro_code::binop(t, op)?,
-        ByteCode::JOF(pc) => micro_code::jof(t, pc)?,
-        ByteCode::GOTO(pc) => micro_code::goto(t, pc)?,
-        ByteCode::RESET(ft) => micro_code::reset(t, ft)?,
-        ByteCode::ENTERSCOPE(syms) => micro_code::enter_scope(t, syms)?,
-        ByteCode::EXITSCOPE => micro_code::exit_scope(t)?,
-        ByteCode::CALL(arity) => micro_code::call(t, arity)?,
+        ByteCode::ASSIGN(sym) => micro_code::assign(rt, sym)?,
+        ByteCode::LD(sym) => micro_code::ld(rt, sym)?,
+        ByteCode::LDC(val) => micro_code::ldc(rt, val)?,
+        ByteCode::LDF(addr, prms) => micro_code::ldf(rt, addr, prms)?,
+        ByteCode::POP => micro_code::pop(rt)?,
+        ByteCode::UNOP(op) => micro_code::unop(rt, op)?,
+        ByteCode::BINOP(op) => micro_code::binop(rt, op)?,
+        ByteCode::JOF(pc) => micro_code::jof(rt, pc)?,
+        ByteCode::GOTO(pc) => micro_code::goto(rt, pc)?,
+        ByteCode::RESET(ft) => micro_code::reset(rt, ft)?,
+        ByteCode::ENTERSCOPE(syms) => micro_code::enter_scope(rt, syms)?,
+        ByteCode::EXITSCOPE => micro_code::exit_scope(rt)?,
+        ByteCode::CALL(arity) => micro_code::call(rt, arity)?,
     }
     Ok(false)
 }
@@ -97,20 +147,20 @@ mod tests {
             ByteCode::POP,
             ByteCode::DONE,
         ];
-        let rt = Thread::new(instrs);
+        let rt = Runtime::new(instrs);
         let rt = run(rt).unwrap();
-        assert_eq!(rt.pc, 5);
+        assert_eq!(rt.current_thread.pc, 5);
 
-        let rt = Thread::new(vec![
+        let rt = Runtime::new(vec![
             ByteCode::ldc(false),
             ByteCode::JOF(3),
             ByteCode::POP, // This will panic since there is no value on the stack
             ByteCode::DONE,
         ]);
         let rt = run(rt).unwrap();
-        assert_eq!(rt.pc, 4);
+        assert_eq!(rt.current_thread.pc, 4);
 
-        let rt = Thread::new(vec![
+        let rt = Runtime::new(vec![
             ByteCode::ldc(true),
             ByteCode::JOF(3), // jump to pop instruction
             ByteCode::DONE,
@@ -118,15 +168,15 @@ mod tests {
             ByteCode::DONE,
         ]);
         let rt = run(rt).unwrap();
-        assert_eq!(rt.pc, 3);
+        assert_eq!(rt.current_thread.pc, 3);
 
-        let rt = Thread::new(vec![
+        let rt = Runtime::new(vec![
             ByteCode::GOTO(2),
             ByteCode::POP, // This will panic since there is no value on the stack
             ByteCode::DONE,
         ]);
         let rt = run(rt).unwrap();
-        assert_eq!(rt.pc, 3);
+        assert_eq!(rt.current_thread.pc, 3);
     }
 
     #[test]
@@ -138,9 +188,9 @@ mod tests {
             ByteCode::BINOP(BinOp::Add),
             ByteCode::DONE,
         ];
-        let rt = Thread::new(instrs);
+        let rt = Runtime::new(instrs);
         let rt = run(rt).unwrap();
-        assert_eq!(rt.operand_stack, vec![Value::Int(84)]);
+        assert_eq!(rt.current_thread.operand_stack, vec![Value::Int(84)]);
 
         // -(42 - 123)
         let instrs = vec![
@@ -150,9 +200,9 @@ mod tests {
             ByteCode::UNOP(UnOp::Neg),
             ByteCode::DONE,
         ];
-        let rt = Thread::new(instrs);
+        let rt = Runtime::new(instrs);
         let rt = run(rt).unwrap();
-        assert_eq!(rt.operand_stack, vec![Value::Int(81)]);
+        assert_eq!(rt.current_thread.operand_stack, vec![Value::Int(81)]);
 
         // (2 * 3) > 9
         let instrs = vec![
@@ -163,9 +213,9 @@ mod tests {
             ByteCode::BINOP(BinOp::Gt),
             ByteCode::DONE,
         ];
-        let rt = Thread::new(instrs);
+        let rt = Runtime::new(instrs);
         let rt = run(rt).unwrap();
-        assert_eq!(rt.operand_stack, vec![Value::Bool(false)]);
+        assert_eq!(rt.current_thread.operand_stack, vec![Value::Bool(false)]);
     }
 
     #[test]
@@ -180,13 +230,25 @@ mod tests {
             ByteCode::DONE,
         ];
 
-        let rt = Thread::new(instrs);
-        rt.env.borrow_mut().set("x", Value::Unitialized);
-        rt.env.borrow_mut().set("y", Value::Unitialized);
+        let rt = Runtime::new(instrs);
+        rt.current_thread
+            .env
+            .borrow_mut()
+            .set("x", Value::Unitialized);
+        rt.current_thread
+            .env
+            .borrow_mut()
+            .set("y", Value::Unitialized);
 
         let rt = run(rt).unwrap();
-        assert_eq!(rt.env.borrow().get(&"x".to_string()), Some(Value::Int(44)));
-        assert_eq!(rt.env.borrow().get(&"y".to_string()), Some(Value::Int(43)));
+        assert_eq!(
+            rt.current_thread.env.borrow().get(&"x".to_string()),
+            Some(Value::Int(44))
+        );
+        assert_eq!(
+            rt.current_thread.env.borrow().get(&"y".to_string()),
+            Some(Value::Int(43))
+        );
     }
 
     #[test]
@@ -210,12 +272,12 @@ mod tests {
             ByteCode::DONE,
         ];
 
-        let rt = Thread::new(instrs);
+        let rt = Runtime::new(instrs);
         let mut rt = run(rt)?;
 
-        let result = rt.operand_stack.pop().unwrap();
+        let result = rt.current_thread.operand_stack.pop().unwrap();
         assert_eq!(result, Value::Int(42));
-        assert_eq!(rt.runtime_stack.len(), 0);
+        assert_eq!(rt.current_thread.runtime_stack.len(), 0);
 
         Ok(())
     }
@@ -224,16 +286,22 @@ mod tests {
     fn test_global_constants() -> Result<()> {
         let instrs = vec![ByteCode::ld(builtin::PI_SYM), ByteCode::DONE];
 
-        let rt = Thread::new(instrs);
+        let rt = Runtime::new(instrs);
         let rt = run(rt)?;
-        assert_eq!(rt.operand_stack, vec![Value::Float(std::f64::consts::PI)]);
+        assert_eq!(
+            rt.current_thread.operand_stack,
+            vec![Value::Float(std::f64::consts::PI)]
+        );
 
         let instrs = vec![ByteCode::ld(builtin::MAX_INT_SYM), ByteCode::DONE];
 
-        let rt = Thread::new(instrs);
+        let rt = Runtime::new(instrs);
         let rt = run(rt)?;
 
-        assert_eq!(rt.operand_stack, vec![Value::Int(std::i64::MAX)]);
+        assert_eq!(
+            rt.current_thread.operand_stack,
+            vec![Value::Int(std::i64::MAX)]
+        );
 
         Ok(())
     }
@@ -247,10 +315,10 @@ mod tests {
             ByteCode::DONE,
         ];
 
-        let rt = Thread::new(instrs);
+        let rt = Runtime::new(instrs);
         let rt = run(rt)?;
 
-        assert_eq!(rt.operand_stack, vec![Value::Int(13)]);
+        assert_eq!(rt.current_thread.operand_stack, vec![Value::Int(13)]);
 
         let instrs = vec![
             ByteCode::ld(builtin::ABS_SYM),
@@ -259,10 +327,10 @@ mod tests {
             ByteCode::DONE,
         ];
 
-        let rt = Thread::new(instrs);
+        let rt = Runtime::new(instrs);
         let rt = run(rt)?;
 
-        assert_eq!(rt.operand_stack, vec![Value::Int(42)]);
+        assert_eq!(rt.current_thread.operand_stack, vec![Value::Int(42)]);
 
         Ok(())
     }

@@ -1,4 +1,4 @@
-use crate::Thread;
+use crate::Runtime;
 
 use anyhow::Result;
 
@@ -13,8 +13,8 @@ use anyhow::Result;
 /// # Errors
 ///
 /// Infallible.
-pub fn goto(t: &mut Thread, pc: usize) -> Result<()> {
-    t.pc = pc;
+pub fn goto(rt: &mut Runtime, pc: usize) -> Result<()> {
+    rt.current_thread.pc = pc;
     Ok(())
 }
 
@@ -22,12 +22,10 @@ pub fn goto(t: &mut Thread, pc: usize) -> Result<()> {
 mod tests {
     use super::*;
 
-    use crate::Thread;
-
     #[test]
     fn test_goto() {
-        let mut t = Thread::new(vec![]);
-        goto(&mut t, 123).unwrap();
-        assert_eq!(t.pc, 123);
+        let mut rt = Runtime::new(vec![]);
+        goto(&mut rt, 123).unwrap();
+        assert_eq!(rt.current_thread.pc, 123);
     }
 }

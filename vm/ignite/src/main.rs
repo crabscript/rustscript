@@ -1,9 +1,10 @@
 use std::path::Path;
 
 use anyhow::{Error, Result};
-use bytecode::read_bytecode;
+use bytecode::{builtin, read_bytecode};
 use clap::Parser;
-use repl::{ignite_repl, print_value};
+use repl::ignite_repl;
+use runtime::*;
 
 pub use crate::error::*;
 pub use crate::thread::*;
@@ -63,14 +64,14 @@ fn main() -> Result<()> {
     let mut file = std::fs::File::open(file)?;
     let bytecode_vec = read_bytecode(&mut file)?;
 
-    let mut rt = Thread::new(bytecode_vec);
-    rt = runtime::run(rt)?;
+    let rt = Runtime::new(bytecode_vec);
+    let rt = run(rt)?;
 
     // Print last value on op stack if there (result of program)
-    let top = rt.operand_stack.last();
+    let top = rt.current_thread.operand_stack.last();
 
     if let Some(val) = top {
-        print_value(val)
+        builtin::println_impl(val);
     }
 
     Ok(())

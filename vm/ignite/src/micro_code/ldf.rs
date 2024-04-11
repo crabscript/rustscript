@@ -3,7 +3,7 @@ use std::rc::Rc;
 use anyhow::Result;
 use bytecode::{FnType, Symbol, Value};
 
-use crate::Thread;
+use crate::Runtime;
 
 /// Load a closure object onto the operand stack.
 ///
@@ -18,16 +18,16 @@ use crate::Thread;
 /// # Errors
 ///
 /// Infallible.
-pub fn ldf(t: &mut Thread, addr: usize, prms: Vec<Symbol>) -> Result<()> {
+pub fn ldf(rt: &mut Runtime, addr: usize, prms: Vec<Symbol>) -> Result<()> {
     let closure = Value::Closure {
         fn_type: FnType::User,
         sym: "Closure".to_string(),
         prms,
         addr,
-        env: Rc::clone(&t.env),
+        env: Rc::clone(&rt.current_thread.env),
     };
 
-    t.operand_stack.push(closure);
+    rt.current_thread.operand_stack.push(closure);
     Ok(())
 }
 
@@ -37,10 +37,10 @@ mod tests {
 
     #[test]
     fn test_ldf() {
-        let mut t = Thread::new(vec![]);
-        ldf(&mut t, 0, vec!["x".to_string()]).unwrap();
+        let mut rt = Runtime::new(vec![]);
+        ldf(&mut rt, 0, vec!["x".to_string()]).unwrap();
 
-        let closure = t.operand_stack.pop().unwrap();
+        let closure = rt.current_thread.operand_stack.pop().unwrap();
         assert_ne!(
             &closure,
             &Value::Closure {
@@ -48,7 +48,7 @@ mod tests {
                 sym: "Closure".to_string(),
                 prms: vec!["y".to_string()],
                 addr: 0,
-                env: Rc::clone(&t.env),
+                env: Rc::clone(&rt.current_thread.env),
             }
         )
     }

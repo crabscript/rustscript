@@ -1,7 +1,7 @@
 use anyhow::Result;
 use bytecode::Symbol;
 
-use crate::{Thread, VmError};
+use crate::{Runtime, VmError};
 
 /// Load a value from a symbol.
 ///
@@ -14,13 +14,14 @@ use crate::{Thread, VmError};
 /// # Errors
 ///
 /// If the symbol is not found.
-pub fn ld(t: &mut Thread, sym: Symbol) -> Result<()> {
-    let val = t
+pub fn ld(rt: &mut Runtime, sym: Symbol) -> Result<()> {
+    let val = rt
+        .current_thread
         .env
         .borrow()
         .get(&sym)
         .ok_or_else(|| VmError::UnboundedName(sym.clone()))?;
-    t.operand_stack.push(val);
+    rt.current_thread.operand_stack.push(val);
     Ok(())
 }
 
@@ -32,21 +33,21 @@ mod tests {
 
     #[test]
     fn test_ld() {
-        let mut t = Thread::new(vec![]);
-        t.env.borrow_mut().set("x".to_string(), 42);
-        ld(&mut t, "x".to_string()).unwrap();
-        assert_eq!(t.operand_stack.pop(), Some(Value::Int(42)));
+        let mut rt = Runtime::new(vec![]);
+        rt.current_thread.env.borrow_mut().set("x".to_string(), 42);
+        ld(&mut rt, "x".to_string()).unwrap();
+        assert_eq!(rt.current_thread.operand_stack.pop(), Some(Value::Int(42)));
     }
 
     #[test]
     fn test_ld_with_parent() {
         let parent = Environment::new_wrapped();
         parent.borrow_mut().set("x", 42);
-        let mut rt = Thread::new(vec![]);
+        let mut rt = Runtime::new(vec![]);
         let frame = Environment::new_wrapped();
         frame.borrow_mut().set_parent(parent);
-        rt.env = frame;
+        rt.current_thread.env = frame;
         ld(&mut rt, "x".to_string()).unwrap();
-        assert_eq!(rt.operand_stack.pop(), Some(Value::Int(42)));
+        assert_eq!(rt.current_thread.operand_stack.pop(), Some(Value::Int(42)));
     }
 }

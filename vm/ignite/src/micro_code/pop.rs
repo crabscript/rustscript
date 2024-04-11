@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use crate::{Thread, VmError};
+use crate::{Runtime, VmError};
 
 /// Pops a value off the stack.
 ///
@@ -11,8 +11,9 @@ use crate::{Thread, VmError};
 /// # Errors
 ///
 /// If the stack is empty.
-pub fn pop(t: &mut Thread) -> Result<()> {
-    t.operand_stack
+pub fn pop(rt: &mut Runtime) -> Result<()> {
+    rt.current_thread
+        .operand_stack
         .pop()
         .ok_or(VmError::OperandStackUnderflow)?;
     Ok(())
@@ -24,14 +25,13 @@ mod tests {
     use bytecode::Value;
 
     use crate::micro_code::ldc;
-    use crate::Thread;
 
     #[test]
     fn test_pop() {
-        let mut t = Thread::new(vec![]);
-        ldc(&mut t, Value::Unit).unwrap();
-        pop(&mut t).unwrap();
-        assert_eq!(t.operand_stack.len(), 0);
+        let mut rt = Runtime::new(vec![]);
+        ldc(&mut rt, Value::Unit).unwrap();
+        pop(&mut rt).unwrap();
+        assert_eq!(rt.current_thread.operand_stack.len(), 0);
 
         let vals = vec![
             Value::Unit,
@@ -41,24 +41,24 @@ mod tests {
             Value::String("hello world".into()),
         ];
         let val_len = vals.len();
-        let mut rt = Thread::new(vec![]);
+        let mut rt = Runtime::new(vec![]);
         for val in vals {
             ldc(&mut rt, val).unwrap();
         }
         for _ in 0..val_len {
             pop(&mut rt).unwrap();
         }
-        assert_eq!(rt.operand_stack.len(), 0);
+        assert_eq!(rt.current_thread.operand_stack.len(), 0);
 
         ldc(&mut rt, Value::String("remember".into())).unwrap();
         ldc(&mut rt, Value::Unit).unwrap();
         pop(&mut rt).unwrap();
         assert_eq!(
-            rt.operand_stack.pop().unwrap(),
+            rt.current_thread.operand_stack.pop().unwrap(),
             Value::String("remember".into())
         );
 
-        let mut empty_rt = Thread::new(vec![]);
+        let mut empty_rt = Runtime::new(vec![]);
         assert!(pop(&mut empty_rt).is_err());
     }
 }

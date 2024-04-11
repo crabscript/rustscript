@@ -3,7 +3,7 @@ use bytecode::Value;
 use compiler::compiler;
 use rustyline::DefaultEditor;
 
-use crate::{runtime::run, Thread};
+use crate::runtime::{run, Runtime};
 
 pub fn print_value(val: &Value) {
     match val {
@@ -60,7 +60,7 @@ pub fn ignite_repl(type_check: bool) -> Result<()> {
 
             // For now, make a new Runtime for each line
             // Later: try to introduce global state
-            let mut rt = Thread::new(compiled);
+            let mut rt = Runtime::new(compiled);
             let run_res = run(rt);
 
             match run_res {
@@ -73,7 +73,7 @@ pub fn ignite_repl(type_check: bool) -> Result<()> {
 
             rt = run_res.unwrap();
 
-            let top = rt.operand_stack.last();
+            let top = rt.current_thread.operand_stack.last();
 
             if let Some(val) = top {
                 print_value(val)

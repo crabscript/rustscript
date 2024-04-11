@@ -1,7 +1,7 @@
 use anyhow::{Ok, Result};
 use bytecode::Symbol;
 
-use crate::{Thread, VmError};
+use crate::{Runtime, VmError};
 
 /// Assign a value to a symbol.
 ///
@@ -15,12 +15,13 @@ use crate::{Thread, VmError};
 ///
 /// If the stack is empty.
 /// If the symbol is not found in the environment chain.
-pub fn assign(t: &mut Thread, sym: Symbol) -> Result<()> {
-    let val = t
+pub fn assign(rt: &mut Runtime, sym: Symbol) -> Result<()> {
+    let val = rt
+        .current_thread
         .operand_stack
         .pop()
         .ok_or(VmError::OperandStackUnderflow)?;
-    t.env.borrow_mut().update(sym, val)?;
+    rt.current_thread.env.borrow_mut().update(sym, val)?;
     Ok(())
 }
 
@@ -34,22 +35,28 @@ mod tests {
 
     #[test]
     fn test_assign() {
-        let mut t = Thread::new(vec![]);
-        t.env.borrow_mut().set("x", Value::Unitialized);
-        t.operand_stack.push(Value::Int(42));
+        let mut rt = Runtime::new(vec![]);
+        rt.current_thread
+            .env
+            .borrow_mut()
+            .set("x", Value::Unitialized);
+        rt.current_thread.operand_stack.push(Value::Int(42));
 
-        assign(&mut t, "x".to_string()).unwrap();
+        assign(&mut rt, "x".to_string()).unwrap();
 
         assert_ne!(
-            t.env.borrow().get(&"x".to_string()),
+            rt.current_thread.env.borrow().get(&"x".to_string()),
             Some(Value::Unitialized)
         );
-        assert_eq!(t.env.borrow().get(&"x".to_string()), Some(Value::Int(42)));
+        assert_eq!(
+            rt.current_thread.env.borrow().get(&"x".to_string()),
+            Some(Value::Int(42))
+        );
     }
 
     #[test]
     fn test_assign_with_parent() {
-        let mut rt = Thread::new(vec![]);
+        let mut rt = Runtime::new(vec![]);
 
         let parent_env = Environment::new_wrapped();
         parent_env.borrow_mut().set("x", 42);
@@ -58,8 +65,8 @@ mod tests {
         child_env.borrow_mut().set_parent(Rc::clone(&parent_env));
         child_env.borrow_mut().set("y", Value::Unitialized);
 
-        rt.env = Rc::clone(&child_env);
-        rt.operand_stack.push(Value::Int(123));
+        rt.current_thread.env = Rc::clone(&child_env);
+        rt.current_thread.operand_stack.push(Value::Int(123));
         assign(&mut rt, "x".to_string()).unwrap();
 
         assert_eq!(
@@ -69,7 +76,7 @@ mod tests {
         // The child environment should not be updated.
         assert!(!child_env.borrow().env.contains_key(&"x".to_string()));
 
-        rt.operand_stack.push(Value::Int(789));
+        rt.current_thread.operand_stack.push(Value::Int(789));
         assign(&mut rt, "y".to_string()).unwrap();
 
         assert!(parent_env.borrow().get(&"y".to_string()).is_none());
@@ -77,6 +84,9 @@ mod tests {
             child_env.borrow().get(&"y".to_string()),
             Some(Value::Int(789))
         );
-        assert_eq!(rt.env.borrow().get(&"y".to_string()), Some(Value::Int(789)));
+        assert_eq!(
+            rt.current_thread.env.borrow().get(&"y".to_string()),
+            Some(Value::Int(789))
+        );
     }
 }

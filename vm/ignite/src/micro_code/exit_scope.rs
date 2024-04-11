@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use crate::{Thread, VmError};
+use crate::{Runtime, VmError};
 
 /// Exit the current scope and restores the previous environment.
 ///
@@ -11,13 +11,14 @@ use crate::{Thread, VmError};
 /// # Errors
 ///
 /// If the runtime stack is empty.
-pub fn exit_scope(t: &mut Thread) -> Result<()> {
-    let prev_frame = t
+pub fn exit_scope(rt: &mut Runtime) -> Result<()> {
+    let prev_frame = rt
+        .current_thread
         .runtime_stack
         .pop()
         .ok_or(VmError::RuntimeStackUnderflow)?;
 
-    t.env = prev_frame.env;
+    rt.current_thread.env = prev_frame.env;
     Ok(())
 }
 
@@ -29,22 +30,29 @@ mod tests {
 
     #[test]
     fn test_exit_scope() {
-        let mut t = Thread::new(vec![]);
+        let mut rt = Runtime::new(vec![]);
         let env_a = Environment::new_wrapped();
         env_a.borrow_mut().set("a", 42);
 
         let env_b = Environment::new_wrapped();
         env_b.borrow_mut().set("a", 123);
 
-        t.runtime_stack
+        rt.current_thread
+            .runtime_stack
             .push(StackFrame::new(FrameType::BlockFrame, env_a));
-        t.env = env_b;
+        rt.current_thread.env = env_b;
 
-        assert_eq!(t.env.borrow().get(&"a".to_string()), Some(Value::Int(123)));
+        assert_eq!(
+            rt.current_thread.env.borrow().get(&"a".to_string()),
+            Some(Value::Int(123))
+        );
 
-        exit_scope(&mut t).unwrap();
+        exit_scope(&mut rt).unwrap();
 
-        assert_eq!(t.runtime_stack.len(), 0);
-        assert_eq!(t.env.borrow().get(&"a".to_string()), Some(Value::Int(42)));
+        assert_eq!(rt.current_thread.runtime_stack.len(), 0);
+        assert_eq!(
+            rt.current_thread.env.borrow().get(&"a".to_string()),
+            Some(Value::Int(42))
+        );
     }
 }

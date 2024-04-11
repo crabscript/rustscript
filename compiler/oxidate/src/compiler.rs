@@ -1,5 +1,7 @@
 use anyhow::Result;
 use std::fmt::Display;
+use std::rc::Rc;
+
 use types::type_checker::TypeChecker;
 
 use bytecode::{ByteCode, Value};
@@ -133,6 +135,22 @@ impl Compiler {
         Ok(())
     }
 
+    // is_none_like: true if
+    fn is_none_like(last_expr: Option<Rc<Expr>>) -> bool {
+        if let Some(expr) = last_expr {
+            if let Expr::BlockExpr(seq) = expr.as_ref() {
+                let cl = seq.last_expr.clone();
+                Compiler::is_none_like(cl)
+            } else {
+                // have last expr and it's not a block: not none like
+                false
+            }
+        } else {
+            // no last expr: is none like
+            true
+        }
+    }
+
     fn compile_decl(decl: &Decl, arr: &mut Vec<ByteCode>) -> Result<(), CompileError> {
         match decl {
             Decl::ExprStmt(expr) => {
@@ -140,7 +158,11 @@ impl Compiler {
 
                 // avoid pop underflow when block has no value pushed at the end
                 if let Expr::BlockExpr(seq) = expr {
-                    if seq.last_expr.is_none() {
+                    // if seq.last_expr.is_none() {
+                    //     arr.push(ByteCode::ldc(Value::Unit))
+                    // }
+
+                    if Compiler::is_none_like(seq.last_expr.clone()) {
                         arr.push(ByteCode::ldc(Value::Unit))
                     }
                 }
@@ -514,6 +536,81 @@ mod tests {
             x+y
         }
         ";
-        // test_comp(t, vec![]);
+        test_comp(
+            t,
+            vec![
+                ENTERSCOPE(vec!["x".to_string()]),
+                ByteCode::ldc(2),
+                ASSIGN("x".to_string()),
+                ByteCode::ldc(Unit),
+                POP,
+                ENTERSCOPE(vec!["y".to_string()]),
+                LDC(Int(3)),
+                ASSIGN("y".to_string()),
+                LDC(Unit),
+                POP,
+                LD("x".to_string()),
+                LD("y".to_string()),
+                ByteCode::binop("+"),
+                EXITSCOPE,
+                EXITSCOPE,
+                DONE,
+            ],
+        );
+
+        let t = r"
+        let x = 2; { {2+2;} };
+        ";
+
+        test_comp(
+            t,
+            vec![
+                ENTERSCOPE(vec!["x".to_string()]),
+                ByteCode::ldc(2),
+                ASSIGN("x".to_string()),
+                LDC(Unit),
+                POP,
+                LDC(Int(2)),
+                LDC(Int(2)),
+                ByteCode::binop("+"),
+                POP,
+                LDC(Unit),
+                POP,
+                EXITSCOPE,
+                DONE,
+            ],
+        );
+
+        // nested none-like
+        let t = r"
+        let x = 2; { 
+
+            {
+                {
+                    2+2;
+                }
+            } 
+        
+        };
+        ";
+
+        test_comp(
+            t,
+            vec![
+                ENTERSCOPE(vec!["x".to_string()]),
+                ByteCode::ldc(2),
+                ASSIGN("x".to_string()),
+                LDC(Unit),
+                POP,
+                LDC(Int(2)),
+                LDC(Int(2)),
+                ByteCode::binop("+"),
+                POP,
+                LDC(Unit),
+                POP,
+                EXITSCOPE,
+                DONE,
+            ],
+        );
     }
 }

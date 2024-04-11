@@ -321,7 +321,7 @@ impl<'prog> TypeChecker<'prog> {
     }
 
     pub fn type_check(mut self) -> Result<Type, TypeErrors> {
-        self.check_block(&self.program)
+        self.check_block(self.program)
         // let mut errs = TypeErrors::new();
         // // map bindings to types
         // // let mut ty_env: HashMap<String, Type> = HashMap::new();

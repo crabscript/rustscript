@@ -130,10 +130,10 @@ pub struct IfElseData {
 
 impl Display for IfElseData {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut s = format!("if {} {}", self.cond, self.if_blk);
+        let mut s = format!("if {} {{ {} }}", self.cond, self.if_blk);
         if let Some(ref else_blk) = self.else_blk {
             s.push(' ');
-            s.push_str(&format!("else {}", else_blk));
+            s.push_str(&format!("else {{ {} }}", else_blk));
         }
 
         write!(f, "{}", s)

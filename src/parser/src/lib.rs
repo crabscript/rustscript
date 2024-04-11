@@ -87,16 +87,16 @@ impl<'inp> Parser<'inp> {
         }
     }
 
-    // If token type there, consume and advance. Otherwise do nothing
-    // Return true if the token was consumed, else false
-    // fn consume_opt_token_type(&mut self, token: Token) -> bool {
-    //     if self.is_peek_token_type(token) {
-    //         self.advance();
-    //         true
-    //     } else {
-    //         false
-    //     }
-    // }
+    /// If token type there, consume and advance. Otherwise do nothing.
+    /// Return true if the token was consumed, else false
+    fn consume_opt_token_type(&mut self, token: Token) -> bool {
+        if self.is_peek_token_type(token) {
+            self.advance();
+            true
+        } else {
+            false
+        }
+    }
 
     // Store current lexer token as prev_tok and move up lexer
     fn advance(&mut self) {

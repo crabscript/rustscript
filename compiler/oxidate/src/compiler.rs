@@ -163,17 +163,6 @@ impl Compiler {
     fn compile_decl(decl: &Decl, arr: &mut Vec<ByteCode>) -> Result<(), CompileError> {
         match decl {
             Decl::ExprStmt(expr) => {
-                // Compiler::compile_expr(expr, arr)?;
-
-                // avoid pop underflow when block has no value pushed at the end (last expr pushes no value)
-                // this happens when last_expr is a block
-                // because we have POP after every decl by default
-                // if let Expr::BlockExpr(seq) = expr {
-                //     if Compiler::blk_produces_nothing(seq) {
-                //         arr.push(ByteCode::ldc(Value::Unit))
-                //     }
-                // }
-
                 if let Expr::BlockExpr(seq) = expr {
                     Compiler::compile_block(seq, true, arr)?;
                 } else {

@@ -183,6 +183,9 @@ impl Runtime {
         matches!(self.current_thread.state, ThreadState::Joining(_))
     }
 
+    /// Join the current thread with the thread with the given ThreadID based on the current thread's state.
+    /// If the thread to join is in the ready or suspended queue, then the current thread will yield.
+    /// Otherwise, the current thread will be set to ready.
     pub fn join_current_thread(mut self) -> Self {
         if let ThreadState::Joining(tid) = self.current_thread.state {
             let thread_to_join = self
@@ -231,6 +234,7 @@ impl Runtime {
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
     use anyhow::{Ok, Result};
     use bytecode::{builtin, BinOp, ByteCode, FrameType, UnOp, Value};
@@ -428,6 +432,56 @@ mod tests {
         let rt = run(rt)?;
 
         assert_eq!(rt.current_thread.operand_stack, vec![Value::Int(42)]);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_simple_concurrency() -> Result<()> {
+        let instrs = vec![ByteCode::SPAWN, ByteCode::DONE];
+
+        let mut rt = Runtime::new(instrs);
+        rt.set_time_quantum(Duration::from_millis(u64::MAX)); // Set the time quantum to infinity
+        let rt = run(rt)?;
+
+        // There is one thread in the ready queue
+        assert_eq!(rt.ready_queue.len(), 1);
+        // The spawned instruction pushes 0 onto the operand stack of the child thread
+        assert_eq!(rt.ready_queue[0].operand_stack, vec![Value::Int(0)]);
+        // The spawn instruction pushes the child thread ID onto the parent thread's operand stack
+        assert_eq!(
+            rt.current_thread.operand_stack,
+            vec![Value::Int(MAIN_THREAD_ID + 1)]
+        );
+
+        let instrs = vec![
+            ByteCode::SPAWN, // Parent operand stack will have child tid 2, child operand stack will have 0
+            ByteCode::enterscope(vec!["tid", "child", "parent"]), // all threads enters a new scope
+            ByteCode::assign("tid"), // Parent thread assigns the child tid to the tid symbol (2), child tid is 0
+            ByteCode::ld("tid"),
+            ByteCode::ldc(0),
+            ByteCode::BINOP(BinOp::Eq), // Check if the child operand stack has 0
+            ByteCode::JOF(10),          // Parent jumps since (child_tid == 0) == false
+            ByteCode::ldc("Child thread"), // Child thread loads the value onto its operand stack
+            ByteCode::assign("child"), // Child thread sets the value of the child in the environment
+            ByteCode::GOTO(13),        // Child jump to the DONE instruction
+            ByteCode::ldc("Parent thread"), // Parent thread loads the value onto its operand stack
+            ByteCode::assign("parent"), // Parent thread sets the value of the parent in the environment
+            ByteCode::JOIN(MAIN_THREAD_ID + 1), // Parent thread joins the child thread
+            ByteCode::DONE,
+        ];
+
+        let rt = Runtime::new(instrs);
+        let rt = run(rt)?;
+
+        assert_eq!(
+            rt.current_thread.env.borrow().get(&"parent".to_string()),
+            Some(Value::String("Parent thread".to_string()))
+        );
+        assert_eq!(
+            rt.current_thread.env.borrow().get(&"child".to_string()),
+            Some(Value::Unitialized) // The parent thread environment should be unchanged
+        );
 
         Ok(())
     }

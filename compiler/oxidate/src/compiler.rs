@@ -40,7 +40,7 @@ impl Compiler {
         expr: &Expr,
         arr: &mut Vec<ByteCode>,
     ) -> Result<(), CompileError> {
-        Compiler::compile_expr(expr, arr)?;
+        Compiler::compile_expr(expr, false, arr)?;
         match op {
             UnOpType::Negate => arr.push(ByteCode::UNOP(bytecode::UnOp::Neg)),
             UnOpType::Not => arr.push(ByteCode::UNOP(bytecode::UnOp::Not)),
@@ -56,8 +56,8 @@ impl Compiler {
         rhs: &Expr,
         arr: &mut Vec<ByteCode>,
     ) -> Result<(), CompileError> {
-        Compiler::compile_expr(lhs, arr)?;
-        Compiler::compile_expr(rhs, arr)?;
+        Compiler::compile_expr(lhs, false, arr)?;
+        Compiler::compile_expr(rhs, false, arr)?;
         match op {
             BinOpType::Add => arr.push(ByteCode::BINOP(bytecode::BinOp::Add)),
             BinOpType::Mul => arr.push(ByteCode::BINOP(bytecode::BinOp::Mul)),
@@ -68,7 +68,11 @@ impl Compiler {
         Ok(())
     }
 
-    pub fn compile_expr(expr: &Expr, arr: &mut Vec<ByteCode>) -> Result<(), CompileError> {
+    pub fn compile_expr(
+        expr: &Expr,
+        as_stmt: bool,
+        arr: &mut Vec<ByteCode>,
+    ) -> Result<(), CompileError> {
         match expr {
             Expr::Integer(val) => arr.push(ByteCode::ldc(*val)),
             Expr::Float(val) => arr.push(ByteCode::ldc(*val)),
@@ -84,9 +88,11 @@ impl Compiler {
                 arr.push(ByteCode::LD(sym.to_string()));
             }
             Expr::BlockExpr(blk) => {
-                Compiler::compile_block(blk, false, arr)?;
+                Compiler::compile_block(blk, as_stmt, arr)?;
             }
-            _ => todo!(),
+            _ => todo!(), // Expr::IfElseExpr(if_else) => {
+                          //     Compiler::compile_if_else(if_else, false, arr)?
+                          // },
         }
 
         Ok(())
@@ -97,7 +103,7 @@ impl Compiler {
         expr: &Expr,
         arr: &mut Vec<ByteCode>,
     ) -> Result<(), CompileError> {
-        Compiler::compile_expr(expr, arr)?;
+        Compiler::compile_expr(expr, false, arr)?;
 
         let assign = ByteCode::ASSIGN(ident.to_owned());
         arr.push(assign);
@@ -129,7 +135,7 @@ impl Compiler {
 
         // Handle expr
         if let Some(expr) = &blk.last_expr {
-            Compiler::compile_expr(expr.as_ref(), arr)?;
+            Compiler::compile_expr(expr.as_ref(), false, arr)?;
         }
 
         if !syms.is_empty() {
@@ -163,11 +169,13 @@ impl Compiler {
     fn compile_decl(decl: &Decl, arr: &mut Vec<ByteCode>) -> Result<(), CompileError> {
         match decl {
             Decl::ExprStmt(expr) => {
-                if let Expr::BlockExpr(seq) = expr {
-                    Compiler::compile_block(seq, true, arr)?;
-                } else {
-                    Compiler::compile_expr(expr, arr)?;
-                }
+                // if let Expr::BlockExpr(seq) = expr {
+                //     Compiler::compile_block(seq, true, arr)?;
+                // } else {
+                //     Compiler::compile_expr(expr, true, arr)?;
+                // }
+
+                Compiler::compile_expr(expr, true, arr)?;
             }
             Decl::LetStmt(stmt) => {
                 Compiler::compile_assign(&stmt.ident, &stmt.expr, arr)?;
@@ -179,6 +187,12 @@ impl Compiler {
 
         Ok(())
     }
+
+    /// Compile if_else as statement or as expr - changes how blocks are compiled
+    // fn compile_if_else(_if_else: &IfElseData, _as_stmt: bool, _arr: &mut Vec<ByteCode>) -> Result<(), CompileError> {
+    //     dbg!("COMPILE IF ELSE");
+    //     Ok(())
+    // }
 
     pub fn compile(self) -> anyhow::Result<Vec<ByteCode>, CompileError> {
         let mut bytecode: Vec<ByteCode> = vec![];

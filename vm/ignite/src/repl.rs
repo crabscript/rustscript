@@ -3,7 +3,7 @@ use bytecode::Value;
 use compiler::compiler;
 use rustyline::DefaultEditor;
 
-use crate::{runtime::run, Runtime};
+use crate::runtime::{run, Runtime};
 
 pub fn print_value(val: &Value) {
     match val {
@@ -73,7 +73,7 @@ pub fn ignite_repl(type_check: bool) -> Result<()> {
 
             rt = run_res.unwrap();
 
-            let top = rt.operand_stack.last();
+            let top = rt.current_thread.operand_stack.last();
 
             if let Some(val) = top {
                 print_value(val)

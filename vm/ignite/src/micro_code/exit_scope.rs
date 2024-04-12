@@ -13,11 +13,12 @@ use crate::{Runtime, VmError};
 /// If the runtime stack is empty.
 pub fn exit_scope(rt: &mut Runtime) -> Result<()> {
     let prev_frame = rt
+        .current_thread
         .runtime_stack
         .pop()
         .ok_or(VmError::RuntimeStackUnderflow)?;
 
-    rt.env = prev_frame.env;
+    rt.current_thread.env = prev_frame.env;
     Ok(())
 }
 
@@ -36,15 +37,22 @@ mod tests {
         let env_b = Environment::new_wrapped();
         env_b.borrow_mut().set("a", 123);
 
-        rt.runtime_stack
+        rt.current_thread
+            .runtime_stack
             .push(StackFrame::new(FrameType::BlockFrame, env_a));
-        rt.env = env_b;
+        rt.current_thread.env = env_b;
 
-        assert_eq!(rt.env.borrow().get(&"a".to_string()), Some(Value::Int(123)));
+        assert_eq!(
+            rt.current_thread.env.borrow().get(&"a".to_string()),
+            Some(Value::Int(123))
+        );
 
         exit_scope(&mut rt).unwrap();
 
-        assert_eq!(rt.runtime_stack.len(), 0);
-        assert_eq!(rt.env.borrow().get(&"a".to_string()), Some(Value::Int(42)));
+        assert_eq!(rt.current_thread.runtime_stack.len(), 0);
+        assert_eq!(
+            rt.current_thread.env.borrow().get(&"a".to_string()),
+            Some(Value::Int(42))
+        );
     }
 }

@@ -7,7 +7,7 @@ pub fn apply_builtin(rt: &mut Runtime, sym: &str, args: Vec<Value>) -> Result<()
     match sym {
         builtin::READ_LINE_SYM => {
             let input = builtin::read_line_impl()?;
-            rt.operand_stack.push(Value::String(input));
+            rt.current_thread.operand_stack.push(Value::String(input));
         }
         builtin::PRINT_SYM => {
             for arg in args {
@@ -29,7 +29,7 @@ pub fn apply_builtin(rt: &mut Runtime, sym: &str, args: Vec<Value>) -> Result<()
             })?;
 
             let len = builtin::string_len_impl(s)?;
-            rt.operand_stack.push(Value::Int(len as i64));
+            rt.current_thread.operand_stack.push(Value::Int(len as i64));
         }
         builtin::MIN_SYM => {
             let v1 = args.first().ok_or(VmError::InsufficientArguments {
@@ -42,7 +42,7 @@ pub fn apply_builtin(rt: &mut Runtime, sym: &str, args: Vec<Value>) -> Result<()
             })?;
 
             let min = builtin::min_impl(v1, v2)?;
-            rt.operand_stack.push(min);
+            rt.current_thread.operand_stack.push(min);
         }
         builtin::MAX_SYM => {
             let v1 = args.first().ok_or(VmError::InsufficientArguments {
@@ -55,7 +55,7 @@ pub fn apply_builtin(rt: &mut Runtime, sym: &str, args: Vec<Value>) -> Result<()
             })?;
 
             let max = builtin::max_impl(v1, v2)?;
-            rt.operand_stack.push(max);
+            rt.current_thread.operand_stack.push(max);
         }
         builtin::ABS_SYM => {
             let x = args.first().ok_or(VmError::InsufficientArguments {
@@ -64,7 +64,7 @@ pub fn apply_builtin(rt: &mut Runtime, sym: &str, args: Vec<Value>) -> Result<()
             })?;
 
             let abs = builtin::abs_impl(x)?;
-            rt.operand_stack.push(abs);
+            rt.current_thread.operand_stack.push(abs);
         }
         builtin::COS_SYM => {
             let x = args.first().ok_or(VmError::InsufficientArguments {
@@ -73,7 +73,7 @@ pub fn apply_builtin(rt: &mut Runtime, sym: &str, args: Vec<Value>) -> Result<()
             })?;
 
             let cos = builtin::cos_impl(x)?;
-            rt.operand_stack.push(cos);
+            rt.current_thread.operand_stack.push(cos);
         }
         builtin::SIN_SYM => {
             let x = args.first().ok_or(VmError::InsufficientArguments {
@@ -82,7 +82,7 @@ pub fn apply_builtin(rt: &mut Runtime, sym: &str, args: Vec<Value>) -> Result<()
             })?;
 
             let sin = builtin::sin_impl(x)?;
-            rt.operand_stack.push(sin);
+            rt.current_thread.operand_stack.push(sin);
         }
         builtin::TAN_SYM => {
             let x = args.first().ok_or(VmError::InsufficientArguments {
@@ -91,7 +91,7 @@ pub fn apply_builtin(rt: &mut Runtime, sym: &str, args: Vec<Value>) -> Result<()
             })?;
 
             let tan = builtin::tan_impl(x)?;
-            rt.operand_stack.push(tan);
+            rt.current_thread.operand_stack.push(tan);
         }
         builtin::SQRT_SYM => {
             let x = args.first().ok_or(VmError::InsufficientArguments {
@@ -100,7 +100,7 @@ pub fn apply_builtin(rt: &mut Runtime, sym: &str, args: Vec<Value>) -> Result<()
             })?;
 
             let sqrt = builtin::sqrt_impl(x)?;
-            rt.operand_stack.push(sqrt);
+            rt.current_thread.operand_stack.push(sqrt);
         }
         builtin::LOG_SYM => {
             let x = args.first().ok_or(VmError::InsufficientArguments {
@@ -109,7 +109,7 @@ pub fn apply_builtin(rt: &mut Runtime, sym: &str, args: Vec<Value>) -> Result<()
             })?;
 
             let log = builtin::log_impl(x)?;
-            rt.operand_stack.push(log);
+            rt.current_thread.operand_stack.push(log);
         }
         builtin::POW_SYM => {
             let x = args.first().ok_or(VmError::InsufficientArguments {
@@ -122,7 +122,7 @@ pub fn apply_builtin(rt: &mut Runtime, sym: &str, args: Vec<Value>) -> Result<()
             })?;
 
             let pow = builtin::pow_impl(x, y)?;
-            rt.operand_stack.push(pow);
+            rt.current_thread.operand_stack.push(pow);
         }
         builtin::ITOA_SYM => {
             let x = args.first().ok_or(VmError::InsufficientArguments {
@@ -131,7 +131,7 @@ pub fn apply_builtin(rt: &mut Runtime, sym: &str, args: Vec<Value>) -> Result<()
             })?;
 
             let itoa = builtin::itoa_impl(x)?;
-            rt.operand_stack.push(itoa);
+            rt.current_thread.operand_stack.push(itoa);
         }
         builtin::ATOI_SYM => {
             let s = args.first().ok_or(VmError::InsufficientArguments {
@@ -140,7 +140,7 @@ pub fn apply_builtin(rt: &mut Runtime, sym: &str, args: Vec<Value>) -> Result<()
             })?;
 
             let atoi = builtin::atoi_impl(s)?;
-            rt.operand_stack.push(atoi);
+            rt.current_thread.operand_stack.push(atoi);
         }
         builtin::FLOAT_TO_INT_SYM => {
             let x = args.first().ok_or(VmError::InsufficientArguments {
@@ -149,7 +149,7 @@ pub fn apply_builtin(rt: &mut Runtime, sym: &str, args: Vec<Value>) -> Result<()
             })?;
 
             let float_to_int = builtin::float_to_int_impl(x)?;
-            rt.operand_stack.push(float_to_int);
+            rt.current_thread.operand_stack.push(float_to_int);
         }
         builtin::INT_TO_FLOAT_SYM => {
             let x = args.first().ok_or(VmError::InsufficientArguments {
@@ -158,7 +158,7 @@ pub fn apply_builtin(rt: &mut Runtime, sym: &str, args: Vec<Value>) -> Result<()
             })?;
 
             let int_to_float = builtin::int_to_float_impl(x)?;
-            rt.operand_stack.push(int_to_float);
+            rt.current_thread.operand_stack.push(int_to_float);
         }
         _ => {
             return Err(VmError::UnknownBuiltin {
@@ -199,7 +199,7 @@ mod tests {
         apply_builtin(&mut rt, sym, args)?;
         assert_eq!(
             Value::Int(hello_world.clone().len() as i64),
-            rt.operand_stack.pop().unwrap()
+            rt.current_thread.operand_stack.pop().unwrap()
         );
 
         // Conv
@@ -208,7 +208,7 @@ mod tests {
         apply_builtin(&mut rt, sym, args)?;
 
         let expected = Value::Float(42.0);
-        let actual = rt.operand_stack.pop().unwrap();
+        let actual = rt.current_thread.operand_stack.pop().unwrap();
         assert_eq!(expected, actual);
 
         let sym = FLOAT_TO_INT_SYM;
@@ -216,13 +216,16 @@ mod tests {
         apply_builtin(&mut rt, sym, args)?;
 
         let expected = Value::Int(42);
-        let actual = rt.operand_stack.pop().unwrap();
+        let actual = rt.current_thread.operand_stack.pop().unwrap();
         assert_eq!(expected, actual);
 
         let sym = ATOI_SYM;
         let args = vec![Value::String("42".to_string())];
         apply_builtin(&mut rt, sym, args)?;
-        assert_eq!(Value::Int(42), rt.operand_stack.pop().unwrap());
+        assert_eq!(
+            Value::Int(42),
+            rt.current_thread.operand_stack.pop().unwrap()
+        );
 
         let args: Vec<Value> = vec![Value::String("forty-two".to_string())];
         let result = apply_builtin(&mut rt, sym, args);
@@ -233,71 +236,98 @@ mod tests {
         apply_builtin(&mut rt, sym, args)?;
         assert_eq!(
             Value::String("42".to_string()),
-            rt.operand_stack.pop().unwrap()
+            rt.current_thread.operand_stack.pop().unwrap()
         );
 
         // Math
         let sym = MIN_SYM;
         let args = vec![Value::Int(42), Value::Int(24)];
         apply_builtin(&mut rt, sym, args)?;
-        assert_eq!(Value::Int(24), rt.operand_stack.pop().unwrap());
+        assert_eq!(
+            Value::Int(24),
+            rt.current_thread.operand_stack.pop().unwrap()
+        );
 
         let args = vec![Value::Float(42.0), Value::Float(24.0)];
         apply_builtin(&mut rt, sym, args)?;
-        assert_eq!(Value::Float(24.0), rt.operand_stack.pop().unwrap());
+        assert_eq!(
+            Value::Float(24.0),
+            rt.current_thread.operand_stack.pop().unwrap()
+        );
 
         let sym = MAX_SYM;
         let args = vec![Value::Int(42), Value::Int(24)];
         apply_builtin(&mut rt, sym, args)?;
-        assert_eq!(Value::Int(42), rt.operand_stack.pop().unwrap());
+        assert_eq!(
+            Value::Int(42),
+            rt.current_thread.operand_stack.pop().unwrap()
+        );
 
         let args = vec![Value::Float(42.0), Value::Float(24.0)];
         apply_builtin(&mut rt, sym, args)?;
-        assert_eq!(Value::Float(42.0), rt.operand_stack.pop().unwrap());
+        assert_eq!(
+            Value::Float(42.0),
+            rt.current_thread.operand_stack.pop().unwrap()
+        );
 
         let sym = ABS_SYM;
         let args = vec![Value::Int(-42)];
         apply_builtin(&mut rt, sym, args)?;
-        assert_eq!(Value::Int(42), rt.operand_stack.pop().unwrap());
+        assert_eq!(
+            Value::Int(42),
+            rt.current_thread.operand_stack.pop().unwrap()
+        );
 
         let args = vec![Value::Float(-42.0)];
         apply_builtin(&mut rt, sym, args)?;
-        assert_eq!(Value::Float(42.0), rt.operand_stack.pop().unwrap());
+        assert_eq!(
+            Value::Float(42.0),
+            rt.current_thread.operand_stack.pop().unwrap()
+        );
 
         let sym = COS_SYM;
         let args = vec![Value::Float(0.0)];
         apply_builtin(&mut rt, sym, args)?;
-        assert_eq!(Value::Float(0.0_f64.cos()), rt.operand_stack.pop().unwrap());
+        assert_eq!(
+            Value::Float(0.0_f64.cos()),
+            rt.current_thread.operand_stack.pop().unwrap()
+        );
 
         let args = vec![Value::Float(std::f64::consts::PI)];
         apply_builtin(&mut rt, sym, args)?;
         assert_eq!(
             Value::Float(std::f64::consts::PI.cos()),
-            rt.operand_stack.pop().unwrap()
+            rt.current_thread.operand_stack.pop().unwrap()
         );
 
         let sym = SIN_SYM;
         let args = vec![Value::Float(0.0)];
         apply_builtin(&mut rt, sym, args)?;
-        assert_eq!(Value::Float(0.0), rt.operand_stack.pop().unwrap());
+        assert_eq!(
+            Value::Float(0.0),
+            rt.current_thread.operand_stack.pop().unwrap()
+        );
 
         let args = vec![Value::Float(std::f64::consts::PI)];
         apply_builtin(&mut rt, sym, args)?;
         assert_eq!(
             Value::Float(std::f64::consts::PI.sin()),
-            rt.operand_stack.pop().unwrap()
+            rt.current_thread.operand_stack.pop().unwrap()
         );
 
         let sym = TAN_SYM;
         let args = vec![Value::Float(0.0)];
         apply_builtin(&mut rt, sym, args)?;
-        assert_eq!(Value::Float(0.0), rt.operand_stack.pop().unwrap());
+        assert_eq!(
+            Value::Float(0.0),
+            rt.current_thread.operand_stack.pop().unwrap()
+        );
 
         let args = vec![Value::Float(std::f64::consts::PI)];
         apply_builtin(&mut rt, sym, args)?;
         assert_eq!(
             Value::Float(std::f64::consts::PI.tan()),
-            rt.operand_stack.pop().unwrap()
+            rt.current_thread.operand_stack.pop().unwrap()
         );
 
         let sym = SQRT_SYM;
@@ -305,14 +335,14 @@ mod tests {
         apply_builtin(&mut rt, sym, args)?;
         assert_eq!(
             Value::Float(42.0_f64.sqrt()),
-            rt.operand_stack.pop().unwrap()
+            rt.current_thread.operand_stack.pop().unwrap()
         );
 
         let args = vec![Value::Float(102934.0)];
         apply_builtin(&mut rt, sym, args)?;
         assert_eq!(
             Value::Float(102934.0_f64.sqrt()),
-            rt.operand_stack.pop().unwrap()
+            rt.current_thread.operand_stack.pop().unwrap()
         );
 
         let sym = POW_SYM;
@@ -320,7 +350,7 @@ mod tests {
         apply_builtin(&mut rt, sym, args)?;
         assert_eq!(
             Value::Float(2.0_f64.powf(3.0)),
-            rt.operand_stack.pop().unwrap()
+            rt.current_thread.operand_stack.pop().unwrap()
         );
 
         let args = vec![Value::Float(2.0), Value::Int(3)];
@@ -332,7 +362,7 @@ mod tests {
         apply_builtin(&mut rt, sym, args)?;
         assert_eq!(
             Value::Float(42.0_f64.log(10.0)),
-            rt.operand_stack.pop().unwrap()
+            rt.current_thread.operand_stack.pop().unwrap()
         );
 
         Ok(())

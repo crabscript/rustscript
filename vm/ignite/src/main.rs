@@ -1,17 +1,20 @@
 use std::path::Path;
+use std::time::Duration;
 
 use anyhow::{Error, Result};
-use bytecode::read_bytecode;
+use bytecode::{builtin, read_bytecode};
 use clap::Parser;
-use repl::{ignite_repl, print_value};
+use repl::ignite_repl;
+use runtime::*;
 
 pub use crate::error::*;
-pub use crate::runtime::Runtime;
+pub use crate::thread::*;
 
 mod error;
 mod micro_code;
 mod repl;
 mod runtime;
+mod thread;
 
 #[derive(Parser, Debug)]
 #[command(name = "Ignite")]
@@ -24,6 +27,11 @@ struct Args {
     /// If true, launch in REPL mode. False by default.
     #[arg(long, short)]
     repl: bool,
+
+    /// Set custom time quantum for the VM.
+    /// Default is 1000.
+    #[arg(short, long)]
+    quantum: Option<usize>,
 
     /// Turn debugging information on
     #[arg(short, long, action = clap::ArgAction::Count)]
@@ -63,13 +71,18 @@ fn main() -> Result<()> {
     let bytecode_vec = read_bytecode(&mut file)?;
 
     let mut rt = Runtime::new(bytecode_vec);
-    rt = runtime::run(rt)?;
+
+    if let Some(quantum) = args.quantum {
+        rt.set_time_quantum(Duration::from_millis(quantum as u64));
+    }
+
+    let rt = run(rt)?;
 
     // Print last value on op stack if there (result of program)
-    let top = rt.operand_stack.last();
+    let top = rt.current_thread.operand_stack.last();
 
     if let Some(val) = top {
-        print_value(val)
+        builtin::println_impl(val);
     }
 
     Ok(())

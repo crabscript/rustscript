@@ -8,9 +8,10 @@ use crate::Environment;
 pub enum FrameType {
     BlockFrame,
     CallFrame,
+    ThreadFrame,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct StackFrame {
     pub frame_type: FrameType,
     pub address: Option<usize>,

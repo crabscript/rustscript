@@ -16,11 +16,12 @@ use crate::{Runtime, VmError};
 /// If the symbol is not found.
 pub fn ld(rt: &mut Runtime, sym: Symbol) -> Result<()> {
     let val = rt
+        .current_thread
         .env
         .borrow()
         .get(&sym)
         .ok_or_else(|| VmError::UnboundedName(sym.clone()))?;
-    rt.operand_stack.push(val);
+    rt.current_thread.operand_stack.push(val);
     Ok(())
 }
 
@@ -33,9 +34,9 @@ mod tests {
     #[test]
     fn test_ld() {
         let mut rt = Runtime::new(vec![]);
-        rt.env.borrow_mut().set("x".to_string(), 42);
+        rt.current_thread.env.borrow_mut().set("x".to_string(), 42);
         ld(&mut rt, "x".to_string()).unwrap();
-        assert_eq!(rt.operand_stack.pop(), Some(Value::Int(42)));
+        assert_eq!(rt.current_thread.operand_stack.pop(), Some(Value::Int(42)));
     }
 
     #[test]
@@ -45,8 +46,8 @@ mod tests {
         let mut rt = Runtime::new(vec![]);
         let frame = Environment::new_wrapped();
         frame.borrow_mut().set_parent(parent);
-        rt.env = frame;
+        rt.current_thread.env = frame;
         ld(&mut rt, "x".to_string()).unwrap();
-        assert_eq!(rt.operand_stack.pop(), Some(Value::Int(42)));
+        assert_eq!(rt.current_thread.operand_stack.pop(), Some(Value::Int(42)));
     }
 }

@@ -197,11 +197,6 @@ impl Runtime {
             .pop_front()
             .expect("No threads in ready queue");
 
-        println!(
-            "Zombifying thread operand_stack: {:?}",
-            &current_thread.operand_stack
-        );
-
         self.zombie_threads
             .insert(current_thread_id, current_thread);
         self.thread_states

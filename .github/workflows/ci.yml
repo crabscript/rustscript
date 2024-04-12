@@ -11,26 +11,23 @@ jobs:
   build_and_test:
     name: Rust project - latest
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        toolchain:
+          - stable
+          - beta
+          - nightly
     steps:
       - uses: actions/checkout@v3
-        with:
-          toolchain: nightly
-          override: true
+      - run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
       - run: cargo build --verbose
       - run: cargo test --verbose
-        env:
-          CARGO_INCREMENTAL: "0"
-          RUSTFLAGS: "-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests"
-          RUSTDOCFLAGS: "-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests"
-      - name: Codecov
-        # You may pin to the exact commit or the version.
-        # uses: codecov/codecov-action@81cd2dc8148241f03f5839d295e000b8f761e378
-        uses: codecov/codecov-action@v4
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      - name: Make Code Badge
+        uses: shadowmoose/GHA-LoC-Badge@1.0.0
+        id: badge
         with:
-          # Repository upload token - get it from codecov.io. Required only for private repositories
-          # token: # optional
-          # Specify whether the Codecov output should be verbose
-          verbose: true
-          fail_ci_if_error: true
+          debug: true
+          directory: ./
+          badge: ./output/badge.svg
+          patterns: "*.js" # Patterns in the format of a '.gitignore' file, separated by pipes.
+          ignore: "node_modules"

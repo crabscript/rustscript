@@ -3,9 +3,9 @@ use std::rc::Rc;
 use anyhow::Result;
 use bytecode::{type_of, FnType, FrameType, StackFrame, Value};
 
-use crate::{runtime::extend_environment, Runtime, VmError};
+use crate::{extend_environment, Runtime, VmError};
 
-use super::apply_builtin::apply_builtin;
+use super::apply_builtin;
 
 /// Call a function with the given number of arguments.
 /// First it pops n values from the operand stack where n is the arity of the function.
@@ -31,13 +31,15 @@ pub fn call(rt: &mut Runtime, arity: usize) -> Result<()> {
 
     for _ in 0..arity {
         args.push(
-            rt.operand_stack
+            rt.current_thread
+                .operand_stack
                 .pop()
                 .ok_or(VmError::OperandStackUnderflow)?,
         );
     }
 
     let value = rt
+        .current_thread
         .operand_stack
         .pop()
         .ok_or(VmError::OperandStackUnderflow)?;
@@ -72,12 +74,12 @@ pub fn call(rt: &mut Runtime, arity: usize) -> Result<()> {
     let frame = StackFrame {
         frame_type: FrameType::CallFrame,
         env: Rc::clone(&env),
-        address: Some(rt.pc),
+        address: Some(rt.current_thread.pc),
     };
 
-    rt.runtime_stack.push(frame);
-    extend_environment(rt, prms, args)?;
-    rt.pc = addr;
+    rt.current_thread.runtime_stack.push(frame);
+    extend_environment(&mut rt.current_thread, prms, args)?;
+    rt.current_thread.pc = addr;
 
     Ok(())
 }
@@ -94,7 +96,7 @@ mod tests {
 
         assert!(result.is_err());
 
-        rt.operand_stack.push(Value::Closure {
+        rt.current_thread.operand_stack.push(Value::Closure {
             fn_type: FnType::User,
             sym: "Closure".to_string(),
             prms: vec![],
@@ -104,6 +106,6 @@ mod tests {
 
         let result = call(&mut rt, 0);
         assert!(result.is_ok());
-        assert_eq!(rt.pc, 123);
+        assert_eq!(rt.current_thread.pc, 123);
     }
 }

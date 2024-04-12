@@ -24,10 +24,10 @@ pub fn ldf(rt: &mut Runtime, addr: usize, prms: Vec<Symbol>) -> Result<()> {
         sym: "Closure".to_string(),
         prms,
         addr,
-        env: Rc::clone(&rt.env),
+        env: Rc::clone(&rt.current_thread.env),
     };
 
-    rt.operand_stack.push(closure);
+    rt.current_thread.operand_stack.push(closure);
     Ok(())
 }
 
@@ -40,7 +40,7 @@ mod tests {
         let mut rt = Runtime::new(vec![]);
         ldf(&mut rt, 0, vec!["x".to_string()]).unwrap();
 
-        let closure = rt.operand_stack.pop().unwrap();
+        let closure = rt.current_thread.operand_stack.pop().unwrap();
         assert_ne!(
             &closure,
             &Value::Closure {
@@ -48,7 +48,7 @@ mod tests {
                 sym: "Closure".to_string(),
                 prms: vec!["y".to_string()],
                 addr: 0,
-                env: Rc::clone(&rt.env),
+                env: Rc::clone(&rt.current_thread.env),
             }
         )
     }

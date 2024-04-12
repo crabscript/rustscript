@@ -42,6 +42,23 @@ impl From<&str> for BinOp {
     }
 }
 
+impl From<BinOp> for String {
+    fn from(op: BinOp) -> Self {
+        match op {
+            BinOp::Add => "+".to_string(),
+            BinOp::Sub => "-".to_string(),
+            BinOp::Mul => "*".to_string(),
+            BinOp::Div => "/".to_string(),
+            BinOp::Mod => "%".to_string(),
+            BinOp::Gt => ">".to_string(),
+            BinOp::Lt => "<".to_string(),
+            BinOp::Eq => "==".to_string(),
+            BinOp::And => "&&".to_string(),
+            BinOp::Or => "||".to_string(),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum UnOp {
     /// Negation of a value of the same type (int or float)
@@ -56,6 +73,15 @@ impl From<&str> for UnOp {
             "-" => UnOp::Neg,
             "!" => UnOp::Not,
             _ => panic!("Invalid unary operator: {}", s),
+        }
+    }
+}
+
+impl From<UnOp> for String {
+    fn from(op: UnOp) -> Self {
+        match op {
+            UnOp::Neg => "-".to_string(),
+            UnOp::Not => "!".to_string(),
         }
     }
 }

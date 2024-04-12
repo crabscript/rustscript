@@ -12,7 +12,8 @@ use crate::{Runtime, VmError};
 ///
 /// If the stack is empty.
 pub fn pop(rt: &mut Runtime) -> Result<()> {
-    rt.operand_stack
+    rt.current_thread
+        .operand_stack
         .pop()
         .ok_or(VmError::OperandStackUnderflow)?;
     Ok(())
@@ -24,14 +25,13 @@ mod tests {
     use bytecode::Value;
 
     use crate::micro_code::ldc;
-    use crate::Runtime;
 
     #[test]
     fn test_pop() {
         let mut rt = Runtime::new(vec![]);
         ldc(&mut rt, Value::Unit).unwrap();
         pop(&mut rt).unwrap();
-        assert_eq!(rt.operand_stack.len(), 0);
+        assert_eq!(rt.current_thread.operand_stack.len(), 0);
 
         let vals = vec![
             Value::Unit,
@@ -48,13 +48,13 @@ mod tests {
         for _ in 0..val_len {
             pop(&mut rt).unwrap();
         }
-        assert_eq!(rt.operand_stack.len(), 0);
+        assert_eq!(rt.current_thread.operand_stack.len(), 0);
 
         ldc(&mut rt, Value::String("remember".into())).unwrap();
         ldc(&mut rt, Value::Unit).unwrap();
         pop(&mut rt).unwrap();
         assert_eq!(
-            rt.operand_stack.pop().unwrap(),
+            rt.current_thread.operand_stack.pop().unwrap(),
             Value::String("remember".into())
         );
 

@@ -55,30 +55,12 @@ impl Display for TypeErrors {
 
 impl std::error::Error for TypeErrors {}
 
-// type TyEnv = HashMap<String, Type>;
-
 type Env = HashMap<String, Type>;
-// struct TyEnv {
-//     pub env: Env,
-// }
-
-// impl TyEnv {
-//     /// new tyenv with symbols set to uninit
-//     pub fn new_with_syms(syms:Vec<String>) -> TyEnv {
-//         let mut env: Env = HashMap::new();
-//         for sym in syms.iter() {
-//             env.insert(sym.to_owned(), Type::Unit);
-//         }
-//         TyEnv {
-//             env,
-//         }
-//     }
-// }
 
 pub fn new_env_with_syms(syms: Vec<String>) -> Env {
     let mut env: Env = HashMap::new();
     for sym in syms.iter() {
-        env.insert(sym.to_owned(), Type::Unit);
+        env.insert(sym.to_owned(), Type::Unitialised);
     }
 
     env
@@ -109,6 +91,18 @@ impl<'prog> TypeChecker<'prog> {
 
         let e = format!("Identifier '{}' not declared", ident);
         Err(TypeErrors::new_err(&e))
+    }
+
+    /// Returns type of identifier if initialised. If identifier doesn't exist or still uninit, returns Error.
+    /// For use in AssignStmt e.g x = 10;
+    fn get_type_if_init(&self, ident: &str) -> Result<Type, TypeErrors> {
+        let ty = self.get_type(ident)?;
+        if ty.eq(&Type::Unitialised) {
+            let e = format!("Identifier '{}' assigned before declaration", ident);
+            Err(TypeErrors::new_err(&e))
+        } else {
+            Ok(ty)
+        }
     }
 
     /// Assign type to identifier if exists (either Unit or actual type). Else, error
@@ -261,8 +255,9 @@ impl<'prog> TypeChecker<'prog> {
             }
             // Check if sym is declared already. Then check expr matches type at decl
             Decl::Assign(stmt) => {
-                let sym = Expr::Symbol(stmt.ident.to_owned());
-                let sym_ty = self.check_expr(&sym)?;
+                // let sym = Expr::Symbol(stmt.ident.to_owned());
+                // let sym_ty = self.check_expr(&sym)?;
+                let sym_ty = self.get_type_if_init(&stmt.ident.to_owned())?;
                 let exp_ty = self.check_expr(&stmt.expr)?;
 
                 if !sym_ty.eq(&exp_ty) {
@@ -327,47 +322,6 @@ impl<'prog> TypeChecker<'prog> {
 
     pub fn type_check(mut self) -> Result<Type, TypeErrors> {
         self.check_block(self.program)
-
-        // let mut errs = TypeErrors::new();
-        // // map bindings to types
-        // // let mut ty_env: HashMap<String, Type> = HashMap::new();
-        // // let mut ty_env = TyEnv::new();
-        // let env = new_env_with_syms(self.program.symbols.clone());
-        // self.envs.push(env);
-
-        // for decl in self.program.decls.iter() {
-        //     if let Err(mut decl_errs) = self.check_decl(decl) {
-        //         errs.append(&mut decl_errs);
-
-        //         // if this err means we can't proceed, stop e.g let x = -true; let y = x + 3; - we don't know type of x since invalid
-        //         if !decl_errs.cont {
-        //             break;
-        //         }
-        //     }
-        // }
-
-        // // return errors for decls first if any, without checking expr
-        // // because expr may be dependent
-        // if !errs.is_ok() {
-        //     return Err(errs);
-        // }
-
-        // // Return type of last expr if any. If errs, add to err list
-        // if let Some(last) = &self.program.last_expr {
-        //     let res = self.check_expr(last);
-        //     match res {
-        //         Ok(ty) => {
-        //             return Ok(ty);
-        //         }
-        //         Err(mut expr_errs) => errs.append(&mut expr_errs),
-        //     };
-        // }
-
-        // if errs.is_ok() {
-        //     Ok(Type::Unit)
-        // } else {
-        //     Err(errs)
-        // }
     }
 }
 
@@ -552,6 +506,14 @@ mod tests {
 
         let t = "let y = 2; x = 10;";
         expect_err(t, "Identifier 'x' not declared", true);
+
+        // Assign before declaration (error)
+        let t = "x = 10; let x = 5;";
+        expect_err(
+            t,
+            "[TypeError]: Identifier 'x' assigned before declaration",
+            false,
+        );
     }
 
     #[test]
@@ -671,6 +633,21 @@ mod tests {
         x+y
         ";
         expect_err(t, "'z' has declared type bool but assigned type ()", true);
+
+        // x declared again in block, so the assign looks for closest decl of x which is Uninit at time of x = true;
+        let t = r"
+        let x = 10;
+        {
+            x = true;
+            let x = false;
+        };
+        ";
+
+        expect_err(
+            t,
+            "[TypeError]: Identifier 'x' assigned before declaration",
+            false,
+        );
     }
 
     #[test]

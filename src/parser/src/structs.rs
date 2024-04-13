@@ -238,7 +238,8 @@ pub enum Type {
     Int,
     Float,
     Bool,
-    Unit,
+    Unit,        // void type like Rust
+    Unitialised, // Type for variables that exist in a block but not yet declared - only used for TyEnv
 }
 
 impl Type {
@@ -263,6 +264,7 @@ impl Display for Type {
             Self::Bool => "bool",
             Self::Float => "float",
             Self::Unit => "()",
+            Self::Unitialised => "uninit",
         };
 
         write!(f, "{}", string)

@@ -241,4 +241,35 @@ mod tests {
             "if true { x; };if y { 200; } else { 300; };if false { 400; };",
         );
     }
+
+    #[test]
+    fn test_parse_if_expr() {
+        // can parse but fails type check - if blk produces Unit, else blk produces 3
+        let t = r"
+        let x = if true { 2; } else { 3 };
+        ";
+        test_parse(t, "let x = if true { 2; } else { 3 };");
+
+        // if-only can't be expr
+        let t = r"
+        let x = if true { 2; };
+        ";
+        test_parse_err(t, "if without else branch is not an expression", true);
+
+        // nested in blk
+        let t = r"
+        let x = {
+            if false {
+                20;
+            }
+
+            if true {
+                2
+            } else {
+                3
+            }
+        };
+        ";
+        test_parse(t, "let x = { if false { 20; };if true { 2 } else { 3 } };");
+    }
 }

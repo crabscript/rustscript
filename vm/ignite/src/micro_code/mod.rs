@@ -12,10 +12,12 @@ pub use ld::ld;
 pub use ldc::ldc;
 pub use ldf::ldf;
 pub use pop::pop;
+pub use post::post;
 pub use reset::reset;
 pub use spawn::spawn;
 pub use unop::unop;
-pub use yield_::yield_;
+pub use wait::wait;
+pub use yield_::yield_; // yield is a reserved keyword in Rust
 
 mod apply_builtin;
 mod assign;
@@ -31,7 +33,9 @@ mod ld;
 mod ldc;
 mod ldf;
 mod pop;
+mod post;
 mod reset;
 mod spawn;
 mod unop;
-mod yield_;
+mod wait;
+mod yield_; // yield is a reserved keyword in Rust

@@ -38,7 +38,7 @@ pub fn binop(rt: &mut Runtime, op: BinOp) -> Result<()> {
                 BinOp::Eq => Value::Bool(true),
                 _ => {
                     return Err(VmError::UnsupportedOperation(
-                        BinOp::Eq.into(),
+                        op.into(),
                         type_of(&rhs_val).to_string(),
                     )
                     .into())
@@ -58,14 +58,14 @@ pub fn binop(rt: &mut Runtime, op: BinOp) -> Result<()> {
                 BinOp::Eq => Value::Bool(lhs == rhs), // Equality
                 BinOp::And => {
                     return Err(VmError::UnsupportedOperation(
-                        BinOp::And.into(),
+                        op.into(),
                         type_of(&rhs_val).to_string(),
                     )
                     .into())
                 }
                 BinOp::Or => {
                     return Err(VmError::UnsupportedOperation(
-                        BinOp::Or.into(),
+                        op.into(),
                         type_of(&rhs_val).to_string(),
                     )
                     .into())
@@ -84,21 +84,21 @@ pub fn binop(rt: &mut Runtime, op: BinOp) -> Result<()> {
                 BinOp::Eq => Value::Bool(lhs == rhs),  // Equality
                 BinOp::Or => {
                     return Err(VmError::UnsupportedOperation(
-                        BinOp::Or.into(),
+                        op.into(),
                         type_of(&rhs_val).to_string(),
                     )
                     .into())
                 }
                 BinOp::And => {
                     return Err(VmError::UnsupportedOperation(
-                        BinOp::And.into(),
+                        op.into(),
                         type_of(&rhs_val).to_string(),
                     )
                     .into())
                 }
                 BinOp::Mod => {
                     return Err(VmError::UnsupportedOperation(
-                        BinOp::Mod.into(),
+                        op.into(),
                         type_of(&rhs_val).to_string(),
                     )
                     .into())
@@ -113,7 +113,7 @@ pub fn binop(rt: &mut Runtime, op: BinOp) -> Result<()> {
                 BinOp::Eq => Value::Bool(lhs == rhs),  // Equality
                 _ => {
                     return Err(VmError::UnsupportedOperation(
-                        BinOp::Eq.into(),
+                        op.into(),
                         type_of(&rhs_val).to_string(),
                     )
                     .into())
@@ -127,13 +127,23 @@ pub fn binop(rt: &mut Runtime, op: BinOp) -> Result<()> {
                 BinOp::Eq => Value::Bool(lhs == rhs),
                 _ => {
                     return Err(VmError::UnsupportedOperation(
-                        BinOp::Eq.into(),
+                        op.into(),
                         type_of(&rhs_val).to_string(),
                     )
                     .into())
                 }
             };
             rt.current_thread.operand_stack.push(result);
+        }
+        (Value::Semaphore(_), Value::Semaphore(_)) => {
+            return Err(
+                VmError::UnsupportedOperation(op.into(), type_of(&rhs_val).to_string()).into(),
+            )
+        }
+        (Value::Closure { .. }, Value::Closure { .. }) => {
+            return Err(
+                VmError::UnsupportedOperation(op.into(), type_of(&rhs_val).to_string()).into(),
+            )
         }
         _ => {
             return Err(VmError::TypeMismatch {

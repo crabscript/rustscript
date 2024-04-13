@@ -4,7 +4,7 @@ use std::{
 };
 
 use anyhow::Result;
-use bytecode::{ByteCode, ThreadID};
+use bytecode::{ByteCode, Semaphore, ThreadID};
 
 use crate::{micro_code, Thread, ThreadState, VmError};
 
@@ -21,11 +21,12 @@ pub struct Runtime {
     time: Instant,
     time_quantum: Duration,
     pub instrs: Vec<ByteCode>,
+    pub signal: Option<Semaphore>,
     pub thread_count: i64,
     pub thread_states: HashMap<ThreadID, ThreadState>,
     pub current_thread: Thread,
     pub ready_queue: VecDeque<Thread>,
-    pub suspended_queue: VecDeque<Thread>,
+    pub blocked_queue: VecDeque<Thread>,
     pub zombie_threads: HashMap<ThreadID, Thread>,
 }
 
@@ -39,11 +40,12 @@ impl Runtime {
             time: Instant::now(),
             time_quantum: DEFAULT_TIME_QUANTUM,
             instrs,
+            signal: None,
             thread_count: 1,
             thread_states,
             current_thread,
             ready_queue: VecDeque::new(),
-            suspended_queue: VecDeque::new(),
+            blocked_queue: VecDeque::new(),
             zombie_threads: HashMap::new(),
         }
     }
@@ -74,6 +76,14 @@ pub fn run(mut rt: Runtime) -> Result<Runtime> {
 
         if rt.should_yield_current_thread() {
             rt = rt.yield_current_thread();
+        }
+
+        if rt.is_current_thread_blocked() {
+            rt = rt.block_current_thread();
+        }
+
+        if rt.is_post_signaled() {
+            rt = rt.signal_post();
         }
 
         if rt.is_current_thread_joining() {
@@ -134,8 +144,32 @@ pub fn execute(rt: &mut Runtime, instr: ByteCode) -> Result<()> {
         ByteCode::SPAWN(addr) => micro_code::spawn(rt, addr)?,
         ByteCode::JOIN(tid) => micro_code::join(rt, tid)?,
         ByteCode::YIELD => micro_code::yield_(rt)?,
+        ByteCode::WAIT => micro_code::wait(rt)?,
+        ByteCode::POST => micro_code::post(rt)?,
     }
     Ok(())
+}
+
+impl Runtime {
+    /// Fetch the next instruction to execute.
+    /// This will increment the program counter of the current thread.
+    ///
+    /// # Returns
+    ///
+    /// The next instruction to execute.
+    ///
+    /// # Errors
+    ///
+    /// If the program counter is out of bounds.
+    pub fn fetch_instr(&mut self) -> Result<ByteCode> {
+        let instr = self
+            .instrs
+            .get(self.current_thread.pc)
+            .cloned()
+            .ok_or(VmError::PcOutOfBounds(self.current_thread.pc))?;
+        self.current_thread.pc += 1;
+        Ok(instr)
+    }
 }
 
 impl Runtime {
@@ -143,11 +177,11 @@ impl Runtime {
     /// Panics if the current thread is not found.
     pub fn get_current_thread_state(&self) -> ThreadState {
         let current_thread_id = self.current_thread.thread_id;
-        *self
-            .thread_states
+        self.thread_states
             .get(&current_thread_id)
             .ok_or(VmError::ThreadNotFound(current_thread_id))
             .expect("Current thread not found")
+            .clone()
     }
 
     pub fn set_thread_state(&mut self, thread_id: ThreadID, state: ThreadState) {
@@ -206,12 +240,12 @@ impl Runtime {
         self
     }
 
-    pub fn is_current_thread_done(&self) -> bool {
-        self.get_current_thread_state() == ThreadState::Done
-    }
-
     pub fn is_current_main_thread(&self) -> bool {
         self.current_thread.thread_id == MAIN_THREAD_ID
+    }
+
+    pub fn is_current_thread_done(&self) -> bool {
+        self.get_current_thread_state() == ThreadState::Done
     }
 
     pub fn is_current_thread_joining(&self) -> bool {
@@ -265,24 +299,58 @@ impl Runtime {
 }
 
 impl Runtime {
-    /// Fetch the next instruction to execute.
-    /// This will increment the program counter of the current thread.
-    ///
-    /// # Returns
-    ///
-    /// The next instruction to execute.
-    ///
-    /// # Errors
-    ///
-    /// If the program counter is out of bounds.
-    pub fn fetch_instr(&mut self) -> Result<ByteCode> {
-        let instr = self
-            .instrs
-            .get(self.current_thread.pc)
-            .cloned()
-            .ok_or(VmError::PcOutOfBounds(self.current_thread.pc))?;
-        self.current_thread.pc += 1;
-        Ok(instr)
+    pub fn is_current_thread_blocked(&self) -> bool {
+        matches!(self.get_current_thread_state(), ThreadState::Blocked(_))
+    }
+
+    pub fn block_current_thread(mut self) -> Self {
+        let current_thread = self.current_thread;
+        self.blocked_queue.push_back(current_thread);
+
+        let next_ready_thread = self
+            .ready_queue
+            .pop_front()
+            .expect("No threads in ready queue");
+
+        self.current_thread = next_ready_thread;
+        self
+    }
+
+    pub fn is_post_signaled(&self) -> bool {
+        self.signal.is_some()
+    }
+
+    pub fn signal_post(mut self) -> Self {
+        let sem = self.signal.take().expect("No semaphore to signal");
+
+        {
+            let mut sem_guard = sem.lock().unwrap();
+            *sem_guard += 1;
+        }
+
+        let mut blocked_threads = VecDeque::new();
+
+        for thread in self.blocked_queue.drain(..) {
+            let ThreadState::Blocked(sem_other) = self
+                .thread_states
+                .get(&thread.thread_id)
+                .expect("Thread not found")
+                .clone()
+            else {
+                continue;
+            };
+
+            if sem == sem_other {
+                self.thread_states
+                    .insert(thread.thread_id, ThreadState::Ready);
+                self.ready_queue.push_back(thread);
+            } else {
+                blocked_threads.push_back(thread);
+            }
+        }
+
+        self.blocked_queue = blocked_threads;
+        self
     }
 }
 

@@ -1,27 +1,9 @@
 use anyhow::Result;
-use bytecode::Value;
+use bytecode::builtin;
 use compiler::compiler;
 use rustyline::DefaultEditor;
 
 use crate::runtime::{run, Runtime};
-
-pub fn print_value(val: &Value) {
-    match val {
-        Value::Unitialized => println!("Uninitialized"),
-        Value::Unit => println!("()"),
-        Value::Bool(b) => println!("{}", b),
-        Value::Int(i) => println!("{}", i),
-        Value::Float(f) => println!("{}", f),
-        Value::String(s) => println!("{}", s),
-        Value::Closure {
-            fn_type: _,
-            sym,
-            prms,
-            addr,
-            env: _,
-        } => println!("Closure - sym: {}, prms: {:?}, addr: {}", sym, prms, addr),
-    }
-}
 
 pub fn ignite_repl(type_check: bool) -> Result<()> {
     let mut rl = DefaultEditor::new().unwrap();
@@ -77,7 +59,7 @@ pub fn ignite_repl(type_check: bool) -> Result<()> {
             dbg!(rt.current_thread.operand_stack.len());
 
             if let Some(val) = top {
-                print_value(val)
+                builtin::println_impl(val);
             }
         }
     }

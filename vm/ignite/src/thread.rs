@@ -1,16 +1,17 @@
 use std::{cell::RefCell, rc::Rc};
 
 use anyhow::Result;
-use bytecode::{Environment, StackFrame, Symbol, ThreadID, Value};
+use bytecode::{Environment, Semaphore, StackFrame, Symbol, ThreadID, Value};
 
 use crate::VmError;
 
-#[derive(Debug, Default, Clone, Copy, PartialEq)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub enum ThreadState {
     #[default]
     Ready,
     Joining(ThreadID),
     Yielded,
+    Blocked(Semaphore),
     Zombie,
     Done,
 }

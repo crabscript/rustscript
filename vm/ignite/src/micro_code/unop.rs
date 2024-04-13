@@ -1,6 +1,6 @@
 use crate::{Runtime, VmError};
-use anyhow::Result;
-use bytecode::{UnOp, Value};
+use anyhow::{Ok, Result};
+use bytecode::{type_of, UnOp, Value};
 
 /// Executes a unary operation on the top of the stack.
 /// It pops the value off the top of the stack, applies the
@@ -24,46 +24,46 @@ pub fn unop(rt: &mut Runtime, op: UnOp) -> Result<()> {
         .ok_or(VmError::OperandStackUnderflow)?;
 
     match val {
-        Value::Unit => {
-            return Err(VmError::IllegalArgument("unit not supported".to_string()).into())
-        }
+        Value::Unit => Err(VmError::UnsupportedOperation(op.into(), type_of(&val).into()).into()),
         Value::Int(i) => {
             let result = match op {
                 UnOp::Neg => Value::Int(-i), // Negation
                 UnOp::Not => Value::Int(!i), // Bitwise Not
             };
             rt.current_thread.operand_stack.push(result);
+            Ok(())
         }
         Value::Float(f) => {
-            let result = match op {
-                UnOp::Neg => Value::Float(-f), // Negation
-                _ => return Err(VmError::IllegalArgument("float not supported".to_string()).into()),
-            };
-            rt.current_thread.operand_stack.push(result);
+            if let UnOp::Neg = op {
+                let result = Value::Float(-f); // Negation
+                rt.current_thread.operand_stack.push(result);
+                Ok(())
+            } else {
+                Err(VmError::UnsupportedOperation(op.into(), type_of(&val).into()).into())
+            }
         }
         Value::Bool(b) => {
-            let result = match op {
-                UnOp::Not => Value::Bool(!b), // Logical Not
-                _ => return Err(VmError::IllegalArgument("bool not supported".to_string()).into()),
-            };
-            rt.current_thread.operand_stack.push(result);
+            if let UnOp::Not = op {
+                let result = Value::Bool(!b); // Logical Not
+                rt.current_thread.operand_stack.push(result);
+                Ok(())
+            } else {
+                Err(VmError::UnsupportedOperation(op.into(), type_of(&val).into()).into())
+            }
         }
         Value::String(_) => {
-            return Err(VmError::IllegalArgument("string not supported".to_string()).into())
+            Err(VmError::UnsupportedOperation(op.into(), type_of(&val).into()).into())
         }
         Value::Unitialized => {
-            return Err(VmError::IllegalArgument("using unitialized value".to_string()).into())
+            Err(VmError::UnsupportedOperation(op.into(), type_of(&val).into()).into())
         }
-        Value::Closure {
-            fn_type: _,
-            sym: _,
-            prms: _,
-            addr: _,
-            env: _,
-        } => return Err(VmError::IllegalArgument("closure not supported".to_string()).into()),
+        Value::Semaphore(_) => {
+            Err(VmError::UnsupportedOperation(op.into(), type_of(&val).into()).into())
+        }
+        Value::Closure { .. } => {
+            Err(VmError::UnsupportedOperation(op.into(), type_of(&val).into()).into())
+        }
     }
-
-    Ok(())
 }
 
 #[cfg(test)]

@@ -842,10 +842,22 @@ mod tests {
         }
         200
         ";
-        test_comp(t, vec![LDC(Bool(true)), JOF(4), LDC(Int(2)), GOTO(5), LDC(Int(3)), POP, LDC(Int(200)), DONE]);
+        test_comp(
+            t,
+            vec![
+                LDC(Bool(true)),
+                JOF(4),
+                LDC(Int(2)),
+                GOTO(5),
+                LDC(Int(3)),
+                POP,
+                LDC(Int(200)),
+                DONE,
+            ],
+        );
 
-         // ifelse as stmt, blks return unit
-         let t = r"
+        // ifelse as stmt, blks return unit
+        let t = r"
          if true {
              2;
              true;
@@ -855,10 +867,30 @@ mod tests {
          }
          200
          ";
-         test_comp(t, vec![LDC(Bool(true)), JOF(8), LDC(Int(2)), POP, LDC(Bool(true)), POP, LDC(Unit), GOTO(13), LDC(Int(3)), POP, LDC(Bool(false)), POP, LDC(Unit), POP, LDC(Int(200)), DONE]);
+        test_comp(
+            t,
+            vec![
+                LDC(Bool(true)),
+                JOF(8),
+                LDC(Int(2)),
+                POP,
+                LDC(Bool(true)),
+                POP,
+                LDC(Unit),
+                GOTO(13),
+                LDC(Int(3)),
+                POP,
+                LDC(Bool(false)),
+                POP,
+                LDC(Unit),
+                POP,
+                LDC(Int(200)),
+                DONE,
+            ],
+        );
 
-         // ifelse as expr, blks return val
-         let t = r"
+        // ifelse as expr, blks return val
+        let t = r"
          let y = true;
          let x = if y {
             2;
@@ -870,14 +902,34 @@ mod tests {
 
         x
          ";
-         test_comp(t, vec![ENTERSCOPE(vec!["y".to_string(), "x".to_string()]), LDC(Bool(true)), ByteCode::ASSIGN("y".to_string()), 
-         LDC(Unit), POP, ByteCode::ld("y".to_string()), 
-         JOF(11), LDC(Int(2)), POP, LDC(Bool(true)), GOTO(14), LDC(Int(3)), POP, LDC(Bool(false)), 
-         ByteCode::ASSIGN("x".to_string()), LDC(Unit), POP, ByteCode::ld("x".to_string()), EXITSCOPE, DONE]);
+        test_comp(
+            t,
+            vec![
+                ENTERSCOPE(vec!["y".to_string(), "x".to_string()]),
+                LDC(Bool(true)),
+                ByteCode::ASSIGN("y".to_string()),
+                LDC(Unit),
+                POP,
+                ByteCode::ld("y".to_string()),
+                JOF(11),
+                LDC(Int(2)),
+                POP,
+                LDC(Bool(true)),
+                GOTO(14),
+                LDC(Int(3)),
+                POP,
+                LDC(Bool(false)),
+                ByteCode::ASSIGN("x".to_string()),
+                LDC(Unit),
+                POP,
+                ByteCode::ld("x".to_string()),
+                EXITSCOPE,
+                DONE,
+            ],
+        );
 
-
-         // if-else expr, blks return unit
-         let t = r"
+        // if-else expr, blks return unit
+        let t = r"
          let x = if true {
             2;
         } else {
@@ -887,8 +939,26 @@ mod tests {
         x
          ";
 
-         test_comp(t, vec![ENTERSCOPE(vec!["x".to_string()]), LDC(Bool(true)), JOF(7), LDC(Int(2)), POP, LDC(Unit), GOTO(10), LDC(Int(3)), 
-         POP, LDC(Unit), ByteCode::assign("x".to_string()), LDC(Unit), POP, ByteCode::ld("x".to_string()), EXITSCOPE, DONE]);
-
+        test_comp(
+            t,
+            vec![
+                ENTERSCOPE(vec!["x".to_string()]),
+                LDC(Bool(true)),
+                JOF(7),
+                LDC(Int(2)),
+                POP,
+                LDC(Unit),
+                GOTO(10),
+                LDC(Int(3)),
+                POP,
+                LDC(Unit),
+                ByteCode::assign("x".to_string()),
+                LDC(Unit),
+                POP,
+                ByteCode::ld("x".to_string()),
+                EXITSCOPE,
+                DONE,
+            ],
+        );
     }
 }

@@ -5,7 +5,7 @@ use parser::structs::{BlockSeq, Decl, Expr, Type};
 
 #[derive(Debug, PartialEq)]
 pub struct TypeErrors {
-    errs: Vec<String>,
+    pub(crate) errs: Vec<String>,
     pub(crate) cont: bool,
 }
 
@@ -32,6 +32,7 @@ impl TypeErrors {
         self.errs.push(err.to_string());
     }
 
+    /// Move errors from the other into this one, leaving the other empty
     pub fn append(&mut self, errs: &mut TypeErrors) {
         self.errs.append(&mut errs.errs)
     }
@@ -183,7 +184,7 @@ impl<'prog> TypeChecker<'prog> {
                 return self.check_binop(op, lhs, rhs);
             }
             Expr::BlockExpr(blk) => self.check_block(blk)?,
-            _ => todo!(),
+            Expr::IfElseExpr(if_else) => self.check_if_else(if_else)?,
         };
 
         if local_errs.is_ok() {
@@ -192,57 +193,6 @@ impl<'prog> TypeChecker<'prog> {
             Err(local_errs)
         }
     }
-
-    // fn check_let(&mut self, stmt: &LetStmtData) -> Result<(), TypeErrors> {
-    //     let mut ty_errs = TypeErrors::new();
-
-    //     let mut expr_type: Option<Type> = None;
-    //     match self.check_expr(&stmt.expr) {
-    //         Ok(res) => {
-    //             expr_type.replace(res);
-    //         }
-    //         Err(mut err) => {
-    //             ty_errs.append(&mut err);
-    //         }
-    //     };
-
-    //     match (expr_type, stmt.type_ann) {
-    //         // type check expr has error + we have no type annotation: e.g let x = !2;
-    //         // cannot proceed, error out with cont = false
-    //         (None, None) => {
-    //             ty_errs.cont = false;
-    //             Err(ty_errs)
-    //         }
-
-    //         // type check expr has err + we have type ann: e.g let x : int = !2;
-    //         // use type of annotation, continue
-    //         (None, Some(ty_ann)) => {
-    //             self.assign_ident(&stmt.ident.to_owned(), ty_ann)?;
-    //             Err(ty_errs)
-    //         }
-
-    //         // expr is well-typed + no type annotation e.g let x = 2+2;
-    //         // use expr type, no err
-    //         (Some(ty), None) => self.assign_ident(&stmt.ident.to_owned(), ty),
-
-    //         // expr is well-typed + have ty ann: e.g let x : int = true; or let x : int  = 2;
-    //         // either way, insert type of binding = annotation so we can ty check rest. error out if mismatch
-    //         (Some(ty), Some(ty_ann)) => {
-    //             self.assign_ident(&stmt.ident.to_owned(), ty_ann)?;
-
-    //             if !ty_ann.eq(&ty) {
-    //                 let string = format!(
-    //                     "'{}' has declared type {} but assigned type {}",
-    //                     stmt.ident, ty_ann, ty
-    //                 );
-    //                 ty_errs.add(&string);
-    //                 return Err(ty_errs);
-    //             }
-
-    //             Ok(())
-    //         }
-    //     }
-    // }
 
     /// Type check declaration and add errors if any
     pub(crate) fn check_decl(&mut self, decl: &Decl) -> Result<(), TypeErrors> {
@@ -257,8 +207,6 @@ impl<'prog> TypeChecker<'prog> {
             }
             // Check if sym is declared already. Then check expr matches type at decl
             Decl::AssignStmt(stmt) => {
-                // let sym = Expr::Symbol(stmt.ident.to_owned());
-                // let sym_ty = self.check_expr(&sym)?;
                 let sym_ty = self.get_type_if_init(&stmt.ident.to_owned())?;
                 let exp_ty = self.check_expr(&stmt.expr)?;
 
@@ -270,7 +218,9 @@ impl<'prog> TypeChecker<'prog> {
                     return Err(TypeErrors::new_err(&e));
                 }
             }
-            _ => todo!(),
+            Decl::IfOnlyStmt(if_else) => {
+                self.check_if_else(if_else)?;
+            }
         }
 
         Ok(())
@@ -296,6 +246,7 @@ pub fn expect_pass(inp: &str, exp_type: Type) {
 // contains true means check if input contains exp_err. else check full equals
 pub fn expect_err(inp: &str, exp_err: &str, contains: bool) {
     let prog = Parser::new_from_string(inp).parse().expect("Should parse");
+    dbg!(&prog);
     let ty_err = TypeChecker::new(&prog)
         .type_check()
         .expect_err("Should err");

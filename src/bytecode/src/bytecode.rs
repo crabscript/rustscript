@@ -46,7 +46,7 @@ pub enum ByteCode {
     /// Spawn a new thread with the address of the instruction for the child to execute.
     SPAWN(Address),
     /// Join a thread.
-    JOIN(ThreadID),
+    JOIN,
     /// Yield the current thread.
     YIELD,
     /// Wait on the semaphore.

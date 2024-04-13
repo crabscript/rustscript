@@ -47,14 +47,13 @@ impl<'inp> Parser<'inp> {
                 }
             }
 
-            // check if expr is a block-like expression / must be treated as stmt (e.g if no else, fn decl) AND we are in the middle, because
+            // check if expr is a block-like expression AND we are in the middle, we know because
             // prev branch failed. if so, add as decl.
             if self
                 .prev_tok
                 .as_ref()
                 .map(|tok| tok.eq(&Token::CloseBrace))
                 .unwrap_or(false)
-                || expr.is_stmt_with_no_semi()
             {
                 decls.push(expr);
             }

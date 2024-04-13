@@ -58,9 +58,6 @@ impl<'inp> Parser<'inp> {
         } else {
             Ok(Decl::IfOnlyStmt(stmt))
         }
-        // let expr = Expr::IfElseExpr(Box::new(stmt));
-
-        // Ok(Decl::ExprStmt(expr))
     }
 }
 

@@ -1,7 +1,9 @@
+use std::collections::hash_map::Entry;
+
 use anyhow::Result;
 use bytecode::ThreadID;
 
-use crate::{Runtime, ThreadState};
+use crate::{Runtime, ThreadState, VmError};
 
 /// Set the state of the current thread to joining the thread with the given ID.
 ///
@@ -13,10 +15,18 @@ use crate::{Runtime, ThreadState};
 ///
 /// # Errors
 ///
-/// Infallible.
+/// * If the thread with the given ID is not found in the thread state hashmap.
 pub fn join(rt: &mut Runtime, tid: ThreadID) -> Result<()> {
-    rt.current_thread.state = ThreadState::Joining(tid);
-    Ok(())
+    let current_tid = rt.current_thread.thread_id;
+    let entry = rt.thread_states.entry(current_tid);
+
+    match entry {
+        Entry::Vacant(_) => Err(VmError::ThreadNotFound(current_tid).into()),
+        Entry::Occupied(mut entry) => {
+            entry.insert(ThreadState::Joining(tid));
+            Ok(())
+        }
+    }
 }
 
 #[cfg(test)]
@@ -27,7 +37,7 @@ mod tests {
     fn test_join() -> Result<()> {
         let mut rt = Runtime::new(vec![]);
         join(&mut rt, 2)?;
-        assert_eq!(rt.current_thread.state, ThreadState::Joining(2));
+        assert_eq!(rt.thread_states.get(&1), Some(&ThreadState::Joining(2)));
         Ok(())
     }
 }

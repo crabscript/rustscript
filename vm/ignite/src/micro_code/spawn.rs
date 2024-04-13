@@ -1,10 +1,11 @@
 use anyhow::Result;
 
-use crate::Runtime;
+use crate::{Runtime, ThreadState};
 
 /// Spawn a new thread that clones the main thread at the time of the spawn.
-/// The new thread is added to the ready queue.
+/// The new thread is added to the thread state hashmap with a state of Ready.
 /// The new thread is given a unique thread ID.
+/// The new thread is added to the ready queue.
 /// This thread ID is pushed onto the operand stack of the parent thread.
 /// 0 is pushed onto the operand stack of the child thread.
 ///
@@ -15,17 +16,19 @@ use crate::Runtime;
 /// # Errors
 ///
 /// Infallible.
-pub fn spawn(rt: &mut Runtime) -> Result<()> {
+pub fn spawn(rt: &mut Runtime, addr: usize) -> Result<()> {
     rt.thread_count += 1;
 
-    let new_thread_id = rt.thread_count;
-    let mut new_thread = rt.current_thread.spawn_new(new_thread_id);
+    let child_thread_id = rt.thread_count;
+    let mut child_thread = rt.current_thread.spawn_new(child_thread_id, addr);
+    // Add the child thread to the thread state hashmap.
+    rt.thread_states.insert(child_thread_id, ThreadState::Ready);
 
-    // The child thread ID is pushed onto the operand stack of the parent thread.
-    rt.current_thread.operand_stack.push(new_thread_id.into());
     // 0 is pushed onto the operand stack of the child thread.
-    new_thread.operand_stack.push(0.into());
+    child_thread.operand_stack.push(0.into());
+    // The child thread ID is pushed onto the operand stack of the parent thread.
+    rt.current_thread.operand_stack.push(child_thread_id.into());
 
-    rt.ready_queue.push_back(new_thread);
+    rt.ready_queue.push_back(child_thread);
     Ok(())
 }

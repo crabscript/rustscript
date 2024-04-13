@@ -1,6 +1,8 @@
-use anyhow::Result;
+use std::collections::hash_map::Entry;
 
-use crate::{Runtime, ThreadState};
+use anyhow::{Ok, Result};
+
+use crate::{Runtime, ThreadState, VmError};
 
 /// Set the state of the current thread to done.
 ///
@@ -10,10 +12,18 @@ use crate::{Runtime, ThreadState};
 ///
 /// # Errors
 ///
-/// Infallible.
+/// * If the current thread is not found in the thread state hashmap.
 pub fn done(rt: &mut Runtime) -> Result<()> {
-    rt.current_thread.state = ThreadState::Done;
-    Ok(())
+    let tid = rt.current_thread.thread_id;
+    let entry = rt.thread_states.entry(tid);
+
+    match entry {
+        Entry::Vacant(_) => Err(VmError::ThreadNotFound(tid).into()),
+        Entry::Occupied(mut entry) => {
+            entry.insert(ThreadState::Done);
+            Ok(())
+        }
+    }
 }
 
 #[cfg(test)]
@@ -24,7 +34,7 @@ mod tests {
     fn test_done() -> Result<()> {
         let mut rt = Runtime::new(vec![]);
         done(&mut rt)?;
-        assert_eq!(rt.current_thread.state, ThreadState::Done);
+        assert_eq!(rt.thread_states.get(&1), Some(&ThreadState::Done));
         Ok(())
     }
 }

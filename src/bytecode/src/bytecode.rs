@@ -12,7 +12,7 @@ pub type ThreadID = i64;
 /// and implementation details.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum ByteCode {
-    /// Signal that the program has finished executing.
+    /// Signal that the thread has finished executing.
     DONE,
     /// Assign the top of the operant stack to the given symbol in the current environment.
     ASSIGN(Symbol),
@@ -40,8 +40,8 @@ pub enum ByteCode {
     LDF(usize, Vec<Symbol>),
     /// Call a function with the given number of arguments.
     CALL(usize),
-    /// Spawn a new thread.
-    SPAWN,
+    /// Spawn a new thread with the address of the instruction for the child to execute.
+    SPAWN(usize),
     /// Join a thread.
     JOIN(ThreadID),
     /// Yield the current thread.

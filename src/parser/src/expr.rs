@@ -51,7 +51,7 @@ impl<'inp> Parser<'inp> {
             ))),
         }?;
 
-        dbg!("LHS:", &lhs);
+        // dbg!("LHS:", &lhs);
         loop {
             if self.lexer.peek().is_none()
                 || self.is_peek_token_type(Token::Semi)

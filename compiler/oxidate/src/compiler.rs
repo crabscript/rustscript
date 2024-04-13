@@ -40,7 +40,7 @@ impl Compiler {
         expr: &Expr,
         arr: &mut Vec<ByteCode>,
     ) -> Result<(), CompileError> {
-        Compiler::compile_expr(expr, false, arr)?;
+        Compiler::compile_expr(expr, arr)?;
         match op {
             UnOpType::Negate => arr.push(ByteCode::UNOP(bytecode::UnOp::Neg)),
             UnOpType::Not => arr.push(ByteCode::UNOP(bytecode::UnOp::Not)),
@@ -56,8 +56,8 @@ impl Compiler {
         rhs: &Expr,
         arr: &mut Vec<ByteCode>,
     ) -> Result<(), CompileError> {
-        Compiler::compile_expr(lhs, false, arr)?;
-        Compiler::compile_expr(rhs, false, arr)?;
+        Compiler::compile_expr(lhs, arr)?;
+        Compiler::compile_expr(rhs, arr)?;
         match op {
             BinOpType::Add => arr.push(ByteCode::BINOP(bytecode::BinOp::Add)),
             BinOpType::Mul => arr.push(ByteCode::BINOP(bytecode::BinOp::Mul)),
@@ -68,11 +68,7 @@ impl Compiler {
         Ok(())
     }
 
-    pub fn compile_expr(
-        expr: &Expr,
-        as_stmt: bool,
-        arr: &mut Vec<ByteCode>,
-    ) -> Result<(), CompileError> {
+    pub fn compile_expr(expr: &Expr, arr: &mut Vec<ByteCode>) -> Result<(), CompileError> {
         match expr {
             Expr::Integer(val) => arr.push(ByteCode::ldc(*val)),
             Expr::Float(val) => arr.push(ByteCode::ldc(*val)),
@@ -88,9 +84,9 @@ impl Compiler {
                 arr.push(ByteCode::LD(sym.to_string()));
             }
             Expr::BlockExpr(blk) => {
-                Compiler::compile_block(blk, as_stmt, arr)?;
+                Compiler::compile_block(blk, arr)?;
             }
-            Expr::IfElseExpr(if_else) => Compiler::compile_if_else(if_else, as_stmt, arr)?,
+            Expr::IfElseExpr(if_else) => Compiler::compile_if_else(if_else, arr)?,
         }
 
         Ok(())
@@ -101,7 +97,7 @@ impl Compiler {
         expr: &Expr,
         arr: &mut Vec<ByteCode>,
     ) -> Result<(), CompileError> {
-        Compiler::compile_expr(expr, false, arr)?;
+        Compiler::compile_expr(expr, arr)?;
 
         let assign = ByteCode::ASSIGN(ident.to_owned());
         arr.push(assign);
@@ -112,12 +108,7 @@ impl Compiler {
         Ok(())
     }
 
-    /// Compile block appropriately based on whether it is none-like and whether we intend to compile as expr or stmt
-    fn compile_block(
-        blk: &BlockSeq,
-        as_stmt: bool,
-        arr: &mut Vec<ByteCode>,
-    ) -> Result<(), CompileError> {
+    fn compile_block_body(blk: &BlockSeq, arr: &mut Vec<ByteCode>) -> Result<(), CompileError> {
         let decls = &blk.decls;
         let syms = &blk.symbols;
 
@@ -133,47 +124,60 @@ impl Compiler {
 
         // Handle expr
         if let Some(expr) = &blk.last_expr {
-            Compiler::compile_expr(expr.as_ref(), false, arr)?;
+            Compiler::compile_expr(expr.as_ref(), arr)?;
         }
 
         if !syms.is_empty() {
             arr.push(ByteCode::EXITSCOPE);
         }
 
-        // does not produce value AND treated as stmt: push unit so pop does not underflow
-        if Compiler::blk_produces_nothing(blk) && as_stmt {
+        Ok(())
+    }
+
+    /// Compile block appropriately based on whether it is none-like and whether we intend to compile as expr or stmt
+    fn compile_block(blk: &BlockSeq, arr: &mut Vec<ByteCode>) -> Result<(), CompileError> {
+        // let decls = &blk.decls;
+        // let syms = &blk.symbols;
+
+        // if !syms.is_empty() {
+        //     arr.push(ByteCode::ENTERSCOPE(syms.clone()));
+        // }
+
+        // for decl in decls {
+        //     Compiler::compile_decl(decl, arr)?;
+        //     // pop result of statements - need to ensure all stmts produce something (either Unit or something else)
+        //     arr.push(ByteCode::POP);
+        // }
+
+        // // Handle expr
+        // if let Some(expr) = &blk.last_expr {
+        //     Compiler::compile_expr(expr.as_ref(), false, arr)?;
+        // }
+
+        // if !syms.is_empty() {
+        //     arr.push(ByteCode::EXITSCOPE);
+        // }
+
+        Compiler::compile_block_body(blk, arr)?;
+
+        // does not produce value: return Unit
+        if Compiler::blk_produces_nothing(blk) {
             arr.push(ByteCode::ldc(Value::Unit));
         }
 
         Ok(())
     }
 
-    // blk is_none_like if: last_expr is none, or last_expr is a block and the block is none_like
-    // none_like meaning the last expr actually leaves nothing on the stack
+    // blk is_none_like if it has no last expr: then we must push Unit as its last value
+    // recursive check not needed as empty blks / blk without last expr now also produce Unit
     fn blk_produces_nothing(blk: &BlockSeq) -> bool {
-        if let Some(expr) = &blk.last_expr {
-            if let Expr::BlockExpr(seq) = expr.as_ref() {
-                Compiler::blk_produces_nothing(seq)
-            } else {
-                // have last expr and it's not a block: not none like
-                false
-            }
-        } else {
-            // no last expr: is none like
-            true
-        }
+        blk.last_expr.is_none()
     }
 
     fn compile_decl(decl: &Decl, arr: &mut Vec<ByteCode>) -> Result<(), CompileError> {
         match decl {
             Decl::ExprStmt(expr) => {
-                // if let Expr::BlockExpr(seq) = expr {
-                //     Compiler::compile_block(seq, true, arr)?;
-                // } else {
-                //     Compiler::compile_expr(expr, true, arr)?;
-                // }
-
-                Compiler::compile_expr(expr, true, arr)?;
+                Compiler::compile_expr(expr, arr)?;
             }
             Decl::LetStmt(stmt) => {
                 Compiler::compile_assign(&stmt.ident, &stmt.expr, arr)?;
@@ -188,18 +192,13 @@ impl Compiler {
     }
 
     /// Compile if_else as statement or as expr - changes how blocks are compiled
-    fn compile_if_else(
-        if_else: &IfElseData,
-        as_stmt: bool,
-        arr: &mut Vec<ByteCode>,
-    ) -> Result<(), CompileError> {
-        dbg!("COMPILE IF ELSE");
-        Compiler::compile_expr(&if_else.cond, false, arr)?;
+    fn compile_if_else(if_else: &IfElseData, arr: &mut Vec<ByteCode>) -> Result<(), CompileError> {
+        Compiler::compile_expr(&if_else.cond, arr)?;
 
         let jof_idx = arr.len();
         arr.push(ByteCode::JOF(0));
 
-        Compiler::compile_block(&if_else.if_blk, as_stmt, arr)?;
+        Compiler::compile_block(&if_else.if_blk, arr)?;
 
         let goto_idx = arr.len();
         arr.push(ByteCode::GOTO(0));
@@ -207,7 +206,7 @@ impl Compiler {
         let jof_addr = arr.len(); // jump to after the GOTO
 
         if let Some(else_blk) = &if_else.else_blk {
-            Compiler::compile_block(else_blk, as_stmt, arr)?;
+            Compiler::compile_block(else_blk, arr)?;
         }
 
         let goto_addr = arr.len(); // jump to after else blk
@@ -231,7 +230,7 @@ impl Compiler {
 
     pub fn compile(self) -> anyhow::Result<Vec<ByteCode>, CompileError> {
         let mut bytecode: Vec<ByteCode> = vec![];
-        Compiler::compile_block(&self.program, false, &mut bytecode)?;
+        Compiler::compile_block_body(&self.program, &mut bytecode)?;
         bytecode.push(ByteCode::DONE);
 
         Ok(bytecode)
@@ -518,6 +517,7 @@ mod tests {
             ByteCode::POP,
             ByteCode::ldc(3),
             ByteCode::POP,
+            LDC(Unit),
             DONE,
         ];
         test_comp(t, exp);
@@ -533,7 +533,7 @@ mod tests {
         ];
         test_comp(t, exp);
 
-        // like doing just 4;
+        // // like doing just 4;
         let t = "{ 2; 3; 4 };";
         let exp = vec![
             ByteCode::ldc(2),
@@ -546,7 +546,6 @@ mod tests {
         ];
         test_comp(t, exp);
 
-        // wrong
         let t = "{ 2; 3; 4; };";
         let exp = vec![
             ByteCode::ldc(2),
@@ -565,16 +564,63 @@ mod tests {
     #[test]
     fn test_compile_blk_cases() {
         test_comp("{ 2 }", vec![ByteCode::ldc(2), DONE]);
-        test_comp("{ 2; }", vec![ByteCode::ldc(2), POP, DONE]);
+        // blk with no last expr or none_like returns Unit
+        test_comp("{ 2; }", vec![ByteCode::ldc(2), POP, LDC(Unit), DONE]);
 
-        // since we pop after every stmt, if the block ends in expr we just rely on that
+        // // since we pop after every stmt, if the block ends in expr we just rely on that
         test_comp("{ 2 };", vec![ByteCode::ldc(2), POP, DONE]);
 
-        // we pop after every stmt, but since this blk has no last expr we push unit before blk ends so the pop doesn't
-        // underflow
+        // // we pop after every stmt, but since this blk has no last expr we push unit before blk ends so the pop doesn't
         test_comp(
             "{ 2; };",
             vec![ByteCode::ldc(2), POP, ByteCode::ldc(Unit), POP, DONE],
+        );
+
+        // nested
+        test_comp(
+            r"
+        {
+            2;
+            {
+                {
+
+                }
+            }
+        }
+        ",
+            vec![LDC(Int(2)), POP, LDC(Unit), DONE],
+        );
+
+        // nested
+        test_comp(
+            r"
+        {
+            2;
+            {
+                {
+
+                }
+            }
+        };
+        ",
+            vec![LDC(Int(2)), POP, LDC(Unit), POP, DONE],
+        );
+
+        // nested with stmt inside
+        test_comp(
+            r"
+        {
+            2;
+            {
+                { 
+                    {
+
+                    };
+                }
+            }
+        }
+        ",
+            vec![LDC(Int(2)), POP, LDC(Unit), POP, LDC(Unit), DONE],
         );
     }
 

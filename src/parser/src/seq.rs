@@ -22,7 +22,7 @@ impl<'inp> Parser<'inp> {
             // dbg!("prev_tok:", &self.prev_tok);
 
             let expr = self.parse_decl()?;
-            dbg!("Got expr:", &expr);
+            // dbg!("Got expr:", &expr);
             // dbg!("Peek:", &self.lexer.peek());
 
             // if ends with semicolon: statement, advance past semi

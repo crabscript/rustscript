@@ -136,28 +136,6 @@ impl Compiler {
 
     /// Compile block appropriately based on whether it is none-like and whether we intend to compile as expr or stmt
     fn compile_block(blk: &BlockSeq, arr: &mut Vec<ByteCode>) -> Result<(), CompileError> {
-        // let decls = &blk.decls;
-        // let syms = &blk.symbols;
-
-        // if !syms.is_empty() {
-        //     arr.push(ByteCode::ENTERSCOPE(syms.clone()));
-        // }
-
-        // for decl in decls {
-        //     Compiler::compile_decl(decl, arr)?;
-        //     // pop result of statements - need to ensure all stmts produce something (either Unit or something else)
-        //     arr.push(ByteCode::POP);
-        // }
-
-        // // Handle expr
-        // if let Some(expr) = &blk.last_expr {
-        //     Compiler::compile_expr(expr.as_ref(), false, arr)?;
-        // }
-
-        // if !syms.is_empty() {
-        //     arr.push(ByteCode::EXITSCOPE);
-        // }
-
         Compiler::compile_block_body(blk, arr)?;
 
         // does not produce value: return Unit
@@ -214,15 +192,9 @@ impl Compiler {
         // set JOF arg
         if let Some(ByteCode::JOF(idx)) = arr.get_mut(jof_idx) {
             *idx = jof_addr;
-            // if let ByteCode::JOF(idx) = inst {
-            //     *idx = jof_addr;
-            // }
         }
 
         if let Some(ByteCode::GOTO(idx)) = arr.get_mut(goto_idx) {
-            // if let ByteCode::GOTO(idx) = inst {
-            //     *idx = goto_addr;
-            // }
             *idx = goto_addr;
         }
         Ok(())
@@ -626,6 +598,27 @@ mod tests {
 
     #[test]
     fn test_compile_blk_let() {
+        // empty blk
+        let t = r"
+        let x = {
+            {}
+        };
+        ";
+
+        // last LDC Unit if from compiling let. last POP is from automatic pop after decl
+        test_comp(
+            t,
+            vec![
+                ENTERSCOPE(vec!["x".to_string()]),
+                LDC(Unit),
+                ASSIGN("x".to_string()),
+                LDC(Unit),
+                POP,
+                EXITSCOPE,
+                DONE,
+            ],
+        );
+
         let t = r"
         let x = 2;
         {

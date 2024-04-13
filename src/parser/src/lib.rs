@@ -169,9 +169,9 @@ impl<'inp> Parser<'inp> {
                 // now prev_tok has the start of the expr
                 let expr = self.parse_expr(min_bp)?.to_expr()?;
 
-                let assign = AssignStmt { ident, expr };
+                let assign = AssignStmtData { ident, expr };
 
-                return Ok(Assign(assign));
+                return Ok(AssignStmt(assign));
             }
         }
         Ok(ExprStmt(sym))

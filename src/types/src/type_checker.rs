@@ -251,7 +251,7 @@ impl<'prog> TypeChecker<'prog> {
                 self.check_expr(expr)?;
             }
             // Check if sym is declared already. Then check expr matches type at decl
-            Decl::Assign(stmt) => {
+            Decl::AssignStmt(stmt) => {
                 // let sym = Expr::Symbol(stmt.ident.to_owned());
                 // let sym_ty = self.check_expr(&sym)?;
                 let sym_ty = self.get_type_if_init(&stmt.ident.to_owned())?;
@@ -265,6 +265,7 @@ impl<'prog> TypeChecker<'prog> {
                     return Err(TypeErrors::new_err(&e));
                 }
             }
+            _ => todo!(),
         }
 
         Ok(())

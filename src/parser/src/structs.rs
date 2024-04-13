@@ -98,7 +98,7 @@ pub struct LetStmtData {
 }
 
 #[derive(Debug, Clone)]
-pub struct AssignStmt {
+pub struct AssignStmtData {
     pub ident: String,
     pub expr: Expr,
 }
@@ -115,7 +115,7 @@ impl Display for LetStmtData {
     }
 }
 
-impl Display for AssignStmt {
+impl Display for AssignStmtData {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} = {}", self.ident, self.expr)
     }
@@ -143,8 +143,10 @@ impl Display for IfElseData {
 #[derive(Debug, Clone)]
 pub enum Decl {
     LetStmt(LetStmtData),
-    Assign(AssignStmt),
+    AssignStmt(AssignStmtData),
     ExprStmt(Expr),
+    // if with no else should only be stmt. use same struct because compilation is very similar to if-else
+    IfOnlyStmt(IfElseData),
 }
 
 impl Decl {
@@ -155,9 +157,12 @@ impl Decl {
             Self::LetStmt(ref stmt) => {
                 Err(ParseError::new(&format!("'{}' is not an expression", stmt)))
             }
-            Self::Assign(ref stmt) => {
+            Self::AssignStmt(ref stmt) => {
                 Err(ParseError::new(&format!("'{}' is not an expression", stmt)))
             }
+            Self::IfOnlyStmt(_) => Err(ParseError::new(
+                "if without else branch is not an expression",
+            )),
             Self::ExprStmt(expr) => Ok(expr.clone()),
         }
     }
@@ -170,6 +175,12 @@ impl Decl {
         let e = format!("Expected block but got '{}'", self);
         Err(ParseError::new(&e))
     }
+
+    /// Returns true if this Decl has to be treated as a stmt, but has no semicolon terminating
+    // TODO: Add function decls later
+    pub fn is_stmt_with_no_semi(&self) -> bool {
+        matches!(self, Self::IfOnlyStmt(_))
+    }
 }
 
 impl Display for Decl {
@@ -177,7 +188,8 @@ impl Display for Decl {
         let string = match self {
             Decl::ExprStmt(expr) => expr.to_string(),
             Decl::LetStmt(stmt) => stmt.to_string(),
-            Decl::Assign(stmt) => stmt.to_string(),
+            Decl::AssignStmt(stmt) => stmt.to_string(),
+            Decl::IfOnlyStmt(expr) => expr.to_string(),
         };
 
         write!(f, "{}", string)

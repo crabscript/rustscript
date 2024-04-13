@@ -10,9 +10,6 @@ use lexer::Token;
 
 impl<'inp> Parser<'inp> {
     pub(crate) fn parse_if_else(&mut self, min_bp: u8) -> Result<Decl, ParseError> {
-        dbg!("if else");
-        dbg!(&self.lexer.peek());
-
         // condition - in parens
         // self.consume_token_type(Token::OpenParen, "Expected open parenthesis")?;
 
@@ -21,12 +18,7 @@ impl<'inp> Parser<'inp> {
             self.advance();
         }
 
-        dbg!("OK", &self.prev_tok);
-
         let cond = self.parse_expr(min_bp)?.to_expr()?;
-        dbg!(&cond); // got cond
-
-        dbg!("peek after:", &self.lexer.peek()); // OpenBrace
 
         // go past OpenBrace, put in prev_tok
         self.consume_token_type(
@@ -35,10 +27,6 @@ impl<'inp> Parser<'inp> {
         )?;
 
         let if_blk = self.parse_blk(min_bp)?.to_block()?;
-
-        dbg!("after parse_blk", &if_blk);
-
-        dbg!("peek after parse_blk", &self.lexer.peek());
 
         // check else
         let mut else_blk: Option<BlockSeq> = None;
@@ -51,10 +39,11 @@ impl<'inp> Parser<'inp> {
             )?;
 
             let blk = self.parse_blk(min_bp)?.to_block()?;
-            dbg!("Got past PARSE ELSE BLK", &blk);
 
             else_blk.replace(blk);
         }
+
+        let has_else = else_blk.is_some();
 
         let stmt = IfElseData {
             cond,
@@ -62,9 +51,16 @@ impl<'inp> Parser<'inp> {
             else_blk,
         };
 
-        let expr = Expr::IfElseExpr(Box::new(stmt));
+        if has_else {
+            let exp = Expr::IfElseExpr(Box::new(stmt));
+            let decl = Decl::ExprStmt(exp);
+            Ok(decl)
+        } else {
+            Ok(Decl::IfOnlyStmt(stmt))
+        }
+        // let expr = Expr::IfElseExpr(Box::new(stmt));
 
-        Ok(Decl::ExprStmt(expr))
+        // Ok(Decl::ExprStmt(expr))
     }
 }
 
@@ -80,8 +76,18 @@ mod tests {
             40;
         }
         ";
-        test_parse(t, "if true { 30;40; }");
+        test_parse(t, "if true { 30;40; };");
 
+        // with semi is same
+        let t = r"
+        if (true) {
+            30;
+            40;
+        };
+        ";
+        test_parse(t, "if true { 30;40; };");
+
+        // if-else expr last
         let t = r"
         if (true) {
             30;
@@ -92,13 +98,25 @@ mod tests {
         ";
         test_parse(t, "if true { 30; } else { 40;50 }");
 
+        // above with semi becomes decl
+        let t = r"
+        if (true) {
+            30;
+        } else {
+            40;
+            50
+        };
+        ";
+        test_parse(t, "if true { 30; } else { 40;50 };");
+
+        // without brackets for cond
         let t = r"
         if true {
             30;
             40;
         }
         ";
-        test_parse(t, "if true { 30;40; }");
+        test_parse(t, "if true { 30;40; };");
 
         let t = r"
         if (!true) {
@@ -106,12 +124,12 @@ mod tests {
             40;
         }
         ";
-        test_parse(t, "if (!true) { 30;40; }");
+        test_parse(t, "if (!true) { 30;40; };");
     }
 
     #[test]
     fn test_parse_if_consec() {
-        // if becomes last expr (fine in both variants, unless 40 without semicolon)
+        // if-only becomes stmt (2stmts, no last expr)
         let t = r"
         if true {
             30;
@@ -122,9 +140,9 @@ mod tests {
         }
         ";
 
-        test_parse(t, "if true { 30; };if (!true) { 40; }");
+        test_parse(t, "if true { 30; };if (!true) { 40; };");
 
-        // with semicolon if becomes just a stmt (fine in both variants)
+        // with semicolon - same as above
         let t = r"
         if true {
             30;
@@ -152,7 +170,7 @@ mod tests {
 
         test_parse(t, "if true { 30; };if some_cond { 40;60 } else { 50;70; }");
 
-        // if, if-else (stmt)
+        // // if, if-else (stmt)
         let t = r"
         if true {
             30;
@@ -177,7 +195,7 @@ mod tests {
 
         if some_cond {
             40; 60
-        };
+        }
         ";
 
         test_parse(t, "if true { 30; } else { x };if some_cond { 40;60 };");
@@ -220,7 +238,7 @@ mod tests {
 
         test_parse(
             t,
-            "if true { x; };if y { 200; } else { 300; };if false { 400; }",
+            "if true { x; };if y { 200; } else { 300; };if false { 400; };",
         );
     }
 }

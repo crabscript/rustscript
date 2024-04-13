@@ -1,6 +1,8 @@
+use std::collections::hash_map::Entry;
+
 use anyhow::Result;
 
-use crate::{Runtime, ThreadState};
+use crate::{Runtime, ThreadState, VmError};
 
 /// Yield the current thread.
 /// This will set the yield flag of the current thread to true.
@@ -14,8 +16,16 @@ use crate::{Runtime, ThreadState};
 ///
 /// Infallible.
 pub fn yield_(rt: &mut Runtime) -> Result<()> {
-    rt.current_thread.state = ThreadState::Yielded;
-    Ok(())
+    let tid = rt.current_thread.thread_id;
+    let entry = rt.thread_states.entry(tid);
+
+    match entry {
+        Entry::Vacant(_) => Err(VmError::ThreadNotFound(tid).into()),
+        Entry::Occupied(mut entry) => {
+            entry.insert(ThreadState::Yielded);
+            Ok(())
+        }
+    }
 }
 
 #[cfg(test)]
@@ -26,7 +36,7 @@ mod tests {
     fn test_yield() -> Result<()> {
         let mut rt = Runtime::new(vec![]);
         yield_(&mut rt)?;
-        assert_eq!(rt.current_thread.state, ThreadState::Yielded);
+        assert_eq!(rt.thread_states.get(&1), Some(&ThreadState::Yielded));
         Ok(())
     }
 }

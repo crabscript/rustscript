@@ -5,13 +5,13 @@ use bytecode::{Environment, StackFrame, Symbol, ThreadID, Value};
 
 use crate::VmError;
 
-#[derive(Debug, Default, Clone, PartialEq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub enum ThreadState {
-    Running,
     #[default]
     Ready,
     Joining(ThreadID),
     Yielded,
+    Zombie,
     Done,
 }
 
@@ -20,7 +20,6 @@ pub enum ThreadState {
 pub struct Thread {
     /// The unique identifier of the thread.
     pub thread_id: ThreadID,
-    pub state: ThreadState,
     pub env: Rc<RefCell<Environment>>,
     pub operand_stack: Vec<Value>,
     pub runtime_stack: Vec<StackFrame>,
@@ -40,10 +39,14 @@ impl Thread {
 }
 
 impl Thread {
-    pub fn spawn_new(&self, thread_id: i64) -> Thread {
-        let mut new_thread = self.clone();
-        new_thread.thread_id = thread_id;
-        new_thread
+    pub fn spawn_new(&self, thread_id: i64, pc: usize) -> Thread {
+        Thread {
+            thread_id,
+            env: Rc::clone(&self.env),
+            operand_stack: Vec::new(),
+            runtime_stack: Vec::new(),
+            pc,
+        }
     }
 }
 

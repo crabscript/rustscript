@@ -8,7 +8,6 @@ use crate::Environment;
 pub enum FrameType {
     BlockFrame,
     CallFrame,
-    ThreadFrame,
 }
 
 #[derive(Debug, Clone)]
@@ -29,8 +28,8 @@ impl StackFrame {
 
     pub fn new_with_address(
         frame_type: FrameType,
-        address: usize,
         env: Rc<RefCell<Environment>>,
+        address: usize,
     ) -> Self {
         StackFrame {
             frame_type,

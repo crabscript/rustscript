@@ -83,7 +83,7 @@ mod tests {
 
         let some_frame = StackFrame::new(FrameType::CallFrame, Rc::clone(&env_a));
         let block_frame =
-            StackFrame::new_with_address(FrameType::BlockFrame, 123, Rc::clone(&env_c));
+            StackFrame::new_with_address(FrameType::BlockFrame, Rc::clone(&env_c), 123);
         let call_frame = StackFrame::new(FrameType::CallFrame, Rc::clone(&env_b));
 
         rt.current_thread.runtime_stack.push(some_frame);

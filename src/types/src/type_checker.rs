@@ -81,7 +81,7 @@ impl<'prog> TypeChecker<'prog> {
     }
 
     /// Return type of identifier by looking up nested scopes, or error if not there.
-    fn get_type(&self, ident: &str) -> Result<Type, TypeErrors> {
+    pub(crate) fn get_type(&self, ident: &str) -> Result<Type, TypeErrors> {
         for env in self.envs.iter().rev() {
             let ty = env.get(ident);
             if let Some(ty) = ty {
@@ -95,7 +95,7 @@ impl<'prog> TypeChecker<'prog> {
 
     /// Returns type of identifier if initialised. If identifier doesn't exist or still uninit, returns Error.
     /// For use in AssignStmt e.g x = 10;
-    fn get_type_if_init(&self, ident: &str) -> Result<Type, TypeErrors> {
+    pub(crate) fn get_type_if_init(&self, ident: &str) -> Result<Type, TypeErrors> {
         let ty = self.get_type(ident)?;
         if ty.eq(&Type::Unitialised) {
             let e = format!("Identifier '{}' assigned before declaration", ident);
@@ -107,7 +107,7 @@ impl<'prog> TypeChecker<'prog> {
 
     /// Assign type to identifier if exists (either Unit or actual type). Else, error
     /// Only for LetStmt so we only assign in the last env (e.g x = 2; means x already declared with let)
-    fn assign_ident(&mut self, ident: &str, ty: Type) -> Result<(), TypeErrors> {
+    pub(crate) fn assign_ident(&mut self, ident: &str, ty: Type) -> Result<(), TypeErrors> {
         self.get_type(ident)?; // actually we should only check last env?
         if let Some(env) = self.envs.last_mut() {
             env.insert(ident.to_string(), ty);
@@ -116,7 +116,7 @@ impl<'prog> TypeChecker<'prog> {
         Ok(())
     }
 
-    fn check_unop(&mut self, op: &UnOpType, expr: &Expr) -> Result<Type, TypeErrors> {
+    pub(crate) fn check_unop(&mut self, op: &UnOpType, expr: &Expr) -> Result<Type, TypeErrors> {
         match op {
             UnOpType::Negate => {
                 // Return err imm if operand itself is not well typed
@@ -142,7 +142,12 @@ impl<'prog> TypeChecker<'prog> {
         }
     }
 
-    fn check_binop(&mut self, op: &BinOpType, lhs: &Expr, rhs: &Expr) -> Result<Type, TypeErrors> {
+    pub(crate) fn check_binop(
+        &mut self,
+        op: &BinOpType,
+        lhs: &Expr,
+        rhs: &Expr,
+    ) -> Result<Type, TypeErrors> {
         let l_type = self.check_expr(lhs)?;
         let r_type = self.check_expr(rhs)?;
 
@@ -188,56 +193,56 @@ impl<'prog> TypeChecker<'prog> {
         }
     }
 
-    fn check_let(&mut self, stmt: &LetStmtData) -> Result<(), TypeErrors> {
-        let mut ty_errs = TypeErrors::new();
+    // fn check_let(&mut self, stmt: &LetStmtData) -> Result<(), TypeErrors> {
+    //     let mut ty_errs = TypeErrors::new();
 
-        let mut expr_type: Option<Type> = None;
-        match self.check_expr(&stmt.expr) {
-            Ok(res) => {
-                expr_type.replace(res);
-            }
-            Err(mut err) => {
-                ty_errs.append(&mut err);
-            }
-        };
+    //     let mut expr_type: Option<Type> = None;
+    //     match self.check_expr(&stmt.expr) {
+    //         Ok(res) => {
+    //             expr_type.replace(res);
+    //         }
+    //         Err(mut err) => {
+    //             ty_errs.append(&mut err);
+    //         }
+    //     };
 
-        match (expr_type, stmt.type_ann) {
-            // type check expr has error + we have no type annotation: e.g let x = !2;
-            // cannot proceed, error out with cont = false
-            (None, None) => {
-                ty_errs.cont = false;
-                Err(ty_errs)
-            }
+    //     match (expr_type, stmt.type_ann) {
+    //         // type check expr has error + we have no type annotation: e.g let x = !2;
+    //         // cannot proceed, error out with cont = false
+    //         (None, None) => {
+    //             ty_errs.cont = false;
+    //             Err(ty_errs)
+    //         }
 
-            // type check expr has err + we have type ann: e.g let x : int = !2;
-            // use type of annotation, continue
-            (None, Some(ty_ann)) => {
-                self.assign_ident(&stmt.ident.to_owned(), ty_ann)?;
-                Err(ty_errs)
-            }
+    //         // type check expr has err + we have type ann: e.g let x : int = !2;
+    //         // use type of annotation, continue
+    //         (None, Some(ty_ann)) => {
+    //             self.assign_ident(&stmt.ident.to_owned(), ty_ann)?;
+    //             Err(ty_errs)
+    //         }
 
-            // expr is well-typed + no type annotation e.g let x = 2+2;
-            // use expr type, no err
-            (Some(ty), None) => self.assign_ident(&stmt.ident.to_owned(), ty),
+    //         // expr is well-typed + no type annotation e.g let x = 2+2;
+    //         // use expr type, no err
+    //         (Some(ty), None) => self.assign_ident(&stmt.ident.to_owned(), ty),
 
-            // expr is well-typed + have ty ann: e.g let x : int = true; or let x : int  = 2;
-            // either way, insert type of binding = annotation so we can ty check rest. error out if mismatch
-            (Some(ty), Some(ty_ann)) => {
-                self.assign_ident(&stmt.ident.to_owned(), ty_ann)?;
+    //         // expr is well-typed + have ty ann: e.g let x : int = true; or let x : int  = 2;
+    //         // either way, insert type of binding = annotation so we can ty check rest. error out if mismatch
+    //         (Some(ty), Some(ty_ann)) => {
+    //             self.assign_ident(&stmt.ident.to_owned(), ty_ann)?;
 
-                if !ty_ann.eq(&ty) {
-                    let string = format!(
-                        "'{}' has declared type {} but assigned type {}",
-                        stmt.ident, ty_ann, ty
-                    );
-                    ty_errs.add(&string);
-                    return Err(ty_errs);
-                }
+    //             if !ty_ann.eq(&ty) {
+    //                 let string = format!(
+    //                     "'{}' has declared type {} but assigned type {}",
+    //                     stmt.ident, ty_ann, ty
+    //                 );
+    //                 ty_errs.add(&string);
+    //                 return Err(ty_errs);
+    //             }
 
-                Ok(())
-            }
-        }
-    }
+    //             Ok(())
+    //         }
+    //     }
+    // }
 
     /// Type check declaration and add errors if any
     pub(crate) fn check_decl(&mut self, decl: &Decl) -> Result<(), TypeErrors> {
@@ -270,53 +275,6 @@ impl<'prog> TypeChecker<'prog> {
 
         Ok(())
     }
-
-    // fn check_block(&mut self, program: &BlockSeq) -> Result<Type, TypeErrors> {
-    //     let mut errs = TypeErrors::new();
-    //     // map bindings to types
-    //     // let mut ty_env: HashMap<String, Type> = HashMap::new();
-    //     // let mut ty_env = TyEnv::new();
-    //     let env = new_env_with_syms(program.symbols.clone());
-    //     self.envs.push(env);
-
-    //     for decl in program.decls.iter() {
-    //         if let Err(mut decl_errs) = self.check_decl(decl) {
-    //             errs.append(&mut decl_errs);
-
-    //             // if this err means we can't proceed, stop e.g let x = -true; let y = x + 3; - we don't know type of x since invalid
-    //             if !decl_errs.cont {
-    //                 break;
-    //             }
-    //         }
-    //     }
-
-    //     // return errors for decls first if any, without checking expr
-    //     // because expr may be dependent
-    //     if !errs.is_ok() {
-    //         self.envs.pop();
-    //         return Err(errs);
-    //     }
-
-    //     // Return type of last expr if any. If errs, add to err list
-    //     if let Some(last) = &program.last_expr {
-    //         let res = self.check_expr(last);
-    //         match res {
-    //             Ok(ty) => {
-    //                 self.envs.pop();
-    //                 return Ok(ty);
-    //             }
-    //             Err(mut expr_errs) => errs.append(&mut expr_errs),
-    //         };
-    //     }
-
-    //     self.envs.pop();
-
-    //     if errs.is_ok() {
-    //         Ok(Type::Unit)
-    //     } else {
-    //         Err(errs)
-    //     }
-    // }
 
     pub fn type_check(mut self) -> Result<Type, TypeErrors> {
         self.check_block(self.program)
@@ -436,227 +394,4 @@ mod tests {
         );
         expect_err("let x : bool = true +2;", "apply", true);
     }
-
-    #[test]
-    fn test_type_check_sym_advanced() {
-        // first has err but no type ann: we don't proceed
-        expect_err(
-            "let x = -true; let y : int = x + 2; let z : bool = !x;",
-            "[TypeError]: Can't negate type bool",
-            false,
-        );
-
-        // expr has err but we have ann: can proceed
-        expect_err("let x : int = -true; let y : int = x + false;", 
-        "[TypeError]: Can't negate type bool\n[TypeError]: Can't apply '+' to types 'int' and 'bool'", false);
-
-        // expr is fine but no annotation: use inferred type
-        expect_err(
-            "let x = 2+2; let y : int = !x;",
-            "Can't apply logical NOT to type int",
-            true,
-        );
-        expect_pass("let x = 2+2; let y : int = -x*3; y", Type::Int);
-
-        // expr is fine and we have annotation: check for mismatch, can proceed with binding type = annotation
-        // here !y is fine so no error, since y is annotated bool
-        expect_err("let x : int = !true; let y: bool = x + false; let z : bool = !y;", 
-        "[TypeError]: 'x' has declared type int but assigned type bool\n[TypeError]: Can't apply '+' to types 'int' and 'bool'", false);
-
-        expect_err("let x : int = !true; let y: bool = x + false; let z : bool = y + x;", 
-        "[TypeError]: 'x' has declared type int but assigned type bool\n[TypeError]: Can't apply '+' to types 'int' and 'bool'\n[TypeError]: Can't apply '+' to types 'bool' and 'int'",
-        false);
-    }
-
-    #[test]
-    fn test_type_check_ident_decl() {
-        // stops immediately because y has no annotation
-        let t = "let y = x + 2; let z = y - false;";
-        expect_err(t, "[TypeError]: Identifier 'x' not declared", false);
-
-        // continues because y has type annotation
-        let t = "let y : int = x + 2; let z = y - false;";
-        expect_err(t, "[TypeError]: Identifier 'x' not declared\n[TypeError]: Can't apply '-' to types 'int' and 'bool'", false);
-    }
-
-    #[test]
-    fn test_type_check_bigger() {
-        let t = "let y : bool = 20; let x : int = y; let z : int = x*y + 3; z";
-        expect_err(t, "[TypeError]: 'y' has declared type bool but assigned type int\n[TypeError]: 'x' has declared type int but assigned type bool\n[TypeError]: Can't apply '*' to types 'int' and 'bool'", false);
-    }
-
-    #[test]
-    fn test_type_check_assign() {
-        // don't continue since first one has err
-        let t = "let x = !20; x = true; x";
-        expect_err(t, "[TypeError]: Can't apply logical NOT to type int", false);
-
-        let t = "let x = 20; x = true; x";
-        expect_err(t, "'x' declared with type int but assigned type bool", true);
-
-        let t = "let x : int = 20; x = !true; x";
-        expect_err(t, "'x' declared with type int but assigned type bool", true);
-
-        let t = "let x : int = !20; x = !true; x";
-        expect_err(t,"[TypeError]: Can't apply logical NOT to type int\n[TypeError]: 'x' declared with type int but assigned type bool", false);
-
-        let t = "let y = 2; x = 10;";
-        expect_err(t, "Identifier 'x' not declared", true);
-
-        // Assign before declaration (error)
-        let t = "x = 10; let x = 5;";
-        expect_err(
-            t,
-            "[TypeError]: Identifier 'x' assigned before declaration",
-            false,
-        );
-    }
-
-    // #[test]
-    // fn test_type_check_blk_simple() {
-    //     let t = "{ 2 }";
-    //     expect_pass(t, Type::Int);
-
-    //     let t = "{ 2; true }";
-    //     expect_pass(t, Type::Bool);
-
-    //     let t = "{ let x : float = 2.4; x }";
-    //     expect_pass(t, Type::Float);
-
-    //     let t = "{ let x = 2.4; x; }";
-    //     expect_pass(t, Type::Unit);
-
-    //     let t = "let y = { let x = true; x }; y";
-    //     expect_pass(t, Type::Bool);
-
-    //     let t = "let y : int = { let x = true; x }; y";
-    //     expect_err(t, "has declared type int but assigned type bool", true);
-    // }
-
-    // #[test]
-    // fn test_type_check_blk_scope() {
-    //     let t = r"
-    //     let x : int = 2;
-    //     {
-    //         let y : int = 3;
-    //     }
-    //     y
-    //     ";
-    //     expect_err(t, "'y' not declared", true);
-
-    //     let t = r"
-    //     let x : int = 2;
-    //     {
-    //         let x : bool = true;
-    //         let y : bool = x;
-    //     }
-    //     x
-    //     ";
-    //     expect_pass(t, Type::Int);
-
-    //     let t = r"
-    //     let x : int = 2;
-    //     {
-    //         let x : bool = true;
-    //         let y : int = x;
-    //     }
-    //     x
-    //     ";
-    //     expect_err(t, "has declared type int but assigned type bool", true);
-
-    //     let t = r"
-    //     let x : int = 2;
-    //     let z = {
-    //         let x : bool = true;
-    //         let y : bool = x;
-    //         y
-    //     };
-    //     x;
-    //     z
-    //     ";
-    //     expect_pass(t, Type::Bool);
-    // }
-
-    // #[test]
-    // fn test_type_check_blk_more() {
-    //     let t = r"
-    //     let x = 2;
-    //     let y = 0;
-    //     {
-    //         let x = 3;
-    //         y = 4;
-    //     }
-    //     x+y
-    //     ";
-
-    //     expect_pass(t, Type::Int);
-
-    //     // gets type from parent scope correctly during assign
-    //     let t = r"
-    //     let x = 2;
-    //     let y : bool = true;
-    //     {
-    //         let x = 3;
-    //         y = 4;
-    //     }
-    //     x+y
-    //     ";
-
-    //     expect_err(t, "'y' declared with type bool but assigned type int", true);
-
-    //     // doesn't matter that shadowed var has diff type
-    //     let t = r"
-    //     let x : int = 20;
-    //     let y = 0;
-    //     let z : bool = {
-    //         let x : bool = true;
-    //         y = 4;
-    //         x
-    //     };
-    //     x+y
-    //     ";
-    //     expect_pass(t, Type::Int);
-
-    //     // blk with no last expr has unit type
-    //     let t = r"
-    //     let x : int = 20;
-    //     let y = 0;
-    //     let z : bool = {
-    //         let x : bool = true;
-    //         y = 4;
-    //         x;
-    //     };
-    //     x+y
-    //     ";
-    //     expect_err(t, "'z' has declared type bool but assigned type ()", true);
-
-    //     // x declared again in block, so the assign looks for closest decl of x which is Uninit at time of x = true;
-    //     let t = r"
-    //     let x = 10;
-    //     {
-    //         x = true;
-    //         let x = false;
-    //     };
-    //     ";
-
-    //     expect_err(
-    //         t,
-    //         "[TypeError]: Identifier 'x' assigned before declaration",
-    //         false,
-    //     );
-    // }
-
-    // #[test]
-    // fn test_type_check_blk_errs() {
-    //     let t = r"
-    //     let x : int = true;
-    //     let y = 20;
-    //     {
-    //         let y : bool = 20;
-    //     }
-    //     x + false
-    //     ";
-
-    //     expect_err(t, "[TypeError]: 'x' has declared type int but assigned type bool\n[TypeError]: 'y' has declared type bool but assigned type int", true);
-    // }
 }

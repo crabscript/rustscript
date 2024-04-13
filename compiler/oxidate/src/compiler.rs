@@ -108,6 +108,8 @@ impl Compiler {
         Ok(())
     }
 
+    /// Compiles block body without checking if need to push Unit at the end.
+    // So we can call this when compiling from global block to avoid pushing Unit there
     fn compile_block_body(blk: &BlockSeq, arr: &mut Vec<ByteCode>) -> Result<(), CompileError> {
         let decls = &blk.decls;
         let syms = &blk.symbols;
@@ -134,7 +136,7 @@ impl Compiler {
         Ok(())
     }
 
-    /// Compile block appropriately based on whether it is none-like and whether we intend to compile as expr or stmt
+    /// Compile block appropriately based on whether it is none-like
     fn compile_block(blk: &BlockSeq, arr: &mut Vec<ByteCode>) -> Result<(), CompileError> {
         Compiler::compile_block_body(blk, arr)?;
 
@@ -147,7 +149,7 @@ impl Compiler {
     }
 
     // blk is_none_like if it has no last expr: then we must push Unit as its last value
-    // recursive check not needed as empty blks / blk without last expr now also produce Unit
+    // recursive check not needed as empty blks / blk without last also produce Unit
     fn blk_produces_nothing(blk: &BlockSeq) -> bool {
         blk.last_expr.is_none()
     }
@@ -163,7 +165,7 @@ impl Compiler {
             Decl::AssignStmt(stmt) => {
                 Compiler::compile_assign(&stmt.ident, &stmt.expr, arr)?;
             }
-            Decl::IfOnlyStmt(_) => todo!(),
+            Decl::IfOnlyStmt(if_else) => Compiler::compile_if_else(if_else, arr)?,
         };
 
         Ok(())
@@ -172,7 +174,6 @@ impl Compiler {
     /// Compile if_else as statement or as expr - changes how blocks are compiled
     fn compile_if_else(if_else: &IfElseData, arr: &mut Vec<ByteCode>) -> Result<(), CompileError> {
         Compiler::compile_expr(&if_else.cond, arr)?;
-
         let jof_idx = arr.len();
         arr.push(ByteCode::JOF(0));
 
@@ -181,22 +182,25 @@ impl Compiler {
         let goto_idx = arr.len();
         arr.push(ByteCode::GOTO(0));
 
-        let jof_addr = arr.len(); // jump to after the GOTO
+        // set JOF arg to after GOTO (either else_blk start, or LDC Unit for if-only)
+        let len = arr.len();
+        if let Some(ByteCode::JOF(idx)) = arr.get_mut(jof_idx) {
+            *idx = len;
+        }
 
         if let Some(else_blk) = &if_else.else_blk {
             Compiler::compile_block(else_blk, arr)?;
+        } else {
+            // no else: push Unit so decl pop doesn't underflow if branch didn't run
+            arr.push(ByteCode::ldc(Value::Unit));
         }
 
-        let goto_addr = arr.len(); // jump to after else blk
-
-        // set JOF arg
-        if let Some(ByteCode::JOF(idx)) = arr.get_mut(jof_idx) {
-            *idx = jof_addr;
-        }
-
+        // GOTO after the else / after load unit once if is done executing (when cond is true)
+        let len = arr.len();
         if let Some(ByteCode::GOTO(idx)) = arr.get_mut(goto_idx) {
-            *idx = goto_addr;
+            *idx = len;
         }
+
         Ok(())
     }
 
@@ -224,6 +228,8 @@ pub fn compile_from_string(inp: &str, type_check: bool) -> Result<Vec<ByteCode>>
 
 #[cfg(test)]
 mod tests {
+
+    use std::vec;
 
     use bytecode::ByteCode;
     use bytecode::ByteCode::*;
@@ -705,49 +711,123 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
-    fn test_compile_if() {
+    fn test_compile_if_only() {
+        // if only with nothing after
         let t = r"
-        if (true) {
-            10;
+        if !true {
             2
-        } else {
-            20;
-            3
         }
+        200
         ";
 
-        // // I just copied this from the print
-        let exp = vec![
-            LDC(Bool(true)),
-            JOF(6),
-            LDC(Int(10)),
-            POP,
-            LDC(Int(2)),
-            GOTO(9),
-            LDC(Int(20)),
-            POP,
-            LDC(Int(3)),
-            DONE,
-        ];
-        test_comp(t, exp);
-
-        let t = r"
-        if (true) { 10; }; 20
-        ";
         test_comp(
             t,
             vec![
                 LDC(Bool(true)),
-                JOF(6),
-                LDC(Int(10)),
-                POP,
-                LDC(Unit),
+                ByteCode::unop("!"),
+                JOF(5),
+                LDC(Int(2)),
                 GOTO(6),
+                LDC(Unit),
                 POP,
-                LDC(Int(20)),
+                LDC(Int(200)),
                 DONE,
             ],
         );
+
+        // ifonly-blk has value
+        let t = r"
+        if !true {
+            2
+        }
+        200
+        ";
+
+        test_comp(
+            t,
+            vec![
+                LDC(Bool(true)),
+                ByteCode::unop("!"),
+                JOF(5),
+                LDC(Int(2)),
+                GOTO(6),
+                LDC(Unit),
+                POP,
+                LDC(Int(200)),
+                DONE,
+            ],
+        );
+
+        // if only-blk none like
+        let t = r"
+        if true {
+            2;
+            3;
+        }
+        200
+        ";
+
+        test_comp(
+            t,
+            vec![
+                LDC(Bool(true)),
+                JOF(8),
+                LDC(Int(2)),
+                POP,
+                LDC(Int(3)),
+                POP,
+                LDC(Unit),
+                GOTO(9),
+                LDC(Unit),
+                POP,
+                LDC(Int(200)),
+                DONE,
+            ],
+        );
+
+        // consec
+        let t = r"
+        let y = true;
+        if false {
+           2; 3 
+        }
+
+        if y {  
+            y = false;
+        }
+
+        y
+        ";
+
+        let exp = vec![
+            ENTERSCOPE(vec!["y".to_string()]),
+            LDC(Bool(true)),
+            ByteCode::ASSIGN("y".to_string()),
+            LDC(Unit),
+            POP,
+            LDC(Bool(false)),
+            JOF(11),
+            LDC(Int(2)),
+            POP,
+            LDC(Int(3)),
+            GOTO(12),
+            LDC(Unit),
+            POP,
+            ByteCode::ld("y"),
+            JOF(21),
+            LDC(Bool(false)),
+            ByteCode::ASSIGN("y".to_string()),
+            LDC(Unit),
+            POP,
+            LDC(Unit),
+            GOTO(22),
+            LDC(Unit),
+            POP,
+            ByteCode::ld("y"),
+            EXITSCOPE,
+            DONE,
+        ];
+
+        test_comp(t, exp);
     }
 }

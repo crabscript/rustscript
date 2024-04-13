@@ -82,10 +82,7 @@ fn main() -> Result<()> {
     let top = rt.current_thread.operand_stack.last();
 
     if let Some(val) = top {
-        if !matches!(val, bytecode::Value::Unit) {
-            builtin::println_impl(val);
-        }
-        // builtin::println_impl(val);
+        builtin::println_impl(val);
     }
 
     Ok(())

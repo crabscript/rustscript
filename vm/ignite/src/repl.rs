@@ -74,6 +74,7 @@ pub fn ignite_repl(type_check: bool) -> Result<()> {
             rt = run_res.unwrap();
 
             let top = rt.current_thread.operand_stack.last();
+            dbg!(rt.current_thread.operand_stack.len());
 
             if let Some(val) = top {
                 print_value(val)

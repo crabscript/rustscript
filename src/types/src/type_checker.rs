@@ -188,66 +188,63 @@ impl<'prog> TypeChecker<'prog> {
         }
     }
 
+    fn check_let(&mut self, stmt: &LetStmtData) -> Result<(), TypeErrors> {
+        let mut ty_errs = TypeErrors::new();
+
+        let mut expr_type: Option<Type> = None;
+        match self.check_expr(&stmt.expr) {
+            Ok(res) => {
+                expr_type.replace(res);
+            }
+            Err(mut err) => {
+                ty_errs.append(&mut err);
+            }
+        };
+
+        match (expr_type, stmt.type_ann) {
+            // type check expr has error + we have no type annotation: e.g let x = !2;
+            // cannot proceed, error out with cont = false
+            (None, None) => {
+                ty_errs.cont = false;
+                Err(ty_errs)
+            }
+
+            // type check expr has err + we have type ann: e.g let x : int = !2;
+            // use type of annotation, continue
+            (None, Some(ty_ann)) => {
+                self.assign_ident(&stmt.ident.to_owned(), ty_ann)?;
+                Err(ty_errs)
+            }
+
+            // expr is well-typed + no type annotation e.g let x = 2+2;
+            // use expr type, no err
+            (Some(ty), None) => self.assign_ident(&stmt.ident.to_owned(), ty),
+
+            // expr is well-typed + have ty ann: e.g let x : int = true; or let x : int  = 2;
+            // either way, insert type of binding = annotation so we can ty check rest. error out if mismatch
+            (Some(ty), Some(ty_ann)) => {
+                self.assign_ident(&stmt.ident.to_owned(), ty_ann)?;
+
+                if !ty_ann.eq(&ty) {
+                    let string = format!(
+                        "'{}' has declared type {} but assigned type {}",
+                        stmt.ident, ty_ann, ty
+                    );
+                    ty_errs.add(&string);
+                    return Err(ty_errs);
+                }
+
+                Ok(())
+            }
+        }
+    }
+
     /// Type check declaration and add errors if any
     fn check_decl(&mut self, decl: &Decl) -> Result<(), TypeErrors> {
         // dbg!("Type checking decl:", decl);
         match decl {
             Decl::LetStmt(stmt) => {
-                let mut ty_errs = TypeErrors::new();
-
-                let mut expr_type: Option<Type> = None;
-                match self.check_expr(&stmt.expr) {
-                    Ok(res) => {
-                        expr_type.replace(res);
-                    }
-                    Err(mut err) => {
-                        ty_errs.append(&mut err);
-                    }
-                };
-
-                match (expr_type, stmt.type_ann) {
-                    // type check expr has error + we have no type annotation: e.g let x = !2;
-                    // cannot proceed, error out with cont = false
-                    (None, None) => {
-                        ty_errs.cont = false;
-                        return Err(ty_errs);
-                    }
-
-                    // type check expr has err + we have type ann: e.g let x : int = !2;
-                    // use type of annotation, continue
-                    (None, Some(ty_ann)) => {
-                        // self.ty_env
-                        //     .borrow_mut()
-                        //     .insert(stmt.ident.to_owned(), ty_ann);
-                        self.assign_ident(&stmt.ident.to_owned(), ty_ann)?;
-                        return Err(ty_errs);
-                    }
-
-                    // expr is well-typed + no type annotation e.g let x = 2+2;
-                    // use expr type, no err
-                    (Some(ty), None) => {
-                        // self.ty_env.borrow_mut().insert(stmt.ident.to_owned(), ty);
-                        self.assign_ident(&stmt.ident.to_owned(), ty)?;
-                    }
-
-                    // expr is well-typed + have ty ann: e.g let x : int = true; or let x : int  = 2;
-                    // either way, insert type of binding = annotation so we can ty check rest. error out if mismatch
-                    (Some(ty), Some(ty_ann)) => {
-                        // self.ty_env
-                        //     .borrow_mut()
-                        //     .insert(stmt.ident.to_owned(), ty_ann);
-                        self.assign_ident(&stmt.ident.to_owned(), ty_ann)?;
-
-                        if !ty_ann.eq(&ty) {
-                            let string = format!(
-                                "'{}' has declared type {} but assigned type {}",
-                                stmt.ident, ty_ann, ty
-                            );
-                            ty_errs.add(&string);
-                            return Err(ty_errs);
-                        }
-                    }
-                };
+                self.check_let(stmt)?;
             }
             // Type check the expr and return any errors
             Decl::ExprStmt(expr) => {

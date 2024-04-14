@@ -236,6 +236,7 @@ impl Compiler {
                 Compiler::compile_assign(&stmt.ident, &stmt.expr, arr)?;
             }
             Decl::IfOnlyStmt(if_else) => Compiler::compile_if_else(if_else, arr)?,
+            Decl::LoopStmt(_) => todo!(),
         };
 
         Ok(())

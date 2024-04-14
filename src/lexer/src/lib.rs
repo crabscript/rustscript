@@ -105,6 +105,9 @@ pub enum Token {
     #[regex(r#"[a-zA-Z_][a-zA-Z0-9_]*"#, |lex| lex.slice().to_owned())]
     Ident(String),
 
+    #[token("loop")]
+    Loop,
+
     #[token("false", |_| false)]
     #[token("true", |_| true)]
     Bool(bool),
@@ -173,6 +176,7 @@ impl Token {
             Self::LogEq => "==".to_string(),
             Self::LogAnd => "&&".to_string(),
             Self::LogOr => "||".to_string(),
+            Self::Loop => "loop".to_string(),
         }
     }
 }

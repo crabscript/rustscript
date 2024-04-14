@@ -154,6 +154,25 @@ impl Display for IfElseData {
         write!(f, "{}", s)
     }
 }
+
+#[derive(Debug, Clone)]
+pub struct LoopData {
+    pub cond: Option<Expr>,
+    pub body: BlockSeq,
+}
+
+impl Display for LoopData {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let cond_str = self
+            .cond
+            .as_ref()
+            .map(|x| x.to_string())
+            .unwrap_or("".to_string());
+        let body_str = format!("{{ {} }}", self.body);
+        write!(f, "loop {} {}", cond_str, body_str)
+    }
+}
+
 // Later: LetStmt, IfStmt, FnDef, etc.
 #[derive(Debug, Clone)]
 pub enum Decl {
@@ -162,6 +181,8 @@ pub enum Decl {
     ExprStmt(Expr),
     // if with no else should only be stmt. use same struct because compilation is very similar to if-else
     IfOnlyStmt(IfElseData),
+    // loop is always a stmt (for now)
+    LoopStmt(LoopData),
 }
 
 impl Decl {
@@ -179,6 +200,7 @@ impl Decl {
                 "if without else branch is not an expression",
             )),
             Self::ExprStmt(expr) => Ok(expr.clone()),
+            Self::LoopStmt(_) => Err(ParseError::new("loop is not an expression")),
         }
     }
 
@@ -205,6 +227,7 @@ impl Display for Decl {
             Decl::LetStmt(stmt) => stmt.to_string(),
             Decl::AssignStmt(stmt) => stmt.to_string(),
             Decl::IfOnlyStmt(expr) => expr.to_string(),
+            Decl::LoopStmt(lp) => lp.to_string(),
         };
 
         write!(f, "{}", string)

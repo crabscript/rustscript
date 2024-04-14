@@ -236,6 +236,7 @@ impl<'inp> Parser<'inp> {
             | Token::OpenBrace
             | Token::If => self.parse_expr(0),
             Token::Let => self.parse_let(),
+            Token::Loop => self.parse_loop(),
             _ => Err(ParseError::new(&format!(
                 "Unexpected token: '{}'",
                 prev_tok

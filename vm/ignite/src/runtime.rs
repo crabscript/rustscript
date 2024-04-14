@@ -6,7 +6,7 @@ use std::{
 use anyhow::Result;
 use bytecode::{ByteCode, Semaphore, ThreadID};
 
-use crate::{micro_code, Thread, ThreadState, VmError};
+use crate::{micro_code, Thread, VmError};
 
 pub const DEFAULT_TIME_QUANTUM: Duration = Duration::from_millis(100);
 pub const MAIN_THREAD_ID: i64 = 1;
@@ -21,29 +21,23 @@ pub struct Runtime {
     pub time: Instant,
     pub time_quantum: Duration,
     pub instrs: Vec<ByteCode>,
-    pub signal: Option<Semaphore>,
+    pub is_done: bool,
     pub thread_count: i64,
-    pub thread_states: HashMap<ThreadID, ThreadState>,
     pub current_thread: Thread,
     pub ready_queue: VecDeque<Thread>,
-    pub blocked_queue: VecDeque<Thread>,
+    pub blocked_queue: VecDeque<(Thread, Semaphore)>,
     pub zombie_threads: HashMap<ThreadID, Thread>,
 }
 
 impl Runtime {
     pub fn new(instrs: Vec<ByteCode>) -> Self {
-        let mut thread_states = HashMap::new();
-        thread_states.insert(MAIN_THREAD_ID, ThreadState::Ready);
-        let current_thread = Thread::new(MAIN_THREAD_ID);
-
         Runtime {
             time: Instant::now(),
             time_quantum: DEFAULT_TIME_QUANTUM,
             instrs,
-            signal: None,
+            is_done: false,
             thread_count: 1,
-            thread_states,
-            current_thread,
+            current_thread: Thread::new(MAIN_THREAD_ID),
             ready_queue: VecDeque::new(),
             blocked_queue: VecDeque::new(),
             zombie_threads: HashMap::new(),
@@ -76,21 +70,17 @@ impl Default for Runtime {
 /// If an error occurs during execution.
 pub fn run(mut rt: Runtime) -> Result<Runtime> {
     loop {
-        if rt.time_quantum_expired() {
-            rt = micro_code::yield_(rt)?;
-        }
-
-        if rt.is_post_signaled() {
-            rt = rt.signal_post();
-        }
-
-        let instr = rt.fetch_instr()?;
-
-        rt = execute(rt, instr)?;
-
         if rt.is_done() {
             break;
         }
+
+        if rt.time_quantum_expired() {
+            rt = micro_code::yield_(rt)?;
+            continue;
+        }
+
+        let instr = rt.fetch_instr()?;
+        rt = execute(rt, instr)?;
     }
 
     Ok(rt)
@@ -157,22 +147,6 @@ impl Runtime {
         self.current_thread.pc += 1;
         Ok(instr)
     }
-
-    /// Get the current state of the current thread.
-    /// Panics if the current thread is not found.
-    pub fn get_current_thread_state(&self) -> ThreadState {
-        let current_thread_id = self.current_thread.thread_id;
-        self.thread_states
-            .get(&current_thread_id)
-            .ok_or(VmError::ThreadNotFound(current_thread_id))
-            .expect("Current thread not found")
-            .clone()
-    }
-
-    pub fn set_thread_state(&mut self, thread_id: ThreadID, state: ThreadState) {
-        self.thread_states.insert(thread_id, state);
-    }
-
     /// Check if the time quantum has expired.
     /// The time quantum is the maximum amount of time a thread can run before it is preempted.
     pub fn time_quantum_expired(&self) -> bool {
@@ -181,57 +155,7 @@ impl Runtime {
 
     /// The program is done if the current thread is the main thread and the current thread is done.
     pub fn is_done(&self) -> bool {
-        self.current_thread.thread_id == MAIN_THREAD_ID
-            && self.get_current_thread_state() == ThreadState::Done
-    }
-}
-
-impl Runtime {
-    pub fn is_post_signaled(&self) -> bool {
-        self.signal.is_some()
-    }
-
-    pub fn signal_post(mut self) -> Self {
-        let sem = self.signal.expect("No semaphore to signal");
-        self.signal = None;
-        println!("Signaling post: {:?}", sem);
-
-        {
-            let mut sem_guard = sem.lock().unwrap();
-            *sem_guard += 1;
-        }
-
-        let mut blocked_threads = VecDeque::new();
-        blocked_threads.reserve(self.blocked_queue.len());
-        let mut found_first = false;
-
-        for thread in self.blocked_queue.drain(..) {
-            let ThreadState::Blocked(sem_other) = self
-                .thread_states
-                .get(&thread.thread_id)
-                .expect("Thread not found")
-                .clone()
-            else {
-                continue;
-            };
-
-            // The first thread that is blocked on the semaphore will be unblocked
-            if !found_first && sem == sem_other {
-                found_first = true;
-                self.thread_states
-                    .insert(thread.thread_id, ThreadState::Ready);
-                self.ready_queue.push_back(thread);
-                {
-                    let mut sem_guard = sem.lock().unwrap();
-                    *sem_guard -= 1;
-                }
-            } else {
-                blocked_threads.push_back(thread);
-            }
-        }
-
-        self.blocked_queue = blocked_threads;
-        self
+        self.is_done
     }
 }
 

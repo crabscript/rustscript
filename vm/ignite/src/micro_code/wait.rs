@@ -1,9 +1,7 @@
-use std::collections::hash_map::Entry;
-
 use anyhow::{Ok, Result};
 use bytecode::Semaphore;
 
-use crate::{Runtime, ThreadState, VmError};
+use crate::{Runtime, VmError};
 
 /// Pops a value off the stack.
 /// The value is expected to be a semaphore.
@@ -36,16 +34,9 @@ pub fn wait(mut rt: Runtime) -> Result<Runtime> {
     } else {
         drop(sem_guard); //unlock the semaphore
 
-        let current_tid = rt.current_thread.thread_id;
-        let entry = rt.thread_states.entry(current_tid);
-        let Entry::Occupied(mut entry) = entry else {
-            return Err(VmError::ThreadNotFound(current_tid).into());
-        };
-        entry.insert(ThreadState::Blocked(sem.clone()));
-
         // Move the current thread to the blocked queue and pop the next ready thread.
         let current_thread = rt.current_thread;
-        rt.blocked_queue.push_back(current_thread);
+        rt.blocked_queue.push_back((current_thread, sem.clone()));
 
         let next_ready_thread = rt
             .ready_queue
@@ -94,16 +85,11 @@ mod tests {
         assert_eq!(*sem.lock().unwrap(), 0);
         // Since the semaphore is 0, the current thread should be blocked.
         assert_eq!(
-            rt.blocked_queue.pop_front().unwrap().thread_id,
+            rt.blocked_queue.pop_front().unwrap().0.thread_id,
             MAIN_THREAD_ID
         );
         // The child thread should be the current thread.
         assert_eq!(rt.current_thread.thread_id, child_thread_id);
-        // The state of the parent thread should be blocked.
-        assert_eq!(
-            rt.thread_states.get(&MAIN_THREAD_ID).unwrap(),
-            &ThreadState::Blocked(sem.clone())
-        );
 
         Ok(())
     }

@@ -1,22 +1,9 @@
 use std::{cell::RefCell, rc::Rc};
 
 use anyhow::Result;
-use bytecode::{Environment, Semaphore, StackFrame, Symbol, ThreadID, Value};
+use bytecode::{Environment, StackFrame, Symbol, ThreadID, Value};
 
 use crate::VmError;
-
-#[derive(Debug, Default, Clone, PartialEq)]
-pub enum ThreadState {
-    #[default]
-    /// The thread is ready to be executed.
-    Ready,
-    /// The thread is in a zombie state. Used to retrieve the result of a thread.
-    Zombie,
-    /// The thread is blocked on a semaphore.
-    Blocked(Semaphore),
-    /// The thread is done executing.
-    Done,
-}
 
 /// A thread of execution.
 #[derive(Debug, Default, Clone)]

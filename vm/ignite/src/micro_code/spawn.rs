@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use crate::{Runtime, ThreadState};
+use crate::Runtime;
 
 /// Spawn a new thread that clones the main thread at the time of the spawn.
 /// The new thread is added to the thread state hashmap with a state of Ready.
@@ -21,8 +21,6 @@ pub fn spawn(mut rt: Runtime, addr: usize) -> Result<Runtime> {
 
     let child_thread_id = rt.thread_count;
     let mut child_thread = rt.current_thread.spawn_child(child_thread_id, addr);
-    // Add the child thread to the thread state hashmap.
-    rt.thread_states.insert(child_thread_id, ThreadState::Ready);
 
     // 0 is pushed onto the operand stack of the child thread.
     child_thread.operand_stack.push(0.into());
@@ -43,8 +41,6 @@ mod tests {
         let rt = spawn(rt, 0)?;
         assert_eq!(rt.thread_count, 2);
         assert_eq!(rt.ready_queue.len(), 1);
-        assert_eq!(rt.thread_states.len(), 2);
-        assert_eq!(rt.thread_states.get(&2), Some(&ThreadState::Ready));
         Ok(())
     }
 }

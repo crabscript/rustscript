@@ -1,6 +1,6 @@
-use anyhow::Result;
+use anyhow::{Ok, Result};
 
-use crate::{Runtime, ThreadState, VmError};
+use crate::{Runtime, VmError};
 
 use super::yield_;
 
@@ -22,7 +22,6 @@ use super::yield_;
 /// * If the operand stack is empty.
 /// * If the value on the operand stack is not an integer.
 pub fn join(mut rt: Runtime) -> Result<Runtime> {
-    let current_tid = rt.current_thread.thread_id;
     let tid: i64 = rt
         .current_thread
         .operand_stack
@@ -31,37 +30,23 @@ pub fn join(mut rt: Runtime) -> Result<Runtime> {
         .clone()
         .try_into()?;
 
-    let thread_to_join_state = rt.thread_states.get(&tid);
-    match thread_to_join_state {
-        // If the thread to join does not exist
-        None => Err(VmError::ThreadNotFound(tid).into()),
-        // If the thread to join is in zombie state, then the current thread will be set to ready
-        Some(ThreadState::Zombie) => {
-            rt.set_thread_state(current_tid, ThreadState::Ready);
-            let mut zombie_thread = rt
-                .zombie_threads
-                .remove(&tid)
-                .ok_or(VmError::ThreadNotFound(tid))?;
+    let Some(mut zombie_thread) = rt.zombie_threads.remove(&tid) else {
+        // If the thread to join is not found, we need to yield control and try again
+        rt.current_thread.pc -= 1; // Decrement the program counter to re-execute the join instruction
+        let rt = yield_(rt)?;
+        return Ok(rt);
+    };
 
-            let result = zombie_thread
-                .operand_stack
-                .pop()
-                .ok_or(VmError::OperandStackUnderflow)?;
+    let result = zombie_thread
+        .operand_stack
+        .pop()
+        .ok_or(VmError::OperandStackUnderflow)?;
 
-            // Deallocate the zombie thread
-            rt.thread_states.remove(&tid);
-            drop(zombie_thread);
+    // Deallocate the zombie thread
+    drop(zombie_thread);
 
-            rt.current_thread.operand_stack.push(result);
-            Ok(rt)
-        }
-        // Otherwise we will yield the current thread
-        _ => {
-            rt.current_thread.pc -= 1; // Decrement the program counter to re-execute the join instruction
-            let rt = yield_(rt)?;
-            Ok(rt)
-        }
-    }
+    rt.current_thread.operand_stack.push(result);
+    Ok(rt)
 }
 
 #[cfg(test)]
@@ -102,7 +87,7 @@ mod tests {
         // Zombie thread should be deallocated
         assert!(rt.zombie_threads.is_empty());
         // And the zombie thread should be removed from the thread states
-        assert!(rt.thread_states.get(&(MAIN_THREAD_ID + 1)).is_none());
+        // assert!(rt.thread_states.get(&(MAIN_THREAD_ID + 1)).is_none());
         // And the result of the zombie thread should be pushed onto the current thread's operand stack
         assert_eq!(
             rt.current_thread.operand_stack.pop().unwrap(),

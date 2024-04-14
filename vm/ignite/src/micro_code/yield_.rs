@@ -2,7 +2,7 @@ use std::time::Instant;
 
 use anyhow::Result;
 
-use crate::{Runtime, ThreadState, VmError};
+use crate::{Runtime, VmError};
 
 /// Yield the current thread.
 /// This will set the yield flag of the current thread to true.
@@ -16,9 +16,6 @@ use crate::{Runtime, ThreadState, VmError};
 ///
 /// Infallible.
 pub fn yield_(mut rt: Runtime) -> Result<Runtime> {
-    let current_thread_id = rt.current_thread.thread_id;
-    rt.set_thread_state(current_thread_id, ThreadState::Ready);
-
     let current_thread = rt.current_thread;
     rt.ready_queue.push_back(current_thread);
 

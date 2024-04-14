@@ -210,11 +210,6 @@ impl<'prog> TypeChecker<'prog> {
                     Ok(Type::Bool)
                 } else {
                     err
-                    // let e = format!(
-                    //     "Can't apply '{}' to types '{}' and '{}'",
-                    //     op, l_type, r_type
-                    // );
-                    // Err(TypeErrors::new_err(&e))
                 }
             }
             // (bool, bool) => bool
@@ -223,11 +218,6 @@ impl<'prog> TypeChecker<'prog> {
                     Ok(Type::Bool)
                 } else {
                     err
-                    // let e = format!(
-                    //     "Can't apply '{}' to types '{}' and '{}'",
-                    //     op, l_type, r_type
-                    // );
-                    // Err(TypeErrors::new_err(&e))
                 }
             }
             // (t, t) => bool
@@ -444,5 +434,94 @@ mod tests {
     fn test_type_check_binops_logical() {
         // &&, ||
         expect_pass("true && false", Type::Bool);
+        expect_err(
+            "2 && false",
+            "Can't apply '&&' to types 'int' and 'bool'",
+            true,
+        );
+        expect_err(
+            "false && 2",
+            "Can't apply '&&' to types 'bool' and 'int'",
+            true,
+        );
+
+        expect_pass("true || false", Type::Bool);
+        expect_err(
+            "2 || false",
+            "Can't apply '||' to types 'int' and 'bool'",
+            true,
+        );
+
+        // chaining ok
+        expect_pass("let x = true; true && false && x", Type::Bool);
+        expect_pass("let x = true; true && false || x", Type::Bool);
+    }
+
+    #[test]
+    fn test_type_check_binops_cmp() {
+        // ==, >, <
+
+        // eq
+        expect_pass("true == false", Type::Bool);
+        expect_pass("23 == 56", Type::Bool);
+        expect_pass("23.5 == 56.2", Type::Bool);
+        expect_err(
+            "true == {2;3 }",
+            "Can't apply '==' to types 'bool' and 'int'",
+            true,
+        );
+
+        // >
+        expect_pass("2 > 3", Type::Bool);
+        expect_pass("2.5 > 3.2", Type::Bool);
+        expect_err(
+            "true > false",
+            "Can't apply '>' to types 'bool' and 'bool'",
+            true,
+        );
+
+        // <
+        expect_pass("2 < 3", Type::Bool);
+        expect_pass("2.5 < 3.2", Type::Bool);
+        expect_err(
+            "true < false",
+            "Can't apply '<' to types 'bool' and 'bool'",
+            true,
+        );
+
+        // mix
+        expect_pass("false == (3 > 5)", Type::Bool);
+        expect_err(
+            "(5 == 3) < 5",
+            "[TypeError]: Can't apply '<' to types 'bool' and 'int'",
+            false,
+        );
+    }
+
+    #[test]
+    fn test_type_check_binops_log_cmp() {
+        // mix ==, >, <, &&, ||
+        expect_pass(r"2 == 2 && !true == false || 1 > 3 && 2 < 5 ", Type::Bool);
+
+        expect_pass(
+            r"
+        let x : int = 2;
+        let y : int = 3;
+        let z : bool = 2 == 3;
+        x == y && !z || y > x && x+2 < 5
+        ",
+            Type::Bool,
+        );
+
+        expect_err(
+            r"
+        let x : int = 2;
+        let y : int = 3;
+        let z : bool = 2 == 3;
+        x == y && !z || y > x && z < 5
+        ",
+            "Can't apply '<' to types 'bool' and 'int'",
+            true,
+        );
     }
 }

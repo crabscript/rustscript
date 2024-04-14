@@ -108,16 +108,15 @@ pub fn run(mut rt: Runtime) -> Result<Runtime> {
 ///
 /// If an error occurs during execution.
 pub fn execute(rt: Runtime, instr: ByteCode) -> Result<Runtime> {
+    let thread_id = rt.current_thread.thread_id;
+    let pc = rt.current_thread.pc - 1;
+    let instruction = instr.clone();
+
     if rt.debug {
-        println!(
-            "Thread: {}, PC: {}, {:?}",
-            rt.current_thread.thread_id,
-            rt.current_thread.pc - 1,
-            instr
-        );
+        println!("Thread: {}, PC: {}, {:?}", thread_id, pc, instr);
     }
 
-    match instr {
+    let result = match instruction {
         ByteCode::DONE => micro_code::done(rt),
         ByteCode::ASSIGN(sym) => micro_code::assign(rt, sym),
         ByteCode::LD(sym) => micro_code::ld(rt, sym),
@@ -135,8 +134,17 @@ pub fn execute(rt: Runtime, instr: ByteCode) -> Result<Runtime> {
         ByteCode::SPAWN(addr) => micro_code::spawn(rt, addr),
         ByteCode::JOIN => micro_code::join(rt),
         ByteCode::YIELD => micro_code::yield_(rt),
+        ByteCode::SEMCREATE => micro_code::sem_create(rt),
         ByteCode::WAIT => micro_code::wait(rt),
         ByteCode::POST => micro_code::post(rt),
+    };
+
+    match result {
+        Ok(rt) => Ok(rt),
+        Err(e) => {
+            eprintln!("Thread: {}, PC: {}, {:?}", thread_id, pc, instr);
+            Err(e)
+        }
     }
 }
 

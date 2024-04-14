@@ -20,7 +20,7 @@ pub fn spawn(mut rt: Runtime, addr: usize) -> Result<Runtime> {
     rt.thread_count += 1;
 
     let child_thread_id = rt.thread_count;
-    let mut child_thread = rt.current_thread.spawn_new(child_thread_id, addr);
+    let mut child_thread = rt.current_thread.spawn_child(child_thread_id, addr);
     // Add the child thread to the thread state hashmap.
     rt.thread_states.insert(child_thread_id, ThreadState::Ready);
 

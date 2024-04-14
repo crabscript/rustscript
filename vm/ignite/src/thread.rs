@@ -8,16 +8,19 @@ use crate::VmError;
 #[derive(Debug, Default, Clone, PartialEq)]
 pub enum ThreadState {
     #[default]
+    /// The thread is ready to be executed.
     Ready,
-    Blocked(Semaphore),
+    /// The thread is in a zombie state. Used to retrieve the result of a thread.
     Zombie,
+    /// The thread is blocked on a semaphore.
+    Blocked(Semaphore),
+    /// The thread is done executing.
     Done,
 }
 
 /// A thread of execution.
 #[derive(Debug, Default, Clone)]
 pub struct Thread {
-    /// The unique identifier of the thread.
     pub thread_id: ThreadID,
     pub env: Rc<RefCell<Environment>>,
     pub operand_stack: Vec<Value>,
@@ -35,10 +38,8 @@ impl Thread {
             ..Default::default()
         }
     }
-}
 
-impl Thread {
-    pub fn spawn_new(&self, thread_id: i64, pc: usize) -> Thread {
+    pub fn spawn_child(&self, thread_id: i64, pc: usize) -> Self {
         Thread {
             thread_id,
             env: Rc::clone(&self.env),
@@ -49,42 +50,42 @@ impl Thread {
     }
 }
 
-/// Extend the current environment with new symbols and values.
-///
-/// # Arguments
-///
-/// * `rt` - The runtime to extend the environment of.
-///
-/// * `syms` - The symbols to add to the environment.
-///
-/// * `vals` - The values to add to the environment.
-///
-/// # Errors
-///
-/// If the symbols and values are not the same length.
-pub fn extend_environment<S, V>(t: &mut Thread, syms: Vec<S>, vals: Vec<V>) -> Result<()>
-where
-    S: Into<Symbol>,
-    V: Into<Value>,
-{
-    if syms.len() != vals.len() {
-        return Err(VmError::IllegalArgument(
-            "symbols and values must be the same length".to_string(),
-        )
-        .into());
+impl Thread {
+    /// Extend the current environment of the thread with new symbols and values.
+    ///
+    /// # Arguments
+    ///
+    /// * `syms` - The symbols to add to the environment.
+    ///
+    /// * `vals` - The values to add to the environment.
+    ///
+    /// # Errors
+    ///
+    /// If the symbols and values are not the same length.
+    pub fn extend_environment<S, V>(&mut self, syms: Vec<S>, vals: Vec<V>) -> Result<()>
+    where
+        S: Into<Symbol>,
+        V: Into<Value>,
+    {
+        if syms.len() != vals.len() {
+            return Err(VmError::IllegalArgument(
+                "symbols and values must be the same length".to_string(),
+            )
+            .into());
+        }
+
+        let current_env = Rc::clone(&self.env);
+        let new_env = Environment::new_wrapped();
+        new_env.borrow_mut().set_parent(current_env);
+
+        for (sym, val) in syms.into_iter().zip(vals.into_iter()) {
+            new_env.borrow_mut().set(sym, val);
+        }
+
+        self.env = new_env;
+
+        Ok(())
     }
-
-    let current_env = Rc::clone(&t.env);
-    let new_env = Environment::new_wrapped();
-    new_env.borrow_mut().set_parent(current_env);
-
-    for (sym, val) in syms.into_iter().zip(vals.into_iter()) {
-        new_env.borrow_mut().set(sym, val);
-    }
-
-    t.env = new_env;
-
-    Ok(())
 }
 
 #[cfg(test)]
@@ -99,13 +100,9 @@ mod tests {
         t.env.borrow_mut().set("b", 123);
 
         let empty: Vec<String> = Vec::new();
-        assert!(extend_environment(&mut t, vec!["c", "d"], empty).is_err());
+        assert!(t.extend_environment(vec!["c", "d"], empty).is_err());
 
-        extend_environment(
-            &mut t,
-            vec!["c", "d"],
-            vec![Value::Float(12.3), Value::Bool(true)],
-        )?;
+        t.extend_environment(vec!["c", "d"], vec![Value::Float(12.3), Value::Bool(true)])?;
 
         assert_eq!(t.env.borrow().get(&"a".to_string()), Some(Value::Int(42)));
         assert_eq!(t.env.borrow().get(&"b".to_string()), Some(Value::Int(123)));

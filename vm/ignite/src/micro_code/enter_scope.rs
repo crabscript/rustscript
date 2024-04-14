@@ -3,7 +3,7 @@ use std::rc::Rc;
 use anyhow::Result;
 use bytecode::{FrameType, StackFrame, Symbol, Value};
 
-use crate::{extend_environment, Runtime};
+use crate::Runtime;
 
 /// Create a new scope in the current environment. The new environment will be a child of the current
 /// environment. All symbols in the new scope will be initialized to `Value::Unitialized`.
@@ -31,7 +31,7 @@ pub fn enter_scope(mut rt: Runtime, syms: Vec<Symbol>) -> Result<Runtime> {
         .map(|_| Value::Unitialized)
         .collect::<Vec<Value>>();
 
-    extend_environment(&mut rt.current_thread, syms, uninitialized)?;
+    rt.current_thread.extend_environment(syms, uninitialized)?;
 
     Ok(rt)
 }

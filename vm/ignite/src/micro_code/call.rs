@@ -3,7 +3,7 @@ use std::rc::Rc;
 use anyhow::Result;
 use bytecode::{type_of, FnType, FrameType, StackFrame, Value};
 
-use crate::{extend_environment, Runtime, VmError};
+use crate::{Runtime, VmError};
 
 use super::apply_builtin;
 
@@ -78,7 +78,7 @@ pub fn call(mut rt: Runtime, arity: usize) -> Result<Runtime> {
     };
 
     rt.current_thread.runtime_stack.push(frame);
-    extend_environment(&mut rt.current_thread, prms, args)?;
+    rt.current_thread.extend_environment(prms, args)?;
     rt.current_thread.pc = addr;
 
     Ok(rt)

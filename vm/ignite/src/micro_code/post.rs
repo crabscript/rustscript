@@ -51,7 +51,7 @@ pub fn post(mut rt: Runtime) -> Result<Runtime> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        micro_code::{self, ld},
+        micro_code::{ld, spawn, wait, yield_},
         MAIN_THREAD_ID,
     };
 
@@ -60,10 +60,10 @@ mod tests {
     #[test]
     fn test_post_01() -> Result<()> {
         let mut rt = Runtime::default();
-        let sem = Semaphore::default();
+        let sem = Semaphore::new(0);
         rt.current_thread
             .extend_environment(vec!["sem"], vec![sem.clone()])?;
-        rt = micro_code::spawn(rt, 0)?; // spawn a child thread to populate ready queue
+        rt = spawn(rt, 0)?; // spawn a child thread to populate ready queue
         rt = ld(rt, "sem".into())?;
         rt = post(rt)?;
 
@@ -78,13 +78,13 @@ mod tests {
     #[test]
     fn test_post_02() -> Result<()> {
         let mut rt = Runtime::default();
-        let sem = Semaphore::default();
+        let sem = Semaphore::new(0);
         rt.current_thread
             .extend_environment(vec!["sem"], vec![sem.clone()])?;
-        rt = micro_code::spawn(rt, 0)?; // spawn a child thread to populate ready queue
-        rt = micro_code::yield_(rt)?; // yield the current thread to child thread
+        rt = spawn(rt, 0)?; // spawn a child thread to populate ready queue
+        rt = yield_(rt)?; // yield the current thread to child thread
         rt = ld(rt, "sem".into())?;
-        rt = micro_code::wait(rt)?;
+        rt = wait(rt)?;
         rt = ld(rt, "sem".into())?;
         rt = post(rt)?;
 

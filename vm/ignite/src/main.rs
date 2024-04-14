@@ -122,9 +122,35 @@ mod tests {
     }
     #[test]
     fn e2e_simple() {
+        // int
         test_pass("2;", "");
-
         test_pass("2", "2");
         test_pass("2; 3; 4", "4");
+
+        // float
+        test_pass("2.23; 2; 4.56", "4.56");
+        test_pass("2.23; 2; 4.56;", "");
+
+        // bool
+        test_pass("true; false", "false");
+        test_pass("true; false;", "");
+
+        // num ops
+        test_pass("2+2*3", "8");
+        test_pass("(2+2)*3", "12");
+        test_pass("2*3+2", "8");
+        test_pass("2-3+4/5*6-8+9", "0"); // because 4/5 = 0 not float
+        test_pass("(2*3+(4-(6*5)))*(10-(20)*(3+2))", "1800");
+        test_pass(
+            "5.67 * 8.91 / 2.34 + 6.78 - 9.87 - 4.32",
+            "14.179615384615389",
+        );
+
+        // bool ops
+        test_pass("!true && false", "false");
+        test_pass("false == (3 > 5)", "true");
+        test_pass("false == (3 < 5)", "false");
+        test_pass("(true || false) && false", "false");
+        test_pass("true || false && false", "true"); // true || (false && false) - && has higher prec
     }
 }

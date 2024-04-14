@@ -9,6 +9,11 @@ pub enum BinOpType {
     Sub,
     Mul,
     Div,
+    Gt,
+    Lt,
+    LogicalEq,
+    LogicalAnd,
+    LogicalOr,
 }
 
 impl BinOpType {
@@ -18,6 +23,11 @@ impl BinOpType {
             Token::Minus => Ok(Self::Sub),
             Token::Star => Ok(Self::Mul),
             Token::Slash => Ok(Self::Div),
+            Token::Gt => Ok(Self::Gt),
+            Token::Lt => Ok(Self::Lt),
+            Token::LogEq => Ok(Self::LogicalEq),
+            Token::LogAnd => Ok(Self::LogicalAnd),
+            Token::LogOr => Ok(Self::LogicalOr),
             _ => Err(ParseError::new(&format!(
                 "Expected infix operator but got: {}",
                 token
@@ -33,6 +43,11 @@ impl Display for BinOpType {
             BinOpType::Sub => "-",
             BinOpType::Mul => "*",
             BinOpType::Div => "/",
+            BinOpType::Lt => "<",
+            BinOpType::Gt => ">",
+            BinOpType::LogicalEq => "==",
+            BinOpType::LogicalAnd => "&&",
+            BinOpType::LogicalOr => "||",
         };
         write!(f, "{}", chr)
     }

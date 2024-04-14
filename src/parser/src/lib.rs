@@ -179,17 +179,23 @@ impl<'inp> Parser<'inp> {
     /* Precedence */
 
     // Return (left bp, right bp)
+    // Adapted from: https://doc.rust-lang.org/reference/expressions.html
+    // (left, right) => left < right means left associative. left > right means right associative. equal => no associativity (error)
     fn get_infix_bp(binop: &BinOpType) -> (u8, u8) {
         match binop {
-            BinOpType::Add | BinOpType::Sub => (1, 2),
-            BinOpType::Mul | BinOpType::Div => (3, 4),
+            BinOpType::Mul | BinOpType::Div => (8, 9),
+            BinOpType::Add | BinOpType::Sub => (6, 7),
+            // no associativity for comparison ops
+            BinOpType::LogicalEq | BinOpType::Gt | BinOpType::Lt => (5, 5),
+            BinOpType::LogicalAnd => (3, 4),
+            BinOpType::LogicalOr => (1, 2),
         }
     }
 
-    // Unary negation has a higher precedence than binops
+    // Unary negation must have a higher precedence than binops
     fn get_prefix_bp(unop: &UnOpType) -> ((), u8) {
         match unop {
-            UnOpType::Negate | UnOpType::Not => ((), 5),
+            UnOpType::Negate | UnOpType::Not => ((), 10),
         }
     }
 

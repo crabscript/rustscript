@@ -80,6 +80,10 @@ impl<'inp> Parser<'inp> {
             let binop = binop?;
 
             let (l_bp, r_bp) = Parser::get_infix_bp(&binop);
+            // comparison ops have no associativity (this is how Rust works) so left/right prec are same
+            if l_bp == r_bp {
+                return Err(ParseError::new("Comparison operators can't be chained"));
+            }
             // self.advance();
             if l_bp < min_bp {
                 break;

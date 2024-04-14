@@ -63,6 +63,7 @@ impl Compiler {
             BinOpType::Mul => arr.push(ByteCode::BINOP(bytecode::BinOp::Mul)),
             BinOpType::Div => arr.push(ByteCode::BINOP(bytecode::BinOp::Div)),
             BinOpType::Sub => arr.push(ByteCode::BINOP(bytecode::BinOp::Sub)),
+            _ => todo!(),
         }
 
         Ok(())

@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, fmt::Display, rc::Rc};
 
 use serde::{Deserialize, Serialize};
 
@@ -42,6 +42,23 @@ pub fn type_of(value: &Value) -> &'static str {
         Value::String(_) => "String",
         Value::Semaphore(_) => "Semaphore",
         Value::Closure { .. } => "Closure",
+    }
+}
+
+impl Display for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let res = match self {
+            Value::Unitialized => "uninitialized".to_string(),
+            Value::Unit => "()".to_string(),
+            Value::String(s) => s.to_string(),
+            Value::Bool(b) => b.to_string(),
+            Value::Int(i) => i.to_string(),
+            Value::Float(f) => f.to_string(),
+            Value::Semaphore(_) => "semaphore".to_string(),
+            Value::Closure { .. } => "closure".to_string(),
+        };
+
+        write!(f, "{}", res)
     }
 }
 

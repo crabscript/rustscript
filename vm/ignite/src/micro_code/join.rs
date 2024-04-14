@@ -22,6 +22,7 @@ use super::yield_;
 /// * If the operand stack is empty.
 /// * If the value on the operand stack is not an integer.
 pub fn join(mut rt: Runtime) -> Result<Runtime> {
+    let current_tid = rt.current_thread.thread_id;
     let tid: i64 = rt
         .current_thread
         .operand_stack
@@ -29,7 +30,6 @@ pub fn join(mut rt: Runtime) -> Result<Runtime> {
         .ok_or(VmError::OperandStackUnderflow)?
         .clone()
         .try_into()?;
-    let current_tid = rt.current_thread.thread_id;
 
     let thread_to_join_state = rt.thread_states.get(&tid);
     match thread_to_join_state {
@@ -76,16 +76,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_join() -> Result<()> {
-        let mut rt = Runtime::new(vec![]);
+    fn test_join_01() -> Result<()> {
+        let mut rt = Runtime::default();
         rt.current_thread.pc = 1; // prevent u64 subtraction overflow
         rt = spawn(rt, 0)?;
-
         rt = join(rt)?;
         // Add this point, both threads are in the ready state, so join should yield the current thread
         assert_eq!(rt.current_thread.thread_id, MAIN_THREAD_ID + 1);
 
-        let mut rt = Runtime::new(vec![]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_join_02() -> Result<()> {
+        let mut rt = Runtime::default();
         rt.current_thread.pc = 1; // prevent u64 subtraction overflow
         rt = spawn(rt, 0)?;
         rt = yield_(rt)?; // Yield the parent thread to make the child thread the current thread

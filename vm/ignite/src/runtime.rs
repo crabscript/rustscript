@@ -19,7 +19,7 @@ pub const MAIN_THREAD_ID: i64 = 1;
 /// The running thread is the thread that is currently executing.
 pub struct Runtime {
     pub time: Instant,
-    time_quantum: Duration,
+    pub time_quantum: Duration,
     pub instrs: Vec<ByteCode>,
     pub signal: Option<Semaphore>,
     pub thread_count: i64,
@@ -55,6 +55,12 @@ impl Runtime {
     }
 }
 
+impl Default for Runtime {
+    fn default() -> Self {
+        Runtime::new(vec![])
+    }
+}
+
 /// Run the program until it is done.
 ///
 /// # Arguments
@@ -72,10 +78,6 @@ pub fn run(mut rt: Runtime) -> Result<Runtime> {
     loop {
         if rt.time_quantum_expired() {
             rt = micro_code::yield_(rt)?;
-        }
-
-        if rt.is_current_thread_blocked() {
-            rt = rt.block_current_thread();
         }
 
         if rt.is_post_signaled() {
@@ -155,9 +157,7 @@ impl Runtime {
         self.current_thread.pc += 1;
         Ok(instr)
     }
-}
 
-impl Runtime {
     /// Get the current state of the current thread.
     /// Panics if the current thread is not found.
     pub fn get_current_thread_state(&self) -> ThreadState {
@@ -187,25 +187,6 @@ impl Runtime {
 }
 
 impl Runtime {
-    pub fn is_current_thread_blocked(&self) -> bool {
-        matches!(self.get_current_thread_state(), ThreadState::Blocked(_))
-    }
-
-    pub fn block_current_thread(mut self) -> Self {
-        println!("Blocking thread: {:?}", self.current_thread.thread_id);
-        let mut current_thread = self.current_thread;
-        current_thread.pc -= 1; // Decrement the program counter to re-execute the wait instruction
-        self.blocked_queue.push_back(current_thread);
-
-        let next_ready_thread = self
-            .ready_queue
-            .pop_front()
-            .expect("No threads in ready queue");
-
-        self.current_thread = next_ready_thread;
-        self
-    }
-
     pub fn is_post_signaled(&self) -> bool {
         self.signal.is_some()
     }

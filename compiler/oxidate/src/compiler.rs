@@ -2,7 +2,7 @@ use anyhow::Result;
 use std::fmt::Display;
 use types::type_checker::TypeChecker;
 
-use bytecode::{ByteCode, Value};
+use bytecode::{BinOp, ByteCode, Value};
 use parser::structs::{BinOpType, BlockSeq, Decl, Expr, IfElseData, UnOpType};
 
 pub struct Compiler {
@@ -48,6 +48,16 @@ impl Compiler {
         Ok(())
     }
 
+    // And, Or - short-circuiting
+    // fn compile_and_or(
+    //     op: &BinOpType,
+    //     lhs: &Expr,
+    //     rhs: &Expr,
+    //     arr: &mut Vec<ByteCode>,
+    // ) -> Result<(), CompileError> {
+    //     dbg!("AND_OR");
+    //     Ok(())
+    // }
     // TODO: how to do type checking here?
     // Distinct phase before compilation is reached? Assign types to all expressions
     fn compile_binop(
@@ -56,14 +66,24 @@ impl Compiler {
         rhs: &Expr,
         arr: &mut Vec<ByteCode>,
     ) -> Result<(), CompileError> {
+        // avoid compiling exprs first for these
+        if matches!(op, BinOpType::LogicalAnd | BinOpType::LogicalOr) {
+            // return Compiler::compile_and_or(op, lhs, rhs, arr);
+        }
+
         Compiler::compile_expr(lhs, arr)?;
         Compiler::compile_expr(rhs, arr)?;
+
         match op {
             BinOpType::Add => arr.push(ByteCode::BINOP(bytecode::BinOp::Add)),
             BinOpType::Mul => arr.push(ByteCode::BINOP(bytecode::BinOp::Mul)),
             BinOpType::Div => arr.push(ByteCode::BINOP(bytecode::BinOp::Div)),
             BinOpType::Sub => arr.push(ByteCode::BINOP(bytecode::BinOp::Sub)),
-            _ => todo!(),
+            BinOpType::Gt => arr.push(ByteCode::BINOP(BinOp::Gt)),
+            BinOpType::Lt => arr.push(ByteCode::BINOP(BinOp::Lt)),
+            BinOpType::LogicalEq => arr.push(ByteCode::BINOP(BinOp::Eq)),
+            // Rest are and/or: handled above
+            _ => unreachable!(),
         }
 
         Ok(())
@@ -319,6 +339,63 @@ mod tests {
         ];
 
         assert_eq!(res, exp);
+    }
+
+    #[test]
+    fn test_compile_binop_cmp() {
+        // >, <, ==
+        test_comp(
+            "2+2 < 3",
+            vec![
+                LDC(Int(2)),
+                LDC(Int(2)),
+                ByteCode::binop("+"),
+                LDC(Int(3)),
+                ByteCode::binop("<"),
+                DONE,
+            ],
+        );
+
+        // >
+        test_comp(
+            "2+2 > 3",
+            vec![
+                LDC(Int(2)),
+                LDC(Int(2)),
+                ByteCode::binop("+"),
+                LDC(Int(3)),
+                ByteCode::binop(">"),
+                DONE,
+            ],
+        );
+
+        // ==
+        test_comp(
+            "2+2 == 3",
+            vec![
+                LDC(Int(2)),
+                LDC(Int(2)),
+                ByteCode::binop("+"),
+                LDC(Int(3)),
+                ByteCode::binop("=="),
+                DONE,
+            ],
+        );
+
+        // mix
+        let exp = vec![
+            LDC(Int(4)),
+            LDC(Int(6)),
+            ByteCode::binop("<"),
+            LDC(Bool(false)),
+            LDC(Int(3)),
+            LDC(Int(3)),
+            ByteCode::binop(">"),
+            ByteCode::binop("=="),
+            ByteCode::binop("=="),
+            DONE,
+        ];
+        test_comp("(4 < 6) == (false == (3 > 3))", exp);
     }
 
     #[test]
@@ -961,5 +1038,11 @@ mod tests {
                 DONE,
             ],
         );
+    }
+
+    #[test]
+    fn test_logical_ops() {
+        // &&, ||, ==
+        // test_comp("true && false", vec![]);
     }
 }

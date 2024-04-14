@@ -1,4 +1,4 @@
-use std::collections::hash_map::Entry;
+use std::time::Instant;
 
 use anyhow::Result;
 
@@ -16,27 +16,36 @@ use crate::{Runtime, ThreadState, VmError};
 ///
 /// Infallible.
 pub fn yield_(mut rt: Runtime) -> Result<Runtime> {
-    let tid = rt.current_thread.thread_id;
-    let entry = rt.thread_states.entry(tid);
+    let current_thread_id = rt.current_thread.thread_id;
+    rt.set_thread_state(current_thread_id, ThreadState::Ready);
 
-    match entry {
-        Entry::Vacant(_) => Err(VmError::ThreadNotFound(tid).into()),
-        Entry::Occupied(mut entry) => {
-            entry.insert(ThreadState::Yielded);
-            Ok(rt)
-        }
-    }
+    let current_thread = rt.current_thread;
+    rt.ready_queue.push_back(current_thread);
+
+    let next_ready_thread = rt
+        .ready_queue
+        .pop_front()
+        .ok_or(VmError::NoThreadsInReadyQueue)?;
+
+    rt.current_thread = next_ready_thread;
+    rt.time = Instant::now(); // Reset the time
+    Ok(rt)
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::{micro_code::spawn, MAIN_THREAD_ID};
+
     use super::*;
 
     #[test]
     fn test_yield() -> Result<()> {
         let mut rt = Runtime::new(vec![]);
+        rt = spawn(rt, 1)?;
         rt = yield_(rt)?;
-        assert_eq!(rt.thread_states.get(&1), Some(&ThreadState::Yielded));
+
+        assert_eq!(rt.current_thread.thread_id, MAIN_THREAD_ID + 1);
+
         Ok(())
     }
 }

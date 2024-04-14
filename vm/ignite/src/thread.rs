@@ -9,8 +9,6 @@ use crate::VmError;
 pub enum ThreadState {
     #[default]
     Ready,
-    Joining(ThreadID),
-    Yielded,
     Blocked(Semaphore),
     Zombie,
     Done,

@@ -32,3 +32,19 @@ pub fn spawn(mut rt: Runtime, addr: usize) -> Result<Runtime> {
     rt.ready_queue.push_back(child_thread);
     Ok(rt)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_spawn() -> Result<()> {
+        let rt = Runtime::new(vec![]);
+        let rt = spawn(rt, 0)?;
+        assert_eq!(rt.thread_count, 2);
+        assert_eq!(rt.ready_queue.len(), 1);
+        assert_eq!(rt.thread_states.len(), 2);
+        assert_eq!(rt.thread_states.get(&2), Some(&ThreadState::Ready));
+        Ok(())
+    }
+}

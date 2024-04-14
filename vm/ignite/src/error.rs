@@ -24,6 +24,9 @@ pub enum VmError {
     #[error("Thread not found: {0}")]
     ThreadNotFound(ThreadID),
 
+    #[error("No threads in ready queue")]
+    NoThreadsInReadyQueue,
+
     #[error("PC out of bounds: {0}")]
     PcOutOfBounds(usize),
 

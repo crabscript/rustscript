@@ -8,8 +8,8 @@ use bytecode::{ByteCode, Semaphore, ThreadID};
 
 use crate::{micro_code, Thread, ThreadState, VmError};
 
-const DEFAULT_TIME_QUANTUM: Duration = Duration::from_millis(100);
-const MAIN_THREAD_ID: i64 = 1;
+pub const DEFAULT_TIME_QUANTUM: Duration = Duration::from_millis(100);
+pub const MAIN_THREAD_ID: i64 = 1;
 
 /// The runtime of the virtual machine.
 /// It contains the instructions to execute, the current thread, and the ready and suspended threads.
@@ -18,7 +18,7 @@ const MAIN_THREAD_ID: i64 = 1;
 /// The suspended queue is a queue of threads that are waiting for some event to occur.
 /// The running thread is the thread that is currently executing.
 pub struct Runtime {
-    time: Instant,
+    pub time: Instant,
     time_quantum: Duration,
     pub instrs: Vec<ByteCode>,
     pub signal: Option<Semaphore>,
@@ -71,11 +71,7 @@ impl Runtime {
 pub fn run(mut rt: Runtime) -> Result<Runtime> {
     loop {
         if rt.time_quantum_expired() {
-            rt = rt.yield_current_thread();
-        }
-
-        if rt.should_yield_current_thread() {
-            rt = rt.yield_current_thread();
+            rt = micro_code::yield_(rt)?;
         }
 
         if rt.is_current_thread_blocked() {
@@ -86,25 +82,13 @@ pub fn run(mut rt: Runtime) -> Result<Runtime> {
             rt = rt.signal_post();
         }
 
-        if rt.is_current_thread_joining() {
-            rt = rt.join_current_thread()?;
-        }
-
         let instr = rt.fetch_instr()?;
 
         rt = execute(rt, instr)?;
 
-        if !rt.is_current_thread_done() {
-            continue;
+        if rt.is_done() {
+            break;
         }
-
-        if !rt.is_current_main_thread() {
-            rt = rt.zombify_current_thread();
-            continue;
-        }
-
-        // If the main thread is done, then the program is done.
-        break;
     }
 
     Ok(rt)
@@ -195,108 +179,10 @@ impl Runtime {
         self.time.elapsed() >= self.time_quantum
     }
 
-    /// Check if the current thread should yield.
-    /// This is set by the `YIELD` instruction.
-    pub fn should_yield_current_thread(&self) -> bool {
-        self.get_current_thread_state() == ThreadState::Yielded
-    }
-
-    /// Yield the current thread. Set the state of the current thread to `Ready` and push it onto the ready queue.
-    /// Pop the next thread from the ready queue and set it as the current thread.
-    /// The timer is reset to the current time.
-    /// Panics if the current thread is not found.
-    pub fn yield_current_thread(mut self) -> Self {
-        // println!("\n\n\nYielding thread: {:?}", self.current_thread.thread_id);
-        let current_thread_id = self.current_thread.thread_id;
-        self.set_thread_state(current_thread_id, ThreadState::Ready);
-
-        let current_thread = self.current_thread;
-        self.ready_queue.push_back(current_thread);
-
-        let next_ready_thread = self
-            .ready_queue
-            .pop_front()
-            .expect("No threads in ready queue");
-
-        self.current_thread = next_ready_thread;
-        self.time = Instant::now(); // Reset the time
-        self
-    }
-
-    /// Zombify the current thread. Set the state of the current thread to `Zombie` and add it into the zombie threads.
-    /// Pop the next thread from the ready queue and set it as the current thread.
-    pub fn zombify_current_thread(mut self) -> Self {
-        let current_thread = self.current_thread;
-        let current_thread_id = current_thread.thread_id;
-        let next_ready_thread = self
-            .ready_queue
-            .pop_front()
-            .expect("No threads in ready queue");
-
-        self.zombie_threads
-            .insert(current_thread_id, current_thread);
-        self.thread_states
-            .insert(current_thread_id, ThreadState::Zombie);
-
-        self.current_thread = next_ready_thread;
-        self
-    }
-
-    pub fn is_current_main_thread(&self) -> bool {
+    /// The program is done if the current thread is the main thread and the current thread is done.
+    pub fn is_done(&self) -> bool {
         self.current_thread.thread_id == MAIN_THREAD_ID
-    }
-
-    pub fn is_current_thread_done(&self) -> bool {
-        self.get_current_thread_state() == ThreadState::Done
-    }
-
-    pub fn is_current_thread_joining(&self) -> bool {
-        matches!(self.get_current_thread_state(), ThreadState::Joining(_))
-    }
-
-    /// Join the current thread with the thread with the given ThreadID based on the current thread's state.
-    /// If the thread to join is in zombie state, then the current thread will be set to ready and the result
-    /// of the zombie thread will be pushed onto the current thread's operand stack. The zombie thread is deallocated.
-    /// If the thread to join is not found, then panic.
-    /// Otherwise, the current thread will yield.
-    pub fn join_current_thread(mut self) -> Result<Self> {
-        let current_thread_id = self.current_thread.thread_id;
-
-        let ThreadState::Joining(tid) = self.get_current_thread_state() else {
-            panic!("Current thread is not joining");
-        };
-
-        let thread_to_join_state = self.thread_states.get(&tid);
-
-        match thread_to_join_state {
-            // If the thread to join does not exist, then panic
-            None => {
-                panic!("Thread to join not found");
-            }
-            // If the thread to join is in zombie state, then the current thread will be set to ready
-            Some(ThreadState::Zombie) => {
-                self.set_thread_state(current_thread_id, ThreadState::Ready);
-                let mut zombie_thread = self
-                    .zombie_threads
-                    .remove(&tid)
-                    .ok_or(VmError::ThreadNotFound(tid))?;
-
-                let result = zombie_thread
-                    .operand_stack
-                    .pop()
-                    .ok_or(VmError::OperandStackUnderflow)?;
-
-                self.thread_states.remove(&tid); // Deallocate the zombie thread
-                self.current_thread.operand_stack.push(result);
-                Ok(self)
-            }
-            // Otherwise we will yield the current thread
-            _ => {
-                self.current_thread.pc -= 1; // Decrement the program counter to re-execute the join instruction
-                let rt = self.yield_current_thread();
-                Ok(rt)
-            }
-        }
+            && self.get_current_thread_state() == ThreadState::Done
     }
 }
 

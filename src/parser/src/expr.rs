@@ -109,3 +109,84 @@ impl<'inp> Parser<'inp> {
         Ok(lhs)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::tests::{test_parse, test_parse_err};
+
+    #[test]
+    fn test_parse_binop() {
+        test_parse("2+3;", "(2+3);");
+        test_parse("2*3;", "(2*3);");
+        test_parse("2+2*3", "(2+(2*3))");
+        test_parse("2*3+4", "((2*3)+4)");
+        test_parse("2*3+4/2", "((2*3)+(4/2))");
+
+        test_parse("2*3+4; 2+4*3; 20/200*2", "((2*3)+4);(2+(4*3));((20/200)*2)");
+
+        test_parse("2-3", "(2-3)");
+        test_parse("2-3+4/5*6", "((2-3)+((4/5)*6))");
+        test_parse("2-3+4/5*6-8+9; 2+2;", "((((2-3)+((4/5)*6))-8)+9);(2+2);");
+
+        test_parse("let x = 2+3*4-5; 300", "let x = ((2+(3*4))-5);300");
+    }
+
+    #[test]
+    fn test_parse_negation() {
+        test_parse("-2;", "(-2);");
+        test_parse("-2+3;", "((-2)+3);");
+        test_parse("3+-2;", "(3+(-2));");
+        test_parse("--2;", "(-(-2));");
+        test_parse("---2;", "(-(-(-2)));");
+        test_parse("-1*2+3-4", "((((-1)*2)+3)-4)");
+        test_parse(
+            "let x = -1.23; -1+2*3; 3*-2/5",
+            "let x = (-1.23);((-1)+(2*3));((3*(-2))/5)",
+        );
+
+        // no type checking yet - leave type checking to one distinct phase
+        test_parse("let x = -true+false;", "let x = ((-true)+false);");
+    }
+
+    #[test]
+    fn test_parse_ident() {
+        test_parse("x", "x");
+        test_parse("x;", "x;");
+        test_parse("x; y;", "x;y;");
+        test_parse("x; y; z", "x;y;z");
+
+        test_parse("x; y; x+y*2", "x;y;(x+(y*2))");
+        test_parse("x; y; -y+x/3", "x;y;((-y)+(x/3))");
+        test_parse("x; y; -y+x/3", "x;y;((-y)+(x/3))");
+    }
+
+    #[test]
+    fn test_parse_parens() {
+        test_parse("(2)", "2");
+        test_parse("((((20))));", "20;");
+        test_parse("(2+3)", "(2+3)");
+        test_parse("(2+3)*4", "((2+3)*4)");
+        test_parse("2+3*(4-5)", "(2+(3*(4-5)))");
+        test_parse("2+3*(4-(5*6/(7-3)))", "(2+(3*(4-((5*6)/(7-3)))))");
+        test_parse(
+            "(2*3+(4-(6*5)))*(10-(20)*(3+2))",
+            "(((2*3)+(4-(6*5)))*(10-(20*(3+2))))",
+        );
+
+        // Err cases
+        test_parse_err("((2+3)*5", "closing paren", true);
+        test_parse_err("(2*3+(4-(6*5)))*(10-(20)*(3+2)", "closing paren", true);
+    }
+
+    #[test]
+    fn test_parse_not() {
+        test_parse("!true", "(!true)");
+        test_parse("!false", "(!false)");
+        test_parse("!!true;", "(!(!true));");
+        test_parse("!!!true", "(!(!(!true)))");
+
+        // No type check, but we will use same prec for mul as for logical and/or
+        test_parse("!2*3", "((!2)*3)");
+        test_parse("!(2*3)", "(!(2*3))");
+    }
+}

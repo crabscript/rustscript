@@ -100,6 +100,16 @@ mod tests {
         // continues because y has type annotation
         let t = "let y : int = x + 2; let z = y - false;";
         expect_err(t, "[TypeError]: Identifier 'x' not declared\n[TypeError]: Can't apply '-' to types 'int' and 'bool'", false);
+
+        // unit
+        let t = "let x : () = {}; let y : () = { 2; 3; }; x";
+        expect_pass(t, Type::Unit);
+
+        let t = "let x : () = if true { 2; } else { 3; }; x";
+        expect_pass(t, Type::Unit);
+
+        let t = "let x : () = if true { 2 } else { 3 }; x";
+        expect_err(t, "'x' has declared type () but assigned type int", true);
     }
 
     #[test]

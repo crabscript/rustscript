@@ -1,9 +1,12 @@
 let count = 0;
+let sem = sem_create();
 
 fn increment(times:  int) {
   let i = 0;
   while i < times {
-    count = count + 1;
+    wait sem;
+    count = count + 1; // critical section
+    post sem;
     i = i + 1;
   }
 }

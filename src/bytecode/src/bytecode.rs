@@ -49,8 +49,6 @@ pub enum ByteCode {
     JOIN,
     /// Yield the current thread.
     YIELD,
-    /// Create a new semaphore (Since semaphores must be created at runtime, this is a special instruction.)
-    SEMCREATE,
     /// Wait on the semaphore.
     WAIT,
     /// Post the semaphore.

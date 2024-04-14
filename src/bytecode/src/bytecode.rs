@@ -90,14 +90,6 @@ impl ByteCode {
     pub fn enterscope<T: Into<Symbol>>(syms: Vec<T>) -> Self {
         ByteCode::ENTERSCOPE(syms.into_iter().map(Into::into).collect())
     }
-
-    // pub fn wait<T: Into<Symbol>>(sym: T) -> Self {
-    //     ByteCode::WAIT(sym.into())
-    // }
-
-    // pub fn post<T: Into<Symbol>>(sym: T) -> Self {
-    //     ByteCode::POST(sym.into())
-    // }
 }
 
 #[cfg(test)]

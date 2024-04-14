@@ -4,7 +4,7 @@ use crate::{Runtime, VmError};
 
 use super::yield_;
 
-/// Join the current thread with the thread with the given ThreadID based on the current thread's state.
+/// Peeks the operand stack for the thread ID to join.
 /// If the thread to join is in zombie state, then the current thread will be set to ready and the result
 /// of the zombie thread will be pushed onto the current thread's operand stack. The zombie thread is deallocated.
 /// If the thread to join is not found, then panic.
@@ -86,8 +86,6 @@ mod tests {
         assert_eq!(rt.current_thread.thread_id, MAIN_THREAD_ID);
         // Zombie thread should be deallocated
         assert!(rt.zombie_threads.is_empty());
-        // And the zombie thread should be removed from the thread states
-        // assert!(rt.thread_states.get(&(MAIN_THREAD_ID + 1)).is_none());
         // And the result of the zombie thread should be pushed onto the current thread's operand stack
         assert_eq!(
             rt.current_thread.operand_stack.pop().unwrap(),

@@ -1,7 +1,7 @@
 let count = 0;
 let sem = sem_create();
 
-fn increment(times:  int) {
+fn increment(times: int) {
   let i = 0;
   while i < times {
     wait sem;

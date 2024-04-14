@@ -502,7 +502,7 @@ mod tests {
     fn test_concurrency_04() -> Result<()> {
         // let count = 0;
         //
-        // fn increment(times:  int) {
+        // fn increment(times: int) {
         //   let i = 0;
         //   while i < times {
         //     count = count + 1;
@@ -656,7 +656,7 @@ mod tests {
         // let count = 0;
         // let sem = sem_create();
         //
-        // fn increment(times:  int) {
+        // fn increment(times: int) {
         //   let i = 0;
         //   while i < times {
         //     wait sem;

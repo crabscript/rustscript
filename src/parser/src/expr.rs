@@ -81,8 +81,10 @@ impl<'inp> Parser<'inp> {
 
             let (l_bp, r_bp) = Parser::get_infix_bp(&binop);
             // comparison ops have no associativity (this is how Rust works) so left/right prec are same
-            if l_bp == r_bp {
-                return Err(ParseError::new("Comparison operators can't be chained"));
+            if l_bp == min_bp {
+                return Err(ParseError::new(
+                    "Comparison operators can't be chained. Use parentheses to disambiguate.",
+                ));
             }
             // self.advance();
             if l_bp < min_bp {
@@ -188,5 +190,48 @@ mod tests {
         // No type check, but we will use same prec for mul as for logical and/or
         test_parse("!2*3", "((!2)*3)");
         test_parse("!(2*3)", "(!(2*3))");
+    }
+
+    #[test]
+    fn test_parse_comp_ops() {
+        // ==, <, >
+        test_parse("2 > 3", "(2>3)");
+        test_parse_err("2 > 3 > 4", "Comparison operators can't be chained", true);
+        test_parse_err(
+            "false == 3 > 5",
+            "Comparison operators can't be chained",
+            true,
+        );
+
+        // can chain if brackets provided
+        test_parse("(2 > 3) > true", "((2>3)>true)");
+        test_parse("false == (3 > 5)", "(false==(3>5))");
+        test_parse("(false == 3) > 5", "((false==3)>5)"); // can parse but not well-typed
+    }
+
+    #[test]
+    fn test_parse_logical_ops() {
+        // &&, || - left assoc
+        test_parse("x && y && z", "((x&&y)&&z)");
+        test_parse("x || y || z", "((x||y)||z)");
+
+        // override
+        test_parse("x && (y && z)", "(x&&(y&&z))");
+        test_parse("x || (y || z)", "(x||(y||z))");
+
+        // both
+        test_parse("x && y || z", "((x&&y)||z)");
+
+        // and is stronger - e.g 2+2*3 => 2+(2*3)
+        test_parse("true || false && false", "(true||(false&&false))");
+        // but brackets can override precedence - (2+2)*3
+        test_parse("(true || false) && false", "((true||false)&&false)");
+
+        // with not
+        // becomes (!x && y) || (!z == false)
+        test_parse("!x && y || !z == false", "(((!x)&&y)||((!z)==false))");
+
+        // can override
+        test_parse("!(x && y) || !z == false", "((!(x&&y))||((!z)==false))");
     }
 }

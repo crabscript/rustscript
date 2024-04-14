@@ -135,10 +135,9 @@ pub fn execute(rt: Runtime, instr: ByteCode) -> Result<Runtime> {
         ByteCode::SPAWN(addr) => micro_code::spawn(rt, addr),
         ByteCode::JOIN => micro_code::join(rt),
         ByteCode::YIELD => micro_code::yield_(rt),
+        ByteCode::SEMCREATE => micro_code::sem_create(rt),
         ByteCode::WAIT => micro_code::wait(rt),
         ByteCode::POST => micro_code::post(rt),
-        // ByteCode::WAIT(sym) => micro_code::wait(rt, sym),
-        // ByteCode::POST(sym) => micro_code::post(rt, sym),
     }
 }
 
@@ -495,6 +494,7 @@ mod tests {
     #[test]
     fn test_concurrency_04() -> Result<()> {
         // let count = 0;
+        //
         // fn increment(times:  int) {
         //   let i = 0;
         //   while i < times {
@@ -648,6 +648,7 @@ mod tests {
     fn test_concurrency_05() -> Result<()> {
         // let count = 0;
         // let sem = Semaphore::new();
+        //
         // fn increment(times:  int) {
         //   let i = 0;
         //   while i < times {
@@ -676,7 +677,7 @@ mod tests {
             // pc 2
             ByteCode::assign("count"), // Set count to 0
             // pc 3
-            ByteCode::ldc(Semaphore::new(1)),
+            ByteCode::SEMCREATE,
             // pc 4
             ByteCode::assign("sem"), // Set sem to the semaphore
             // pc 5

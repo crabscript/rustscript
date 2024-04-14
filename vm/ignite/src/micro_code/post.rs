@@ -5,7 +5,9 @@ use crate::{Runtime, VmError};
 
 /// Pops a value off the stack.
 /// The value is expected to be a semaphore.
-/// The semaphore is used to signal to the runtime that any threads waiting on it can continue.
+/// The semaphore is incremented.
+/// If a thread is blocked on this semaphore, the first blocked thread is moved to the ready queue.
+/// The current thread continues execution.
 ///
 /// # Arguments
 ///

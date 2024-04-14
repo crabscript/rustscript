@@ -6,7 +6,11 @@ use crate::{Runtime, VmError};
 /// Pops a value off the stack.
 /// The value is expected to be a semaphore.
 /// If the semaphore is 0, the current thread is blocked.
+///   - The current thread is moved to the blocked queue.
+///   - The next ready thread is popped from the ready queue and set as the current thread.
+///
 /// If the semaphore is greater than 0, the semaphore is decremented.
+/// The current thread continues execution.
 ///
 /// # Arguments
 ///
@@ -16,7 +20,7 @@ use crate::{Runtime, VmError};
 ///
 /// If the stack is empty.
 /// If the top value on stack is not a semaphore.
-/// If the current thread is not found in the thread states.
+/// If there are no threads in the ready queue when the current thread is blocked.
 pub fn wait(mut rt: Runtime) -> Result<Runtime> {
     let sem: Semaphore = rt
         .current_thread

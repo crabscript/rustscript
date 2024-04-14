@@ -4,9 +4,9 @@ use anyhow::Result;
 
 use crate::{Runtime, VmError};
 
-/// Yield the current thread.
-/// This will set the yield flag of the current thread to true.
-/// The thread will be added to the ready queue on the next cycle of the VM.
+/// Yield the current thread in the runtime.
+/// Push the current thread to the back of the ready queue.
+/// Pop the next ready thread from the front of the ready queue and set it as the current thread.
 ///
 /// # Arguments
 ///
@@ -14,7 +14,7 @@ use crate::{Runtime, VmError};
 ///
 /// # Errors
 ///
-/// Infallible.
+/// Returns an error if there are no threads in the ready queue.
 pub fn yield_(mut rt: Runtime) -> Result<Runtime> {
     let current_thread = rt.current_thread;
     rt.ready_queue.push_back(current_thread);

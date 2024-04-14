@@ -2,12 +2,13 @@ use anyhow::Result;
 
 use crate::Runtime;
 
-/// Spawn a new thread that clones the main thread at the time of the spawn.
-/// The new thread is added to the thread state hashmap with a state of Ready.
-/// The new thread is given a unique thread ID.
-/// The new thread is added to the ready queue.
+/// Spawn a child thread that clones the current/parent thread at the time of the spawn.
+/// The child thread is given a unique thread ID.
+/// The child thread is added to the back of the ready queue.
 /// This thread ID is pushed onto the operand stack of the parent thread.
 /// 0 is pushed onto the operand stack of the child thread.
+/// The child thread starts execution at the given address.
+/// The parent thread continues execution.
 ///
 /// # Arguments
 ///

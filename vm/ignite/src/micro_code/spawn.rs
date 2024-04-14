@@ -16,7 +16,7 @@ use crate::{Runtime, ThreadState};
 /// # Errors
 ///
 /// Infallible.
-pub fn spawn(rt: &mut Runtime, addr: usize) -> Result<()> {
+pub fn spawn(mut rt: Runtime, addr: usize) -> Result<Runtime> {
     rt.thread_count += 1;
 
     let child_thread_id = rt.thread_count;
@@ -30,5 +30,5 @@ pub fn spawn(rt: &mut Runtime, addr: usize) -> Result<()> {
     rt.current_thread.operand_stack.push(child_thread_id.into());
 
     rt.ready_queue.push_back(child_thread);
-    Ok(())
+    Ok(rt)
 }

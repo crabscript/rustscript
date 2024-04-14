@@ -18,7 +18,7 @@ use crate::{Runtime, ThreadState, VmError};
 /// * If the thread with the given ID is not found in the thread state hashmap.
 /// * If the operand stack is empty.
 /// * If the value on the operand stack is not an integer.
-pub fn join(rt: &mut Runtime) -> Result<()> {
+pub fn join(mut rt: Runtime) -> Result<Runtime> {
     let tid: i64 = rt
         .current_thread
         .operand_stack
@@ -34,7 +34,7 @@ pub fn join(rt: &mut Runtime) -> Result<()> {
         Entry::Vacant(_) => Err(VmError::ThreadNotFound(current_tid).into()),
         Entry::Occupied(mut entry) => {
             entry.insert(ThreadState::Joining(tid));
-            Ok(())
+            Ok(rt)
         }
     }
 }
@@ -49,7 +49,7 @@ mod tests {
     fn test_join() -> Result<()> {
         let mut rt = Runtime::new(vec![]);
         rt.current_thread.operand_stack.push(Value::Int(1));
-        join(&mut rt)?;
+        rt = join(rt)?;
         assert_eq!(rt.thread_states.get(&1), Some(&ThreadState::Joining(1)));
         Ok(())
     }

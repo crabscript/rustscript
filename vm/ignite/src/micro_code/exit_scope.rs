@@ -11,7 +11,7 @@ use crate::{Runtime, VmError};
 /// # Errors
 ///
 /// If the runtime stack is empty.
-pub fn exit_scope(rt: &mut Runtime) -> Result<()> {
+pub fn exit_scope(mut rt: Runtime) -> Result<Runtime> {
     let prev_frame = rt
         .current_thread
         .runtime_stack
@@ -19,7 +19,7 @@ pub fn exit_scope(rt: &mut Runtime) -> Result<()> {
         .ok_or(VmError::RuntimeStackUnderflow)?;
 
     rt.current_thread.env = prev_frame.env;
-    Ok(())
+    Ok(rt)
 }
 
 #[cfg(test)]
@@ -47,7 +47,7 @@ mod tests {
             Some(Value::Int(123))
         );
 
-        exit_scope(&mut rt).unwrap();
+        rt = exit_scope(rt).unwrap();
 
         assert_eq!(rt.current_thread.runtime_stack.len(), 0);
         assert_eq!(

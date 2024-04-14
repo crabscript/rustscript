@@ -19,7 +19,7 @@ use crate::{Runtime, ThreadState, VmError};
 /// If the stack is empty.
 /// If the top value on stack is not a semaphore.
 /// If the current thread is not found in the thread states.
-pub fn wait(rt: &mut Runtime) -> Result<()> {
+pub fn wait(mut rt: Runtime) -> Result<Runtime> {
     let val = rt
         .current_thread
         .operand_stack
@@ -42,5 +42,5 @@ pub fn wait(rt: &mut Runtime) -> Result<()> {
         *sem_guard -= 1;
     }
 
-    Ok(())
+    Ok(rt)
 }

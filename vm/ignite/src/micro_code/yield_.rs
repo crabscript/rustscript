@@ -15,7 +15,7 @@ use crate::{Runtime, ThreadState, VmError};
 /// # Errors
 ///
 /// Infallible.
-pub fn yield_(rt: &mut Runtime) -> Result<()> {
+pub fn yield_(mut rt: Runtime) -> Result<Runtime> {
     let tid = rt.current_thread.thread_id;
     let entry = rt.thread_states.entry(tid);
 
@@ -23,7 +23,7 @@ pub fn yield_(rt: &mut Runtime) -> Result<()> {
         Entry::Vacant(_) => Err(VmError::ThreadNotFound(tid).into()),
         Entry::Occupied(mut entry) => {
             entry.insert(ThreadState::Yielded);
-            Ok(())
+            Ok(rt)
         }
     }
 }
@@ -35,7 +35,7 @@ mod tests {
     #[test]
     fn test_yield() -> Result<()> {
         let mut rt = Runtime::new(vec![]);
-        yield_(&mut rt)?;
+        rt = yield_(rt)?;
         assert_eq!(rt.thread_states.get(&1), Some(&ThreadState::Yielded));
         Ok(())
     }

@@ -81,6 +81,12 @@ impl From<&str> for Value {
     }
 }
 
+impl From<Semaphore> for Value {
+    fn from(v: Semaphore) -> Self {
+        Value::Semaphore(v)
+    }
+}
+
 impl TryFrom<Value> for () {
     type Error = ByteCodeError;
 

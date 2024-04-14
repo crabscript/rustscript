@@ -20,7 +20,7 @@ use crate::{Runtime, VmError};
 ///
 /// If the stack has fewer than two values or the operation is not supported
 /// for the types of the values on the stack.
-pub fn binop(rt: &mut Runtime, op: BinOp) -> Result<()> {
+pub fn binop(mut rt: Runtime, op: BinOp) -> Result<Runtime> {
     let rhs_val = rt
         .current_thread
         .operand_stack
@@ -45,6 +45,7 @@ pub fn binop(rt: &mut Runtime, op: BinOp) -> Result<()> {
                 }
             };
             rt.current_thread.operand_stack.push(result);
+            Ok(rt)
         }
         (Value::Int(lhs), Value::Int(rhs)) => {
             let result = match op {
@@ -72,6 +73,7 @@ pub fn binop(rt: &mut Runtime, op: BinOp) -> Result<()> {
                 }
             };
             rt.current_thread.operand_stack.push(result);
+            Ok(rt)
         }
         (Value::Float(lhs), Value::Float(rhs)) => {
             let result = match op {
@@ -105,6 +107,7 @@ pub fn binop(rt: &mut Runtime, op: BinOp) -> Result<()> {
                 }
             };
             rt.current_thread.operand_stack.push(result);
+            Ok(rt)
         }
         (Value::Bool(lhs), Value::Bool(rhs)) => {
             let result = match op {
@@ -120,6 +123,7 @@ pub fn binop(rt: &mut Runtime, op: BinOp) -> Result<()> {
                 }
             };
             rt.current_thread.operand_stack.push(result);
+            Ok(rt)
         }
         (Value::String(lhs), Value::String(rhs)) => {
             let result = match op {
@@ -134,27 +138,20 @@ pub fn binop(rt: &mut Runtime, op: BinOp) -> Result<()> {
                 }
             };
             rt.current_thread.operand_stack.push(result);
+            Ok(rt)
         }
         (Value::Semaphore(_), Value::Semaphore(_)) => {
-            return Err(
-                VmError::UnsupportedOperation(op.into(), type_of(&rhs_val).to_string()).into(),
-            )
+            Err(VmError::UnsupportedOperation(op.into(), type_of(&rhs_val).to_string()).into())
         }
         (Value::Closure { .. }, Value::Closure { .. }) => {
-            return Err(
-                VmError::UnsupportedOperation(op.into(), type_of(&rhs_val).to_string()).into(),
-            )
+            Err(VmError::UnsupportedOperation(op.into(), type_of(&rhs_val).to_string()).into())
         }
-        _ => {
-            return Err(VmError::TypeMismatch {
-                expected: type_of(&lhs_val).to_string(),
-                found: type_of(&rhs_val).to_string(),
-            }
-            .into())
+        _ => Err(VmError::TypeMismatch {
+            expected: type_of(&lhs_val).to_string(),
+            found: type_of(&rhs_val).to_string(),
         }
+        .into()),
     }
-
-    Ok(())
 }
 
 #[cfg(test)]
@@ -167,158 +164,159 @@ mod tests {
     #[test]
     fn test_binop() {
         let mut rt = Runtime::new(vec![]);
-        ldc(&mut rt, Value::Int(42)).unwrap();
-        ldc(&mut rt, Value::Int(42)).unwrap();
-        binop(&mut rt, BinOp::Add).unwrap();
+        rt = ldc(rt, Value::Int(42)).unwrap();
+        rt = ldc(rt, Value::Int(42)).unwrap();
+        rt = binop(rt, BinOp::Add).unwrap();
         assert_eq!(
             rt.current_thread.operand_stack.pop().unwrap(),
             Value::Int(84)
         );
 
-        ldc(&mut rt, Value::Int(1)).unwrap();
-        ldc(&mut rt, Value::Int(2)).unwrap();
-        binop(&mut rt, BinOp::Sub).unwrap();
+        rt = ldc(rt, Value::Int(1)).unwrap();
+        rt = ldc(rt, Value::Int(2)).unwrap();
+        rt = binop(rt, BinOp::Sub).unwrap();
         assert_eq!(
             rt.current_thread.operand_stack.pop().unwrap(),
             Value::Int(-1)
         );
 
-        ldc(&mut rt, Value::Int(21)).unwrap();
-        ldc(&mut rt, Value::Int(2)).unwrap();
-        binop(&mut rt, BinOp::Mul).unwrap();
+        rt = ldc(rt, Value::Int(21)).unwrap();
+        rt = ldc(rt, Value::Int(2)).unwrap();
+        rt = binop(rt, BinOp::Mul).unwrap();
         assert_eq!(
             rt.current_thread.operand_stack.pop().unwrap(),
             Value::Int(42)
         );
 
-        ldc(&mut rt, Value::Int(84)).unwrap();
-        ldc(&mut rt, Value::Int(2)).unwrap();
-        binop(&mut rt, BinOp::Div).unwrap();
+        rt = ldc(rt, Value::Int(84)).unwrap();
+        rt = ldc(rt, Value::Int(2)).unwrap();
+        rt = binop(rt, BinOp::Div).unwrap();
         assert_eq!(
             rt.current_thread.operand_stack.pop().unwrap(),
             Value::Int(42)
         );
 
-        ldc(&mut rt, Value::Int(84)).unwrap();
-        ldc(&mut rt, Value::Int(2)).unwrap();
-        binop(&mut rt, BinOp::Mod).unwrap();
+        rt = ldc(rt, Value::Int(84)).unwrap();
+        rt = ldc(rt, Value::Int(2)).unwrap();
+        rt = binop(rt, BinOp::Mod).unwrap();
         assert_eq!(
             rt.current_thread.operand_stack.pop().unwrap(),
             Value::Int(0)
         );
 
-        ldc(&mut rt, Value::Int(84)).unwrap();
-        ldc(&mut rt, Value::Int(42)).unwrap();
-        binop(&mut rt, BinOp::Gt).unwrap();
+        rt = ldc(rt, Value::Int(84)).unwrap();
+        rt = ldc(rt, Value::Int(42)).unwrap();
+        rt = binop(rt, BinOp::Gt).unwrap();
         assert_eq!(
             rt.current_thread.operand_stack.pop().unwrap(),
             Value::Bool(true)
         );
 
-        ldc(&mut rt, Value::Int(84)).unwrap();
-        ldc(&mut rt, Value::Int(42)).unwrap();
-        binop(&mut rt, BinOp::Lt).unwrap();
+        rt = ldc(rt, Value::Int(84)).unwrap();
+        rt = ldc(rt, Value::Int(42)).unwrap();
+        rt = binop(rt, BinOp::Lt).unwrap();
         assert_eq!(
             rt.current_thread.operand_stack.pop().unwrap(),
             Value::Bool(false)
         );
 
-        ldc(&mut rt, Value::Int(84)).unwrap();
-        ldc(&mut rt, Value::Int(42)).unwrap();
-        binop(&mut rt, BinOp::Eq).unwrap();
+        rt = ldc(rt, Value::Int(84)).unwrap();
+        rt = ldc(rt, Value::Int(42)).unwrap();
+        rt = binop(rt, BinOp::Eq).unwrap();
         assert_eq!(
             rt.current_thread.operand_stack.pop().unwrap(),
             Value::Bool(false)
         );
 
-        ldc(&mut rt, Value::Float(42.0)).unwrap();
-        ldc(&mut rt, Value::Int(42)).unwrap();
-        let result = binop(&mut rt, BinOp::Add);
+        rt = ldc(rt, Value::Float(42.0)).unwrap();
+        rt = ldc(rt, Value::Int(42)).unwrap();
+        let result = binop(rt, BinOp::Add);
         assert!(result.is_err());
 
-        ldc(&mut rt, Value::Float(42.0)).unwrap();
-        ldc(&mut rt, Value::Float(42.0)).unwrap();
-        binop(&mut rt, BinOp::Add).unwrap();
+        let mut rt = Runtime::new(vec![]);
+        rt = ldc(rt, Value::Float(42.0)).unwrap();
+        rt = ldc(rt, Value::Float(42.0)).unwrap();
+        rt = binop(rt, BinOp::Add).unwrap();
         assert_eq!(
             rt.current_thread.operand_stack.pop().unwrap(),
             Value::Float(84.0)
         );
 
-        ldc(&mut rt, Value::Float(42.0)).unwrap();
-        ldc(&mut rt, Value::Float(42.0)).unwrap();
-        binop(&mut rt, BinOp::Sub).unwrap();
+        rt = ldc(rt, Value::Float(42.0)).unwrap();
+        rt = ldc(rt, Value::Float(42.0)).unwrap();
+        rt = binop(rt, BinOp::Sub).unwrap();
         assert_eq!(
             rt.current_thread.operand_stack.pop().unwrap(),
             Value::Float(0.0)
         );
 
-        ldc(&mut rt, Value::Float(42.0)).unwrap();
-        ldc(&mut rt, Value::Float(42.0)).unwrap();
-        binop(&mut rt, BinOp::Mul).unwrap();
+        rt = ldc(rt, Value::Float(42.0)).unwrap();
+        rt = ldc(rt, Value::Float(42.0)).unwrap();
+        rt = binop(rt, BinOp::Mul).unwrap();
         assert_eq!(
             rt.current_thread.operand_stack.pop().unwrap(),
             Value::Float(1764.0)
         );
 
-        ldc(&mut rt, Value::Float(42.0)).unwrap();
-        ldc(&mut rt, Value::Float(42.0)).unwrap();
-        binop(&mut rt, BinOp::Div).unwrap();
+        rt = ldc(rt, Value::Float(42.0)).unwrap();
+        rt = ldc(rt, Value::Float(42.0)).unwrap();
+        rt = binop(rt, BinOp::Div).unwrap();
         assert_eq!(
             rt.current_thread.operand_stack.pop().unwrap(),
             Value::Float(1.0)
         );
 
-        ldc(&mut rt, Value::Float(42.0)).unwrap();
-        ldc(&mut rt, Value::Float(22.0)).unwrap();
-        binop(&mut rt, BinOp::Gt).unwrap();
+        rt = ldc(rt, Value::Float(42.0)).unwrap();
+        rt = ldc(rt, Value::Float(22.0)).unwrap();
+        rt = binop(rt, BinOp::Gt).unwrap();
         assert_eq!(
             rt.current_thread.operand_stack.pop().unwrap(),
             Value::Bool(true)
         );
 
-        ldc(&mut rt, Value::Float(42.0)).unwrap();
-        ldc(&mut rt, Value::Float(22.0)).unwrap();
-        binop(&mut rt, BinOp::Lt).unwrap();
+        rt = ldc(rt, Value::Float(42.0)).unwrap();
+        rt = ldc(rt, Value::Float(22.0)).unwrap();
+        rt = binop(rt, BinOp::Lt).unwrap();
         assert_eq!(
             rt.current_thread.operand_stack.pop().unwrap(),
             Value::Bool(false)
         );
 
-        ldc(&mut rt, Value::Float(42.0)).unwrap();
-        ldc(&mut rt, Value::Float(22.0)).unwrap();
-        binop(&mut rt, BinOp::Eq).unwrap();
+        rt = ldc(rt, Value::Float(42.0)).unwrap();
+        rt = ldc(rt, Value::Float(22.0)).unwrap();
+        rt = binop(rt, BinOp::Eq).unwrap();
         assert_eq!(
             rt.current_thread.operand_stack.pop().unwrap(),
             Value::Bool(false)
         );
 
-        ldc(&mut rt, Value::Bool(true)).unwrap();
-        ldc(&mut rt, Value::Bool(false)).unwrap();
-        binop(&mut rt, BinOp::And).unwrap();
+        rt = ldc(rt, Value::Bool(true)).unwrap();
+        rt = ldc(rt, Value::Bool(false)).unwrap();
+        rt = binop(rt, BinOp::And).unwrap();
         assert_eq!(
             rt.current_thread.operand_stack.pop().unwrap(),
             Value::Bool(false)
         );
 
-        ldc(&mut rt, Value::Bool(true)).unwrap();
-        ldc(&mut rt, Value::Bool(false)).unwrap();
-        binop(&mut rt, BinOp::Or).unwrap();
+        rt = ldc(rt, Value::Bool(true)).unwrap();
+        rt = ldc(rt, Value::Bool(false)).unwrap();
+        rt = binop(rt, BinOp::Or).unwrap();
         assert_eq!(
             rt.current_thread.operand_stack.pop().unwrap(),
             Value::Bool(true)
         );
 
-        ldc(&mut rt, Value::String("hello".into())).unwrap();
-        ldc(&mut rt, Value::String(" world".into())).unwrap();
-        binop(&mut rt, BinOp::Add).unwrap();
+        rt = ldc(rt, Value::String("hello".into())).unwrap();
+        rt = ldc(rt, Value::String(" world".into())).unwrap();
+        rt = binop(rt, BinOp::Add).unwrap();
         assert_eq!(
             rt.current_thread.operand_stack.pop().unwrap(),
             Value::String("hello world".into())
         );
 
-        ldc(&mut rt, Value::String("hello".into())).unwrap();
-        ldc(&mut rt, Value::String(" world".into())).unwrap();
-        binop(&mut rt, BinOp::Eq).unwrap();
+        rt = ldc(rt, Value::String("hello".into())).unwrap();
+        rt = ldc(rt, Value::String(" world".into())).unwrap();
+        rt = binop(rt, BinOp::Eq).unwrap();
         assert_eq!(
             rt.current_thread.operand_stack.pop().unwrap(),
             Value::Bool(false)

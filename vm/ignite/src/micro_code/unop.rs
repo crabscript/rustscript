@@ -16,7 +16,7 @@ use bytecode::{type_of, UnOp, Value};
 ///
 /// If the stack is empty or the operation is not supported for
 /// the type of the value on the stack.
-pub fn unop(rt: &mut Runtime, op: UnOp) -> Result<()> {
+pub fn unop(mut rt: Runtime, op: UnOp) -> Result<Runtime> {
     let val = rt
         .current_thread
         .operand_stack
@@ -31,13 +31,13 @@ pub fn unop(rt: &mut Runtime, op: UnOp) -> Result<()> {
                 UnOp::Not => Value::Int(!i), // Bitwise Not
             };
             rt.current_thread.operand_stack.push(result);
-            Ok(())
+            Ok(rt)
         }
         Value::Float(f) => {
             if let UnOp::Neg = op {
                 let result = Value::Float(-f); // Negation
                 rt.current_thread.operand_stack.push(result);
-                Ok(())
+                Ok(rt)
             } else {
                 Err(VmError::UnsupportedOperation(op.into(), type_of(&val).into()).into())
             }
@@ -46,7 +46,7 @@ pub fn unop(rt: &mut Runtime, op: UnOp) -> Result<()> {
             if let UnOp::Not = op {
                 let result = Value::Bool(!b); // Logical Not
                 rt.current_thread.operand_stack.push(result);
-                Ok(())
+                Ok(rt)
             } else {
                 Err(VmError::UnsupportedOperation(op.into(), type_of(&val).into()).into())
             }
@@ -75,45 +75,47 @@ mod tests {
     #[test]
     fn test_unop() {
         let mut rt = Runtime::new(vec![]);
-        ldc(&mut rt, Value::Int(42)).unwrap();
-        unop(&mut rt, UnOp::Neg).unwrap();
+        rt = ldc(rt, Value::Int(42)).unwrap();
+        rt = unop(rt, UnOp::Neg).unwrap();
         assert_eq!(
             rt.current_thread.operand_stack.pop().unwrap(),
             Value::Int(-42)
         );
 
-        ldc(&mut rt, Value::Float(42.0)).unwrap();
-        unop(&mut rt, UnOp::Neg).unwrap();
+        rt = ldc(rt, Value::Float(42.0)).unwrap();
+        rt = unop(rt, UnOp::Neg).unwrap();
         assert_eq!(
             rt.current_thread.operand_stack.pop().unwrap(),
             Value::Float(-42.0)
         );
 
-        ldc(&mut rt, Value::Bool(true)).unwrap();
-        unop(&mut rt, UnOp::Not).unwrap();
+        rt = ldc(rt, Value::Bool(true)).unwrap();
+        rt = unop(rt, UnOp::Not).unwrap();
         assert_eq!(
             rt.current_thread.operand_stack.pop().unwrap(),
             Value::Bool(false)
         );
 
-        ldc(&mut rt, Value::Bool(false)).unwrap();
-        unop(&mut rt, UnOp::Not).unwrap();
+        rt = ldc(rt, Value::Bool(false)).unwrap();
+        rt = unop(rt, UnOp::Not).unwrap();
         assert_eq!(
             rt.current_thread.operand_stack.pop().unwrap(),
             Value::Bool(true)
         );
 
-        ldc(&mut rt, Value::Unit).unwrap();
-        let result = unop(&mut rt, UnOp::Not);
+        rt = ldc(rt, Value::Unit).unwrap();
+        let result = unop(rt, UnOp::Not);
         assert!(result.is_err());
 
-        ldc(&mut rt, Value::String("hello world".into())).unwrap();
-        let result = unop(&mut rt, UnOp::Not);
+        let mut rt = Runtime::new(vec![]);
+        rt = ldc(rt, Value::String("hello world".into())).unwrap();
+        let result = unop(rt, UnOp::Not);
         assert!(result.is_err());
 
-        ldc(&mut rt, Value::Int(42)).unwrap();
-        unop(&mut rt, UnOp::Not).unwrap();
-        unop(&mut rt, UnOp::Neg).unwrap();
+        let mut rt = Runtime::new(vec![]);
+        rt = ldc(rt, Value::Int(42)).unwrap();
+        rt = unop(rt, UnOp::Not).unwrap();
+        rt = unop(rt, UnOp::Neg).unwrap();
         assert_eq!(
             rt.current_thread.operand_stack.pop().unwrap(),
             Value::Int(43)

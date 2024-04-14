@@ -13,7 +13,7 @@ use crate::{Runtime, ThreadState, VmError};
 /// # Errors
 ///
 /// * If the current thread is not found in the thread state hashmap.
-pub fn done(rt: &mut Runtime) -> Result<()> {
+pub fn done(mut rt: Runtime) -> Result<Runtime> {
     let tid = rt.current_thread.thread_id;
     let entry = rt.thread_states.entry(tid);
 
@@ -21,7 +21,7 @@ pub fn done(rt: &mut Runtime) -> Result<()> {
         Entry::Vacant(_) => Err(VmError::ThreadNotFound(tid).into()),
         Entry::Occupied(mut entry) => {
             entry.insert(ThreadState::Done);
-            Ok(())
+            Ok(rt)
         }
     }
 }
@@ -33,7 +33,7 @@ mod tests {
     #[test]
     fn test_done() -> Result<()> {
         let mut rt = Runtime::new(vec![]);
-        done(&mut rt)?;
+        rt = done(rt)?;
         assert_eq!(rt.thread_states.get(&1), Some(&ThreadState::Done));
         Ok(())
     }

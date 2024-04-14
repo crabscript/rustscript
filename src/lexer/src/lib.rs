@@ -51,6 +51,9 @@ pub enum Token {
     #[token("=")]
     Eq,
 
+    #[token("==")]
+    LogEq,
+
     #[token("!")]
     Bang,
 
@@ -66,8 +69,14 @@ pub enum Token {
     #[token("&")]
     And,
 
+    #[token("&&")]
+    LogAnd,
+
     #[token("|")]
     Or,
+
+    #[token("||")]
+    LogOr,
 
     #[token("+")]
     Plus,
@@ -161,6 +170,9 @@ impl Token {
             Self::Float(val) => val.to_string(),
             Self::If => "if".to_string(),
             Self::Else => "else".to_string(),
+            Self::LogEq => "==".to_string(),
+            Self::LogAnd => "&&".to_string(),
+            Self::LogOr => "||".to_string(),
         }
     }
 }
@@ -457,6 +469,47 @@ mod test {
         ];
 
         for e in expected {
+            assert_eq!(e, lexer.next().unwrap().expect("Expected token"));
+        }
+    }
+
+    #[test]
+    fn test_lex_comp_ops() {
+        // ==, <, >, &&, ||
+        let t = "== = < > && ||";
+        let mut lexer = Token::lexer(t);
+        let exp: Vec<Token> = vec![
+            Token::LogEq,
+            Token::Eq,
+            Token::Lt,
+            Token::Gt,
+            Token::LogAnd,
+            Token::LogOr,
+        ];
+        for e in exp {
+            assert_eq!(e, lexer.next().unwrap().expect("Expected token"));
+        }
+
+        // usage
+        let t = "x = x < 10 && x > 3 || y == 4; ";
+        let mut lexer = Token::lexer(t);
+
+        let exp: Vec<Token> = vec![
+            Token::Ident("x".to_string()),
+            Token::Eq,
+            Token::Ident("x".to_string()),
+            Token::Lt,
+            Token::Integer(10),
+            Token::LogAnd,
+            Token::Ident("x".to_string()),
+            Token::Gt,
+            Token::Integer(3),
+            Token::LogOr,
+            Token::Ident("y".to_string()),
+            Token::LogEq,
+            Token::Integer(4),
+        ];
+        for e in exp {
             assert_eq!(e, lexer.next().unwrap().expect("Expected token"));
         }
     }

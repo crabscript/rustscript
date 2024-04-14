@@ -15,5 +15,5 @@ pub fn sem_create(global_env: Rc<RefCell<Environment>>) -> Value {
 }
 
 pub fn sem_create_impl() -> Value {
-    Semaphore::new(1).into()
+    Semaphore::default().into()
 }

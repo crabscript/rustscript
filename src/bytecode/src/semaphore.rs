@@ -15,7 +15,7 @@ impl Semaphore {
 
 impl Default for Semaphore {
     fn default() -> Self {
-        Self::new(0)
+        Self::new(1)
     }
 }
 

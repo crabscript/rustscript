@@ -164,6 +164,18 @@ pub fn apply_builtin(mut rt: Runtime, sym: &str, args: Vec<Value>) -> Result<Run
             let sem = builtin::sem_create_impl();
             rt.current_thread.operand_stack.push(sem);
         }
+        builtin::SEM_SET_SYM => {
+            let sem = args.first().ok_or(VmError::InsufficientArguments {
+                expected: 2,
+                got: args.len(),
+            })?;
+            let val = args.get(1).ok_or(VmError::InsufficientArguments {
+                expected: 2,
+                got: args.len(),
+            })?;
+
+            builtin::sem_set_impl(sem, val)?;
+        }
         _ => {
             return Err(VmError::UnknownBuiltin {
                 sym: sym.to_string(),
@@ -378,6 +390,13 @@ mod tests {
             type_of(&Value::Semaphore(Semaphore::default())),
             type_of(&rt.current_thread.operand_stack.pop().unwrap())
         );
+
+        let sym = SEM_SET_SYM;
+        let sem = Semaphore::default();
+        let args = vec![sem.clone().into(), Value::Int(42)];
+        _ = apply_builtin(rt, sym, args)?;
+        let sem_guard = sem.lock().unwrap();
+        assert_eq!(42, *sem_guard);
 
         Ok(())
     }

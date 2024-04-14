@@ -219,6 +219,13 @@ mod tests {
 
     #[test]
     fn test_parse_loop_break_errs() {
+        let t = r"
+        loop {
+            break
+        }
+        ";
+        test_parse_err(t, "Expected semicolon", true);
+
         // break not allowed outside  loop
         let t = r"
         break;

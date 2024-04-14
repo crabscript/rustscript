@@ -149,8 +149,26 @@ impl<'prog> TypeChecker<'prog> {
         lhs: &Expr,
         rhs: &Expr,
     ) -> Result<Type, TypeErrors> {
-        let l_type = self.check_expr(lhs)?;
-        let r_type = self.check_expr(rhs)?;
+        let mut ty_errs = TypeErrors::new();
+        let mut l_type = self.check_expr(lhs);
+        let mut r_type = self.check_expr(rhs);
+
+        if let Err(ref mut errs) = l_type {
+            ty_errs.append(errs);
+        }
+
+        if let Err(ref mut errs) = r_type {
+            ty_errs.append(errs);
+        }
+
+        // have errs from lhs and/or rhs: return out, no types to check
+        if !ty_errs.is_ok() {
+            return Err(ty_errs);
+        }
+
+        // let x = matches!((l_type, r_type), (Ok(Type::Int), Ok(Type::Int)));
+        let l_type = l_type?;
+        let r_type = r_type?;
 
         match (l_type, r_type) {
             (Type::Int, Type::Int) => Ok(Type::Int),
@@ -344,5 +362,23 @@ mod tests {
             true,
         );
         expect_err("let x : bool = true +2;", "apply", true);
+    }
+
+    #[test]
+    fn test_type_check_binops_collect() {
+        // Collect errors from lhs/rhs
+        let t = "x+y";
+        expect_err(
+            t,
+            "[TypeError]: Identifier 'x' not declared\n[TypeError]: Identifier 'y' not declared",
+            true,
+        );
+
+        // blks - can't get types from the blks since they have errs but those are collected
+        let t = "{ 2+false; 3} - {3+3.5; true}";
+        expect_err(t,  "[TypeError]: Can't apply '+' to types 'int' and 'bool'\n[TypeError]: Can't apply '+' to types 'int' and 'float'", true);
+
+        let t = "x+y+z";
+        expect_err(t, "[TypeError]: Identifier 'x' not declared\n[TypeError]: Identifier 'y' not declared\n[TypeError]: Identifier 'z' not declared", false);
     }
 }

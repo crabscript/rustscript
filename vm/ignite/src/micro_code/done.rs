@@ -14,7 +14,7 @@ use crate::{Runtime, VmError, MAIN_THREAD_ID};
 pub fn done(mut rt: Runtime) -> Result<Runtime> {
     // If the current thread is the main thread, then we are done
     if rt.current_thread.thread_id == MAIN_THREAD_ID {
-        rt.is_done = true;
+        rt.done = true;
         Ok(rt)
     // Otherwise we will set the current thread to zombie and yield
     } else {
@@ -43,7 +43,7 @@ mod tests {
         rt = done(rt)?;
 
         // The main thread should be done
-        assert!(rt.is_done);
+        assert!(rt.done);
 
         Ok(())
     }
@@ -56,7 +56,7 @@ mod tests {
         rt = done(rt)?;
 
         // The main thread should not be done
-        assert!(!rt.is_done);
+        assert!(!rt.done);
         // The child thread should be in the zombie threads
         let child_thread_id = MAIN_THREAD_ID + 1;
         assert!(rt.zombie_threads.contains_key(&child_thread_id));

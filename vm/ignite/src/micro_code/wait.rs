@@ -50,7 +50,10 @@ pub fn wait(mut rt: Runtime) -> Result<Runtime> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{micro_code, MAIN_THREAD_ID};
+    use crate::{
+        micro_code::{self, ld},
+        MAIN_THREAD_ID,
+    };
 
     use super::*;
 
@@ -61,7 +64,7 @@ mod tests {
         rt.current_thread
             .extend_environment(vec!["sem"], vec![sem.clone()])?;
         rt = micro_code::spawn(rt, 0)?; // spawn a child thread to populate ready queue
-        rt = micro_code::ld(rt, "sem".into())?; // load the semaphore onto the stack
+        rt = ld(rt, "sem".into())?;
         rt = wait(rt)?;
 
         assert_eq!(*sem.lock().unwrap(), 0);
@@ -78,7 +81,7 @@ mod tests {
         rt.current_thread
             .extend_environment(vec!["sem"], vec![sem.clone()])?;
         rt = micro_code::spawn(rt, 0)?; // spawn a child thread to populate ready queue
-        rt = micro_code::ld(rt, "sem".into())?; // load the semaphore onto the stack
+        rt = ld(rt, "sem".into())?;
         rt = wait(rt)?;
 
         let child_thread_id = MAIN_THREAD_ID + 1;

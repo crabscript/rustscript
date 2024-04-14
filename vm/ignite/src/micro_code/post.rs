@@ -48,7 +48,10 @@ pub fn post(mut rt: Runtime) -> Result<Runtime> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{micro_code, MAIN_THREAD_ID};
+    use crate::{
+        micro_code::{self, ld},
+        MAIN_THREAD_ID,
+    };
 
     use super::*;
 
@@ -59,7 +62,7 @@ mod tests {
         rt.current_thread
             .extend_environment(vec!["sem"], vec![sem.clone()])?;
         rt = micro_code::spawn(rt, 0)?; // spawn a child thread to populate ready queue
-        rt = micro_code::ld(rt, "sem".into())?; // load the semaphore onto the stack
+        rt = ld(rt, "sem".into())?;
         rt = post(rt)?;
 
         // Since no threads are blocked on the semaphore, the current thread should continue.
@@ -78,9 +81,9 @@ mod tests {
             .extend_environment(vec!["sem"], vec![sem.clone()])?;
         rt = micro_code::spawn(rt, 0)?; // spawn a child thread to populate ready queue
         rt = micro_code::yield_(rt)?; // yield the current thread to child thread
-        rt = micro_code::ld(rt, "sem".into())?; // load the semaphore onto the stack
-        rt = micro_code::wait(rt)?; // block the child thread and move the child thread to blocked queue. Set the current thread to the main thread.
-        rt = micro_code::ld(rt, "sem".into())?; // load the semaphore onto the stack
+        rt = ld(rt, "sem".into())?;
+        rt = micro_code::wait(rt)?;
+        rt = ld(rt, "sem".into())?;
         rt = post(rt)?;
 
         // Child thread should be moved to the ready queue.
@@ -89,7 +92,6 @@ mod tests {
             rt.ready_queue.pop_front().unwrap().thread_id,
             child_thread_id
         );
-        
 
         Ok(())
     }

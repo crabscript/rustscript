@@ -76,6 +76,10 @@ fn main() -> Result<()> {
         rt.set_time_quantum(Duration::from_millis(quantum as u64));
     }
 
+    if args.debug > 0 {
+        rt.set_debug_mode();
+    }
+
     let rt = run(rt)?;
 
     // Print last value on op stack if there (result of program)

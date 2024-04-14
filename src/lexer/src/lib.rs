@@ -108,6 +108,9 @@ pub enum Token {
     #[token("loop")]
     Loop,
 
+    #[token("break")]
+    Break,
+
     #[token("false", |_| false)]
     #[token("true", |_| true)]
     Bool(bool),
@@ -177,6 +180,7 @@ impl Token {
             Self::LogAnd => "&&".to_string(),
             Self::LogOr => "||".to_string(),
             Self::Loop => "loop".to_string(),
+            Self::Break => "break".to_string(),
         }
     }
 }
@@ -372,7 +376,7 @@ mod test {
             Token::Let,
             Token::Ident("mut".to_string()),
             Token::Ident("continue".to_string()),
-            Token::Ident("break".to_string()),
+            Token::Break,
         ];
 
         for e in expected {
@@ -513,6 +517,26 @@ mod test {
             Token::LogEq,
             Token::Integer(4),
         ];
+        for e in exp {
+            assert_eq!(e, lexer.next().unwrap().expect("Expected token"));
+        }
+    }
+
+    #[test]
+    fn test_lex_loop() {
+        let t = r"
+        loop {
+            break;
+        }
+        ";
+        let exp = vec![
+            Token::Loop,
+            Token::OpenBrace,
+            Token::Break,
+            Token::Semi,
+            Token::CloseBrace,
+        ];
+        let mut lexer = Token::lexer(t);
         for e in exp {
             assert_eq!(e, lexer.next().unwrap().expect("Expected token"));
         }

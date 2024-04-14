@@ -194,5 +194,12 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_loop_break() {}
+    fn test_parse_loop_break() {
+        let t = r"
+        loop {
+            break;
+        }
+        ";
+        // test_parse(t, "");
+    }
 }

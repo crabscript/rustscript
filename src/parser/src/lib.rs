@@ -117,24 +117,61 @@ impl<'inp> Parser<'inp> {
 
     // Pass in self.lexer.peek() => get String out for Ident, String in quotes
     fn string_from_ident(token: Option<&Result<Token, ()>>) -> String {
+        // dbg!("string from ident token:", &token);
         let tok = token.unwrap();
         let tok = tok.clone().unwrap();
         tok.to_string()
     }
 
+    /// Expect one of Ident, (, or fn to start type annotation
+    fn expect_token_for_type_ann(token: Option<&Result<Token, ()>>) -> Result<(), ParseError> {
+        if let Some(Ok(tok)) = token {
+            match tok {
+                Token::Ident(_) | Token::OpenParen => Ok(()),
+                _ => {
+                    let e = format!(
+                        "Expected identifier or '(' for type annotation, got '{}'",
+                        tok
+                    );
+                    Err(ParseError::new(&e))
+                }
+            }
+        } else {
+            Err(ParseError::new(
+                "Expected identifier or '(' for type annotation, got end of input",
+            ))
+        }
+    }
+
     /// Parse and return type annotation. Expect lexer.peek() to be at Colon before call
     fn parse_type_annotation(&mut self) -> Result<Type, ParseError> {
         self.consume_token_type(Token::Colon, "Expected a colon")?;
-        expect_token_body!(self.lexer.peek(), Ident, "identifier")?;
-        let ident = Parser::string_from_ident(self.lexer.peek());
+        // expect_token_body!(self.lexer.peek(), Ident, "identifier")?;
+        Parser::expect_token_for_type_ann(self.lexer.peek())?;
 
-        // Primitive types for now. Compound types: build using primitives within parser
-        let type_ann = Type::from_string(&ident)?;
-        // dbg!("TYPE ANNOTATION:", &type_ann);
+        // if ident, get the string and try to convert type. else, handle specially
+        let peek = self
+            .lexer
+            .peek()
+            .unwrap()
+            .to_owned()
+            .expect("Lexer should not fail"); // would have erred earlier
+
+        let type_ann = match peek {
+            Token::Ident(id) => Type::from_string(&id),
+            Token::OpenParen => {
+                self.advance();
+                if let Some(Ok(Token::CloseParen)) = self.lexer.peek() {
+                    Ok(Type::Unit)
+                } else {
+                    Err(ParseError::new("Expected '()' for unit type annotation"))
+                }
+            }
+            _ => unreachable!(),
+        }?;
 
         // Peek should be at equals at the end, so we advance
         self.advance();
-        // dbg!(&self.lexer.peek());
 
         Ok(type_ann)
     }
@@ -361,6 +398,39 @@ mod tests {
         test_parse(
             "let x : int = 20; x = true; x",
             "let x : int = 20;x = true;x",
+        );
+    }
+
+    #[test]
+    fn test_parse_type_annotations() {
+        test_parse("let x : int = 2;", "let x : int = 2;");
+        test_parse("let x : bool = true;", "let x : bool = true;");
+        test_parse("let x : float = true;", "let x : float = true;");
+        test_parse("let x : () = true;", "let x : () = true;");
+    }
+
+    #[test]
+    fn test_parse_type_annotations_errs() {
+        // test_parse("let x : int = 2;", "");
+        test_parse_err(
+            "let x : let ",
+            "Expected identifier or '(' for type annotation, got 'let'",
+            true,
+        );
+        test_parse_err(
+            "let x : 2 ",
+            "Expected identifier or '(' for type annotation, got '2'",
+            true,
+        );
+        test_parse_err(
+            "let x : ",
+            "Expected identifier or '(' for type annotation, got end of input",
+            true,
+        );
+        test_parse_err(
+            "let x : (2 ",
+            "Expected '()' for unit type annotation",
+            true,
         );
     }
 }

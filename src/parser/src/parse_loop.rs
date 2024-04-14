@@ -312,5 +312,14 @@ mod tests {
         }
         ";
         test_parse(t, "loop  { let x = 0;loop  { break; };break; };");
+
+        let t = r"
+        loop {
+            let x = if true {
+                break; 3
+            } else { 5 };
+        }
+        ";
+        test_parse(t, "loop  { let x = if true { break;3 } else { 5 }; };");
     }
 }

@@ -183,6 +183,8 @@ pub enum Decl {
     IfOnlyStmt(IfElseData),
     // loop is always a stmt (for now)
     LoopStmt(LoopData),
+    // only inside loop
+    BreakStmt,
 }
 
 impl Decl {
@@ -201,6 +203,7 @@ impl Decl {
             )),
             Self::ExprStmt(expr) => Ok(expr.clone()),
             Self::LoopStmt(_) => Err(ParseError::new("loop is not an expression")),
+            Self::BreakStmt => Err(ParseError::new("break is not an expression")),
         }
     }
 
@@ -228,6 +231,7 @@ impl Display for Decl {
             Decl::AssignStmt(stmt) => stmt.to_string(),
             Decl::IfOnlyStmt(expr) => expr.to_string(),
             Decl::LoopStmt(lp) => lp.to_string(),
+            Decl::BreakStmt => Token::Break.to_string(),
         };
 
         write!(f, "{}", string)

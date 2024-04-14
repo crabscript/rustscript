@@ -237,6 +237,7 @@ impl Compiler {
             }
             Decl::IfOnlyStmt(if_else) => Compiler::compile_if_else(if_else, arr)?,
             Decl::LoopStmt(_) => todo!(),
+            Decl::BreakStmt => todo!(),
         };
 
         Ok(())

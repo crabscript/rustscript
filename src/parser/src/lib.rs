@@ -37,6 +37,7 @@ pub(crate) use expect_token_body;
 pub struct Parser<'inp> {
     prev_tok: Option<Token>,
     lexer: Peekable<Lexer<'inp, Token>>,
+    pub is_loop: bool,
 }
 
 use Decl::*;
@@ -45,6 +46,7 @@ impl<'inp> Parser<'inp> {
         Parser {
             prev_tok: None,
             lexer: lexer.peekable(),
+            is_loop: false,
         }
     }
 
@@ -52,6 +54,7 @@ impl<'inp> Parser<'inp> {
         Parser {
             prev_tok: None,
             lexer: lex(inp).peekable(),
+            is_loop: false,
         }
     }
 
@@ -235,6 +238,13 @@ impl<'inp> Parser<'inp> {
             | Token::Bang
             | Token::OpenBrace
             | Token::If => self.parse_expr(0),
+            // if not is_loop, error
+            Token::Break => {
+                if !self.is_loop {
+                    return Err(ParseError::new("break outside of loop"));
+                }
+                Ok(Decl::BreakStmt)
+            }
             Token::Let => self.parse_let(),
             Token::Loop => self.parse_loop(),
             _ => Err(ParseError::new(&format!(

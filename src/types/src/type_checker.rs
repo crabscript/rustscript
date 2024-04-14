@@ -288,6 +288,7 @@ impl<'prog> TypeChecker<'prog> {
                 self.check_if_else(if_else)?;
             }
             Decl::LoopStmt(_) => todo!(),
+            Decl::BreakStmt => (),
         }
 
         Ok(())

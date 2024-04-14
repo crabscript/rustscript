@@ -4,6 +4,7 @@ pub use error::*;
 pub use io::*;
 pub use operator::*;
 pub use prelude::*;
+pub use semaphore::*;
 pub use stack_frame::*;
 pub use value::*;
 
@@ -14,5 +15,6 @@ mod error;
 mod io;
 mod operator;
 mod prelude;
+mod semaphore;
 mod stack_frame;
 mod value;

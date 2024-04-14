@@ -13,9 +13,9 @@ use anyhow::Result;
 /// # Errors
 ///
 /// Infallible.
-pub fn goto(rt: &mut Runtime, pc: usize) -> Result<()> {
+pub fn goto(mut rt: Runtime, pc: usize) -> Result<Runtime> {
     rt.current_thread.pc = pc;
-    Ok(())
+    Ok(rt)
 }
 
 #[cfg(test)]
@@ -25,7 +25,7 @@ mod tests {
     #[test]
     fn test_goto() {
         let mut rt = Runtime::new(vec![]);
-        goto(&mut rt, 123).unwrap();
+        rt = goto(rt, 123).unwrap();
         assert_eq!(rt.current_thread.pc, 123);
     }
 }

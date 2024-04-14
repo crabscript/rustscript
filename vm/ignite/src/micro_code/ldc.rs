@@ -14,9 +14,9 @@ use crate::Runtime;
 /// # Errors
 ///
 /// Infallible.
-pub fn ldc(rt: &mut Runtime, val: Value) -> Result<()> {
+pub fn ldc(mut rt: Runtime, val: Value) -> Result<Runtime> {
     rt.current_thread.operand_stack.push(val);
-    Ok(())
+    Ok(rt)
 }
 
 #[cfg(test)]
@@ -28,28 +28,28 @@ mod tests {
     #[test]
     fn test_ldc() {
         let mut rt = Runtime::new(vec![]);
-        ldc(&mut rt, Value::Unit).unwrap();
+        rt = ldc(rt, Value::Unit).unwrap();
         assert_eq!(rt.current_thread.operand_stack.pop().unwrap(), Value::Unit);
 
-        ldc(&mut rt, Value::Int(42)).unwrap();
+        rt = ldc(rt, Value::Int(42)).unwrap();
         assert_eq!(
             rt.current_thread.operand_stack.pop().unwrap(),
             Value::Int(42)
         );
 
-        ldc(&mut rt, Value::Float(42.0)).unwrap();
+        rt = ldc(rt, Value::Float(42.0)).unwrap();
         assert_eq!(
             rt.current_thread.operand_stack.pop().unwrap(),
             Value::Float(42.0)
         );
 
-        ldc(&mut rt, Value::Bool(true)).unwrap();
+        rt = ldc(rt, Value::Bool(true)).unwrap();
         assert_eq!(
             rt.current_thread.operand_stack.pop().unwrap(),
             Value::Bool(true)
         );
 
-        ldc(&mut rt, Value::String("hello world".into())).unwrap();
+        rt = ldc(rt, Value::String("hello world".into())).unwrap();
         assert_eq!(
             rt.current_thread.operand_stack.pop().unwrap(),
             Value::String("hello world".into())

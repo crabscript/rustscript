@@ -1,4 +1,3 @@
-use bytecode::ThreadID;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -21,8 +20,8 @@ pub enum VmError {
     #[error("Runtime stack underflow")]
     RuntimeStackUnderflow,
 
-    #[error("Thread not found: {0}")]
-    ThreadNotFound(ThreadID),
+    #[error("No threads in ready queue")]
+    NoThreadsInReadyQueue,
 
     #[error("PC out of bounds: {0}")]
     PcOutOfBounds(usize),
@@ -47,7 +46,4 @@ pub enum VmError {
 
     #[error("Unknown builtin: {sym}")]
     UnknownBuiltin { sym: String },
-
-    #[error("Unimplemented")]
-    Unimplemented,
 }

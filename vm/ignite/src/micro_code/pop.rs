@@ -11,12 +11,12 @@ use crate::{Runtime, VmError};
 /// # Errors
 ///
 /// If the stack is empty.
-pub fn pop(rt: &mut Runtime) -> Result<()> {
+pub fn pop(mut rt: Runtime) -> Result<Runtime> {
     rt.current_thread
         .operand_stack
         .pop()
         .ok_or(VmError::OperandStackUnderflow)?;
-    Ok(())
+    Ok(rt)
 }
 
 #[cfg(test)]
@@ -29,8 +29,8 @@ mod tests {
     #[test]
     fn test_pop() {
         let mut rt = Runtime::new(vec![]);
-        ldc(&mut rt, Value::Unit).unwrap();
-        pop(&mut rt).unwrap();
+        rt = ldc(rt, Value::Unit).unwrap();
+        rt = pop(rt).unwrap();
         assert_eq!(rt.current_thread.operand_stack.len(), 0);
 
         let vals = vec![
@@ -43,22 +43,22 @@ mod tests {
         let val_len = vals.len();
         let mut rt = Runtime::new(vec![]);
         for val in vals {
-            ldc(&mut rt, val).unwrap();
+            rt = ldc(rt, val).unwrap();
         }
         for _ in 0..val_len {
-            pop(&mut rt).unwrap();
+            rt = pop(rt).unwrap();
         }
         assert_eq!(rt.current_thread.operand_stack.len(), 0);
 
-        ldc(&mut rt, Value::String("remember".into())).unwrap();
-        ldc(&mut rt, Value::Unit).unwrap();
-        pop(&mut rt).unwrap();
+        rt = ldc(rt, Value::String("remember".into())).unwrap();
+        rt = ldc(rt, Value::Unit).unwrap();
+        rt = pop(rt).unwrap();
         assert_eq!(
             rt.current_thread.operand_stack.pop().unwrap(),
             Value::String("remember".into())
         );
 
-        let mut empty_rt = Runtime::new(vec![]);
-        assert!(pop(&mut empty_rt).is_err());
+        let empty_rt = Runtime::new(vec![]);
+        assert!(pop(empty_rt).is_err());
     }
 }

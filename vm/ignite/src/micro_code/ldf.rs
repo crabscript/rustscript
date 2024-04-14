@@ -18,7 +18,7 @@ use crate::Runtime;
 /// # Errors
 ///
 /// Infallible.
-pub fn ldf(rt: &mut Runtime, addr: usize, prms: Vec<Symbol>) -> Result<()> {
+pub fn ldf(mut rt: Runtime, addr: usize, prms: Vec<Symbol>) -> Result<Runtime> {
     let closure = Value::Closure {
         fn_type: FnType::User,
         sym: "Closure".to_string(),
@@ -28,7 +28,7 @@ pub fn ldf(rt: &mut Runtime, addr: usize, prms: Vec<Symbol>) -> Result<()> {
     };
 
     rt.current_thread.operand_stack.push(closure);
-    Ok(())
+    Ok(rt)
 }
 
 #[cfg(test)]
@@ -38,7 +38,7 @@ mod tests {
     #[test]
     fn test_ldf() {
         let mut rt = Runtime::new(vec![]);
-        ldf(&mut rt, 0, vec!["x".to_string()]).unwrap();
+        rt = ldf(rt, 0, vec!["x".to_string()]).unwrap();
 
         let closure = rt.current_thread.operand_stack.pop().unwrap();
         assert_ne!(

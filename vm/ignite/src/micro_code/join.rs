@@ -1,11 +1,14 @@
-use std::collections::hash_map::Entry;
+use anyhow::{Ok, Result};
 
-use anyhow::Result;
-use bytecode::ThreadID;
+use crate::{Runtime, VmError};
 
-use crate::{Runtime, ThreadState, VmError};
+use super::yield_;
 
-/// Set the state of the current thread to joining the thread with the given ID.
+/// Peeks the operand stack for the thread ID to join.
+/// If the thread to join is in zombie state, then the current thread will be set to ready and the result
+/// of the zombie thread will be pushed onto the current thread's operand stack. The zombie thread is deallocated.
+/// If the thread to join is not found, then panic.
+/// Otherwise, the current thread will yield.
 ///
 /// # Arguments
 ///
@@ -16,28 +19,79 @@ use crate::{Runtime, ThreadState, VmError};
 /// # Errors
 ///
 /// * If the thread with the given ID is not found in the thread state hashmap.
-pub fn join(rt: &mut Runtime, tid: ThreadID) -> Result<()> {
-    let current_tid = rt.current_thread.thread_id;
-    let entry = rt.thread_states.entry(current_tid);
+/// * If the operand stack is empty.
+/// * If the value on the operand stack is not an integer.
+pub fn join(mut rt: Runtime) -> Result<Runtime> {
+    let tid: i64 = rt
+        .current_thread
+        .operand_stack
+        .last()
+        .ok_or(VmError::OperandStackUnderflow)?
+        .clone()
+        .try_into()?;
 
-    match entry {
-        Entry::Vacant(_) => Err(VmError::ThreadNotFound(current_tid).into()),
-        Entry::Occupied(mut entry) => {
-            entry.insert(ThreadState::Joining(tid));
-            Ok(())
-        }
-    }
+    let Some(mut zombie_thread) = rt.zombie_threads.remove(&tid) else {
+        // If the thread to join is not found, we need to yield control and try again
+        rt.current_thread.pc -= 1; // Decrement the program counter to re-execute the join instruction
+        let rt = yield_(rt)?;
+        return Ok(rt);
+    };
+
+    let result = zombie_thread
+        .operand_stack
+        .pop()
+        .ok_or(VmError::OperandStackUnderflow)?;
+
+    // Deallocate the zombie thread
+    drop(zombie_thread);
+
+    rt.current_thread.operand_stack.push(result);
+    Ok(rt)
 }
 
 #[cfg(test)]
 mod tests {
+    use bytecode::Value;
+
+    use crate::{
+        micro_code::{done, spawn},
+        MAIN_THREAD_ID,
+    };
+
     use super::*;
 
     #[test]
-    fn test_join() -> Result<()> {
-        let mut rt = Runtime::new(vec![]);
-        join(&mut rt, 2)?;
-        assert_eq!(rt.thread_states.get(&1), Some(&ThreadState::Joining(2)));
+    fn test_join_01() -> Result<()> {
+        let mut rt = Runtime::default();
+        rt.current_thread.pc = 1; // prevent u64 subtraction overflow
+        rt = spawn(rt, 0)?;
+        rt = join(rt)?;
+        // Add this point, both threads are in the ready state, so join should yield the current thread
+        assert_eq!(rt.current_thread.thread_id, MAIN_THREAD_ID + 1);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_join_02() -> Result<()> {
+        let mut rt = Runtime::default();
+        rt.current_thread.pc = 1; // prevent u64 subtraction overflow
+        rt = spawn(rt, 0)?;
+        rt = yield_(rt)?; // Yield the parent thread to make the child thread the current thread
+        rt = done(rt)?; // Set the current thread to zombie state
+        rt = yield_(rt)?; // Yield the child thread to make the parent thread the current thread
+
+        rt = join(rt)?;
+        // Add this point, the thread to join is in zombie state, so the current thread should just continue
+        assert_eq!(rt.current_thread.thread_id, MAIN_THREAD_ID);
+        // Zombie thread should be deallocated
+        assert!(rt.zombie_threads.is_empty());
+        // And the result of the zombie thread should be pushed onto the current thread's operand stack
+        assert_eq!(
+            rt.current_thread.operand_stack.pop().unwrap(),
+            Value::Int(0) // SPAWN adds 0 to the operand stack for the new thread
+        );
+
         Ok(())
     }
 }

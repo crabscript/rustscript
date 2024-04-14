@@ -22,6 +22,7 @@ pub fn print_impl(v: &Value) {
         Value::Bool(b) => print!("{}", b),
         Value::Int(i) => print!("{}", i),
         Value::Float(f) => print!("{}", f),
+        Value::Semaphore(_) => print!("semaphore"),
         Value::Closure { .. } => print!("closure"),
     }
 }

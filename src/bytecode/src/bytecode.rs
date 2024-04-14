@@ -8,6 +8,9 @@ pub type Symbol = String;
 /// A thread ID is a unique identifier for a thread.
 pub type ThreadID = i64;
 
+/// An address is a pointer to a location in the bytecode.
+pub type Address = usize;
+
 /// The bytecode instructions that the VM can execute. See ignite::micro_code crate for more information
 /// and implementation details.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -27,9 +30,9 @@ pub enum ByteCode {
     /// Perform the given unary operation on the top of the operant stack.
     UNOP(UnOp),
     /// Jump to the given offset if the top of the operant stack is false.
-    JOF(usize),
+    JOF(Address),
     /// Set pc to the given value.
-    GOTO(usize),
+    GOTO(Address),
     /// Keep popping the runtime stack until the given frame type is found.
     RESET(FrameType),
     /// Create a new scope with the given symbols.
@@ -41,11 +44,17 @@ pub enum ByteCode {
     /// Call a function with the given number of arguments.
     CALL(usize),
     /// Spawn a new thread with the address of the instruction for the child to execute.
-    SPAWN(usize),
+    SPAWN(Address),
     /// Join a thread.
-    JOIN(ThreadID),
+    JOIN,
     /// Yield the current thread.
     YIELD,
+    /// Create a new semaphore (Since semaphores must be created at runtime, this is a special instruction.)
+    SEMCREATE,
+    /// Wait on the semaphore.
+    WAIT,
+    /// Post the semaphore.
+    POST,
 }
 
 /// For creating ByteCode instructions in a more ergonomic way.

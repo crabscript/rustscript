@@ -2,7 +2,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{ByteCodeError, Environment, Symbol};
+use crate::{ByteCodeError, Environment, Semaphore, Symbol};
 
 /// The values that can be stored on the operant stack.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -13,6 +13,8 @@ pub enum Value {
     Float(f64),
     Bool(bool),
     String(String),
+    #[serde(skip_serializing, skip_deserializing)]
+    Semaphore(Semaphore),
     #[serde(skip_serializing, skip_deserializing)]
     Closure {
         fn_type: FnType,
@@ -38,6 +40,7 @@ pub fn type_of(value: &Value) -> &'static str {
         Value::Float(_) => "Float",
         Value::Bool(_) => "Bool",
         Value::String(_) => "String",
+        Value::Semaphore(_) => "Semaphore",
         Value::Closure { .. } => "Closure",
     }
 }
@@ -75,6 +78,12 @@ impl From<String> for Value {
 impl From<&str> for Value {
     fn from(v: &str) -> Self {
         Value::String(v.to_string())
+    }
+}
+
+impl From<Semaphore> for Value {
+    fn from(v: Semaphore) -> Self {
+        Value::Semaphore(v)
     }
 }
 
@@ -142,6 +151,20 @@ impl TryFrom<Value> for String {
             Value::String(s) => Ok(s),
             _ => Err(ByteCodeError::TypeMismatch {
                 expected: "String".to_string(),
+                found: format!("{:?}", value),
+            }),
+        }
+    }
+}
+
+impl TryFrom<Value> for Semaphore {
+    type Error = ByteCodeError;
+
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        match value {
+            Value::Semaphore(s) => Ok(s),
+            _ => Err(ByteCodeError::TypeMismatch {
+                expected: "Semaphore".to_string(),
                 found: format!("{:?}", value),
             }),
         }

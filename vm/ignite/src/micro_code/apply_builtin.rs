@@ -3,7 +3,7 @@ use bytecode::{builtin, Value};
 
 use crate::{Runtime, VmError};
 
-pub fn apply_builtin(rt: &mut Runtime, sym: &str, args: Vec<Value>) -> Result<()> {
+pub fn apply_builtin(mut rt: Runtime, sym: &str, args: Vec<Value>) -> Result<Runtime> {
     match sym {
         builtin::READ_LINE_SYM => {
             let input = builtin::read_line_impl()?;
@@ -168,7 +168,7 @@ pub fn apply_builtin(rt: &mut Runtime, sym: &str, args: Vec<Value>) -> Result<()
         }
     }
 
-    Ok(())
+    Ok(rt)
 }
 
 #[cfg(test)]
@@ -186,17 +186,17 @@ mod tests {
         let sym = PRINT_SYM;
         let args = vec![Value::String(hello_world.clone())];
         println!("Expect to see 'Hello, world!':");
-        apply_builtin(&mut rt, sym, args)?;
+        rt = apply_builtin(rt, sym, args)?;
         println!();
 
         let sym = PRINTLN_SYM;
         let args = vec![Value::String(hello_world.clone())];
         println!("Expect to see 'Hello, world!':");
-        apply_builtin(&mut rt, sym, args)?;
+        rt = apply_builtin(rt, sym, args)?;
 
         let sym = STRING_LEN_SYM;
         let args = vec![Value::String(hello_world.clone())];
-        apply_builtin(&mut rt, sym, args)?;
+        rt = apply_builtin(rt, sym, args)?;
         assert_eq!(
             Value::Int(hello_world.clone().len() as i64),
             rt.current_thread.operand_stack.pop().unwrap()
@@ -205,7 +205,7 @@ mod tests {
         // Conv
         let sym = INT_TO_FLOAT_SYM;
         let args = vec![Value::Int(42)];
-        apply_builtin(&mut rt, sym, args)?;
+        rt = apply_builtin(rt, sym, args)?;
 
         let expected = Value::Float(42.0);
         let actual = rt.current_thread.operand_stack.pop().unwrap();
@@ -213,7 +213,7 @@ mod tests {
 
         let sym = FLOAT_TO_INT_SYM;
         let args = vec![Value::Float(42.0)];
-        apply_builtin(&mut rt, sym, args)?;
+        rt = apply_builtin(rt, sym, args)?;
 
         let expected = Value::Int(42);
         let actual = rt.current_thread.operand_stack.pop().unwrap();
@@ -221,19 +221,20 @@ mod tests {
 
         let sym = ATOI_SYM;
         let args = vec![Value::String("42".to_string())];
-        apply_builtin(&mut rt, sym, args)?;
+        rt = apply_builtin(rt, sym, args)?;
         assert_eq!(
             Value::Int(42),
             rt.current_thread.operand_stack.pop().unwrap()
         );
 
         let args: Vec<Value> = vec![Value::String("forty-two".to_string())];
-        let result = apply_builtin(&mut rt, sym, args);
+        let result = apply_builtin(rt, sym, args);
         assert!(result.is_err());
 
+        let mut rt = Runtime::new(vec![]);
         let sym = ITOA_SYM;
         let args = vec![Value::Int(42)];
-        apply_builtin(&mut rt, sym, args)?;
+        rt = apply_builtin(rt, sym, args)?;
         assert_eq!(
             Value::String("42".to_string()),
             rt.current_thread.operand_stack.pop().unwrap()
@@ -242,14 +243,14 @@ mod tests {
         // Math
         let sym = MIN_SYM;
         let args = vec![Value::Int(42), Value::Int(24)];
-        apply_builtin(&mut rt, sym, args)?;
+        rt = apply_builtin(rt, sym, args)?;
         assert_eq!(
             Value::Int(24),
             rt.current_thread.operand_stack.pop().unwrap()
         );
 
         let args = vec![Value::Float(42.0), Value::Float(24.0)];
-        apply_builtin(&mut rt, sym, args)?;
+        rt = apply_builtin(rt, sym, args)?;
         assert_eq!(
             Value::Float(24.0),
             rt.current_thread.operand_stack.pop().unwrap()
@@ -257,14 +258,14 @@ mod tests {
 
         let sym = MAX_SYM;
         let args = vec![Value::Int(42), Value::Int(24)];
-        apply_builtin(&mut rt, sym, args)?;
+        rt = apply_builtin(rt, sym, args)?;
         assert_eq!(
             Value::Int(42),
             rt.current_thread.operand_stack.pop().unwrap()
         );
 
         let args = vec![Value::Float(42.0), Value::Float(24.0)];
-        apply_builtin(&mut rt, sym, args)?;
+        rt = apply_builtin(rt, sym, args)?;
         assert_eq!(
             Value::Float(42.0),
             rt.current_thread.operand_stack.pop().unwrap()
@@ -272,14 +273,14 @@ mod tests {
 
         let sym = ABS_SYM;
         let args = vec![Value::Int(-42)];
-        apply_builtin(&mut rt, sym, args)?;
+        rt = apply_builtin(rt, sym, args)?;
         assert_eq!(
             Value::Int(42),
             rt.current_thread.operand_stack.pop().unwrap()
         );
 
         let args = vec![Value::Float(-42.0)];
-        apply_builtin(&mut rt, sym, args)?;
+        rt = apply_builtin(rt, sym, args)?;
         assert_eq!(
             Value::Float(42.0),
             rt.current_thread.operand_stack.pop().unwrap()
@@ -287,14 +288,14 @@ mod tests {
 
         let sym = COS_SYM;
         let args = vec![Value::Float(0.0)];
-        apply_builtin(&mut rt, sym, args)?;
+        rt = apply_builtin(rt, sym, args)?;
         assert_eq!(
             Value::Float(0.0_f64.cos()),
             rt.current_thread.operand_stack.pop().unwrap()
         );
 
         let args = vec![Value::Float(std::f64::consts::PI)];
-        apply_builtin(&mut rt, sym, args)?;
+        rt = apply_builtin(rt, sym, args)?;
         assert_eq!(
             Value::Float(std::f64::consts::PI.cos()),
             rt.current_thread.operand_stack.pop().unwrap()
@@ -302,14 +303,14 @@ mod tests {
 
         let sym = SIN_SYM;
         let args = vec![Value::Float(0.0)];
-        apply_builtin(&mut rt, sym, args)?;
+        rt = apply_builtin(rt, sym, args)?;
         assert_eq!(
             Value::Float(0.0),
             rt.current_thread.operand_stack.pop().unwrap()
         );
 
         let args = vec![Value::Float(std::f64::consts::PI)];
-        apply_builtin(&mut rt, sym, args)?;
+        rt = apply_builtin(rt, sym, args)?;
         assert_eq!(
             Value::Float(std::f64::consts::PI.sin()),
             rt.current_thread.operand_stack.pop().unwrap()
@@ -317,14 +318,14 @@ mod tests {
 
         let sym = TAN_SYM;
         let args = vec![Value::Float(0.0)];
-        apply_builtin(&mut rt, sym, args)?;
+        rt = apply_builtin(rt, sym, args)?;
         assert_eq!(
             Value::Float(0.0),
             rt.current_thread.operand_stack.pop().unwrap()
         );
 
         let args = vec![Value::Float(std::f64::consts::PI)];
-        apply_builtin(&mut rt, sym, args)?;
+        rt = apply_builtin(rt, sym, args)?;
         assert_eq!(
             Value::Float(std::f64::consts::PI.tan()),
             rt.current_thread.operand_stack.pop().unwrap()
@@ -332,14 +333,14 @@ mod tests {
 
         let sym = SQRT_SYM;
         let args = vec![Value::Float(42.0)];
-        apply_builtin(&mut rt, sym, args)?;
+        rt = apply_builtin(rt, sym, args)?;
         assert_eq!(
             Value::Float(42.0_f64.sqrt()),
             rt.current_thread.operand_stack.pop().unwrap()
         );
 
         let args = vec![Value::Float(102934.0)];
-        apply_builtin(&mut rt, sym, args)?;
+        rt = apply_builtin(rt, sym, args)?;
         assert_eq!(
             Value::Float(102934.0_f64.sqrt()),
             rt.current_thread.operand_stack.pop().unwrap()
@@ -347,19 +348,20 @@ mod tests {
 
         let sym = POW_SYM;
         let args = vec![Value::Float(2.0), Value::Float(3.0)];
-        apply_builtin(&mut rt, sym, args)?;
+        rt = apply_builtin(rt, sym, args)?;
         assert_eq!(
             Value::Float(2.0_f64.powf(3.0)),
             rt.current_thread.operand_stack.pop().unwrap()
         );
 
         let args = vec![Value::Float(2.0), Value::Int(3)];
-        let result = apply_builtin(&mut rt, sym, args);
+        let result = apply_builtin(rt, sym, args);
         assert!(result.is_err());
 
+        let mut rt = Runtime::new(vec![]);
         let sym = LOG_SYM;
         let args = vec![Value::Float(42.0)];
-        apply_builtin(&mut rt, sym, args)?;
+        rt = apply_builtin(rt, sym, args)?;
         assert_eq!(
             Value::Float(42.0_f64.log(10.0)),
             rt.current_thread.operand_stack.pop().unwrap()

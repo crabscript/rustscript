@@ -109,6 +109,14 @@ impl Environment {
         env.borrow_mut()
             .set(builtin::PRINTLN_SYM, builtin::println(Rc::clone(&env)));
 
+        // Semaphore functions
+        env.borrow_mut().set(
+            builtin::SEM_CREATE_SYM,
+            builtin::sem_create(Rc::clone(&env)),
+        );
+        env.borrow_mut()
+            .set(builtin::SEM_SET_SYM, builtin::sem_set(Rc::clone(&env)));
+
         env
     }
 

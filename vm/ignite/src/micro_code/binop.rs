@@ -140,8 +140,19 @@ pub fn binop(mut rt: Runtime, op: BinOp) -> Result<Runtime> {
             rt.current_thread.operand_stack.push(result);
             Ok(rt)
         }
-        (Value::Semaphore(_), Value::Semaphore(_)) => {
-            Err(VmError::UnsupportedOperation(op.into(), type_of(&rhs_val).to_string()).into())
+        (Value::Semaphore(s1), Value::Semaphore(s2)) => {
+            let result = match op {
+                BinOp::Eq => Value::Bool(s1 == s2),
+                _ => {
+                    return Err(VmError::UnsupportedOperation(
+                        op.into(),
+                        type_of(&rhs_val).to_string(),
+                    )
+                    .into())
+                }
+            };
+            rt.current_thread.operand_stack.push(result);
+            Ok(rt)
         }
         (Value::Closure { .. }, Value::Closure { .. }) => {
             Err(VmError::UnsupportedOperation(op.into(), type_of(&rhs_val).to_string()).into())
@@ -157,7 +168,7 @@ pub fn binop(mut rt: Runtime, op: BinOp) -> Result<Runtime> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bytecode::{BinOp, Value};
+    use bytecode::{BinOp, Semaphore, Value};
 
     use crate::micro_code::ldc;
 
@@ -320,6 +331,15 @@ mod tests {
         assert_eq!(
             rt.current_thread.operand_stack.pop().unwrap(),
             Value::Bool(false)
+        );
+
+        let sem: Value = Semaphore::new(1).into();
+        rt = ldc(rt, sem.clone()).unwrap();
+        rt = ldc(rt, sem).unwrap();
+        rt = binop(rt, BinOp::Eq).unwrap();
+        assert_eq!(
+            rt.current_thread.operand_stack.pop().unwrap(),
+            Value::Bool(true)
         );
     }
 }

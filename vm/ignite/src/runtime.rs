@@ -108,16 +108,15 @@ pub fn run(mut rt: Runtime) -> Result<Runtime> {
 ///
 /// If an error occurs during execution.
 pub fn execute(rt: Runtime, instr: ByteCode) -> Result<Runtime> {
+    let thread_id = rt.current_thread.thread_id;
+    let pc = rt.current_thread.pc - 1;
+    let instruction = instr.clone();
+
     if rt.debug {
-        println!(
-            "Thread: {}, PC: {}, {:?}",
-            rt.current_thread.thread_id,
-            rt.current_thread.pc - 1,
-            instr
-        );
+        println!("Thread: {}, PC: {}, {:?}", thread_id, pc, instr);
     }
 
-    match instr {
+    let result = match instruction {
         ByteCode::DONE => micro_code::done(rt),
         ByteCode::ASSIGN(sym) => micro_code::assign(rt, sym),
         ByteCode::LD(sym) => micro_code::ld(rt, sym),
@@ -138,6 +137,14 @@ pub fn execute(rt: Runtime, instr: ByteCode) -> Result<Runtime> {
         ByteCode::SEMCREATE => micro_code::sem_create(rt),
         ByteCode::WAIT => micro_code::wait(rt),
         ByteCode::POST => micro_code::post(rt),
+    };
+
+    match result {
+        Ok(rt) => Ok(rt),
+        Err(e) => {
+            eprintln!("Thread: {}, PC: {}, {:?}", thread_id, pc, instr);
+            Err(e)
+        }
     }
 }
 
@@ -495,7 +502,7 @@ mod tests {
     fn test_concurrency_04() -> Result<()> {
         // let count = 0;
         //
-        // fn increment(times:  int) {
+        // fn increment(times: int) {
         //   let i = 0;
         //   while i < times {
         //     count = count + 1;
@@ -647,9 +654,9 @@ mod tests {
     #[test]
     fn test_concurrency_05() -> Result<()> {
         // let count = 0;
-        // let sem = Semaphore::new();
+        // let sem = sem_create();
         //
-        // fn increment(times:  int) {
+        // fn increment(times: int) {
         //   let i = 0;
         //   while i < times {
         //     wait sem;
@@ -677,118 +684,120 @@ mod tests {
             // pc 2
             ByteCode::assign("count"), // Set count to 0
             // pc 3
-            ByteCode::SEMCREATE,
+            ByteCode::ld(builtin::SEM_CREATE_SYM),
             // pc 4
-            ByteCode::assign("sem"), // Set sem to the semaphore
+            ByteCode::CALL(0),
             // pc 5
-            ByteCode::ldf(8, vec!["times"]),
+            ByteCode::assign("sem"), // Set sem to the semaphore
             // pc 6
-            ByteCode::assign("increment"), // assign function
+            ByteCode::ldf(9, vec!["times"]),
             // pc 7
-            ByteCode::GOTO(31), // Jump past function body
+            ByteCode::assign("increment"), // assign function
             // pc 8
-            ByteCode::enterscope(vec!["i"]),
+            ByteCode::GOTO(32), // Jump past function body
             // pc 9
-            ByteCode::ldc(0),
+            ByteCode::enterscope(vec!["i"]),
             // pc 10
-            ByteCode::assign("i"),
+            ByteCode::ldc(0),
             // pc 11
-            ByteCode::ld("i"),
-            // pc 12
-            ByteCode::ld("times"),
-            // pc 13
-            ByteCode::BINOP(BinOp::Lt),
-            // pc 14
-            ByteCode::JOF(29), // Jump past the loop
-            // pc 15
-            ByteCode::ld("sem"),
-            // pc 16
-            ByteCode::WAIT,
-            // pc 17
-            ByteCode::ld("count"),
-            // pc 18
-            ByteCode::ldc(1),
-            // pc 19
-            ByteCode::BINOP(BinOp::Add),
-            // pc 20
-            ByteCode::assign("count"),
-            // pc 21
-            ByteCode::ld("sem"),
-            // pc 22
-            ByteCode::POST,
-            // pc 23
-            ByteCode::ld("i"),
-            // pc 24
-            ByteCode::ldc(1),
-            // pc 25
-            ByteCode::YIELD, // Try to introduce race conditions
-            // pc 26
-            ByteCode::BINOP(BinOp::Add),
-            // pc 27
             ByteCode::assign("i"),
+            // pc 12
+            ByteCode::ld("i"),
+            // pc 13
+            ByteCode::ld("times"),
+            // pc 14
+            ByteCode::BINOP(BinOp::Lt),
+            // pc 15
+            ByteCode::JOF(30), // Jump past the loop
+            // pc 16
+            ByteCode::ld("sem"),
+            // pc 17
+            ByteCode::WAIT,
+            // pc 18
+            ByteCode::ld("count"),
+            // pc 19
+            ByteCode::ldc(1),
+            // pc 20
+            ByteCode::BINOP(BinOp::Add),
+            // pc 21
+            ByteCode::assign("count"),
+            // pc 22
+            ByteCode::ld("sem"),
+            // pc 23
+            ByteCode::POST,
+            // pc 24
+            ByteCode::ld("i"),
+            // pc 25
+            ByteCode::ldc(1),
+            // pc 26
+            ByteCode::YIELD, // Try to introduce race conditions
+            // pc 27
+            ByteCode::BINOP(BinOp::Add),
             // pc 28
-            ByteCode::GOTO(11), // End of loop
+            ByteCode::assign("i"),
             // pc 29
-            ByteCode::EXITSCOPE,
+            ByteCode::GOTO(12), // End of loop
             // pc 30
-            ByteCode::RESET(FrameType::CallFrame), // End of function
+            ByteCode::EXITSCOPE,
             // pc 31
-            ByteCode::SPAWN(34), // Parent operand stack will have child tid 2, child operand stack will have 0
+            ByteCode::RESET(FrameType::CallFrame), // End of function
             // pc 32
-            ByteCode::assign("tid_2"), // Parent saves the child tid
+            ByteCode::SPAWN(35), // Parent operand stack will have child tid 2, child operand stack will have 0
             // pc 33
-            ByteCode::GOTO(38), // Parent jumps past function call by the child
+            ByteCode::assign("tid_2"), // Parent saves the child tid
             // pc 34
-            ByteCode::ld("increment"), // Child loads the function
+            ByteCode::GOTO(39), // Parent jumps past function call by the child
             // pc 35
-            ByteCode::ldc(100), // Child loads the argument
+            ByteCode::ld("increment"), // Child loads the function
             // pc 36
-            ByteCode::CALL(1), // Child calls the increment function with 100
+            ByteCode::ldc(100), // Child loads the argument
             // pc 37
-            ByteCode::DONE, // Child is done
+            ByteCode::CALL(1), // Child calls the increment function with 100
             // pc 38
-            ByteCode::SPAWN(41), // Parent operand stack will have child tid 3, child operand stack will have 0
+            ByteCode::DONE, // Child is done
             // pc 39
-            ByteCode::assign("tid_3"), // Parent saves the child tid
+            ByteCode::SPAWN(42), // Parent operand stack will have child tid 3, child operand stack will have 0
             // pc 40
-            ByteCode::GOTO(45), // Parent jumps past function call by the child
+            ByteCode::assign("tid_3"), // Parent saves the child tid
             // pc 41
-            ByteCode::ld("increment"), // Child loads the function
+            ByteCode::GOTO(46), // Parent jumps past function call by the child
             // pc 42
-            ByteCode::ldc(100), // Child loads the argument
-            // pc 43
-            ByteCode::CALL(1), // Child calls the increment function with 100
-            // pc 44
-            ByteCode::DONE, // Child is done
-            // pc 45
-            ByteCode::SPAWN(48), // Parent operand stack will have child tid 4, child operand stack will have 0
-            // pc 46
-            ByteCode::assign("tid_4"), // Parent loads the child tid
-            // pc 47
-            ByteCode::GOTO(52), // Parent jumps past function call by the child
-            // pc 48
             ByteCode::ld("increment"), // Child loads the function
-            // pc 49
+            // pc 43
             ByteCode::ldc(100), // Child loads the argument
-            // pc 50
+            // pc 44
             ByteCode::CALL(1), // Child calls the increment function with 100
-            // pc 51
+            // pc 45
             ByteCode::DONE, // Child is done
+            // pc 46
+            ByteCode::SPAWN(49), // Parent operand stack will have child tid 4, child operand stack will have 0
+            // pc 47
+            ByteCode::assign("tid_4"), // Parent loads the child tid
+            // pc 48
+            ByteCode::GOTO(53), // Parent jumps past function call by the child
+            // pc 49
+            ByteCode::ld("increment"), // Child loads the function
+            // pc 50
+            ByteCode::ldc(100), // Child loads the argument
+            // pc 51
+            ByteCode::CALL(1), // Child calls the increment function with 100
             // pc 52
-            ByteCode::ld("tid_2"),
+            ByteCode::DONE, // Child is done
             // pc 53
-            ByteCode::JOIN, // Parent thread joins the child thread
+            ByteCode::ld("tid_2"),
             // pc 54
-            ByteCode::ld("tid_3"), // Parent loads the child tid
+            ByteCode::JOIN, // Parent thread joins the child thread
             // pc 55
-            ByteCode::JOIN, // Parent thread joins the child thread
+            ByteCode::ld("tid_3"), // Parent loads the child tid
             // pc 56
-            ByteCode::ld("tid_4"), // Parent loads the child tid
-            // pc 57
             ByteCode::JOIN, // Parent thread joins the child thread
+            // pc 57
+            ByteCode::ld("tid_4"), // Parent loads the child tid
             // pc 58
-            ByteCode::ld("count"), // Parent loads the count
+            ByteCode::JOIN, // Parent thread joins the child thread
             // pc 59
+            ByteCode::ld("count"), // Parent loads the count
+            // pc 60
             ByteCode::DONE, // Parent is done
         ];
 

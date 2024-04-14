@@ -79,7 +79,7 @@ impl<'inp> Parser<'inp> {
 
 #[cfg(test)]
 mod tests {
-    use crate::tests::test_parse;
+    use crate::tests::{test_parse, test_parse_err};
 
     #[test]
     fn test_parse_loop_nocond() {
@@ -102,6 +102,14 @@ mod tests {
         3;
         ";
         test_parse(t, "loop  { 2;if (x==3) { 5; };100 };3;");
+
+        // can't assign as expr
+        let t = "
+        let x = loop {
+
+        };
+        ";
+        test_parse_err(t, "loop is not an expression", true);
     }
 
     #[test]
@@ -132,13 +140,58 @@ mod tests {
         }
         ";
         test_parse(t, "loop if (x&&y) { false } else { true } { 2;3 };");
+
+        // can't use just the loop as cond
+        let t = r"
+        loop loop {} {
+
+        }
+        ";
+        test_parse_err(t, "not an expression: 'loop'", true);
     }
 
     #[test]
-    fn test_parse_loop_multiple() {}
+    fn test_parse_loop_multiple() {
+        let t = r"
+        loop {
+            200;
+        }
+
+        let x = 0;
+        loop x < 5 {
+            x = x + 1;
+        }
+        ";
+        test_parse(t, "loop  { 200; };let x = 0;loop (x<5) { x = (x+1); };");
+    }
 
     #[test]
-    fn test_parse_loop_nested() {}
+    fn test_parse_loop_nested() {
+        let t = r"
+        loop {
+            loop {
+
+            }
+        }
+        ";
+        test_parse(t, "loop  { loop  {  }; };");
+
+        let t = r"
+        let i = 0;
+        loop i < 5 {
+            let j = 0;
+            loop {
+                j = j+ 1;
+            }
+
+            i = i + 1;
+        }
+        ";
+        test_parse(
+            t,
+            "let i = 0;loop (i<5) { let j = 0;loop  { j = (j+1); };i = (i+1); };",
+        );
+    }
 
     #[test]
     fn test_parse_loop_break() {}

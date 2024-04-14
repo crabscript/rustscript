@@ -3,7 +3,7 @@ use std::rc::Rc;
 use anyhow::Result;
 use bytecode::{type_of, FnType, FrameType, StackFrame, Value};
 
-use crate::{extend_environment, Runtime, VmError};
+use crate::{Runtime, VmError};
 
 use super::apply_builtin;
 
@@ -26,7 +26,7 @@ use super::apply_builtin;
 ///
 /// If the operand stack does not contain enough values to pop (arity + 1).
 /// If the closure is not of type closure or the arity of the closure does not match the number of arguments.
-pub fn call(rt: &mut Runtime, arity: usize) -> Result<()> {
+pub fn call(mut rt: Runtime, arity: usize) -> Result<Runtime> {
     let mut args = Vec::new();
 
     for _ in 0..arity {
@@ -78,10 +78,10 @@ pub fn call(rt: &mut Runtime, arity: usize) -> Result<()> {
     };
 
     rt.current_thread.runtime_stack.push(frame);
-    extend_environment(&mut rt.current_thread, prms, args)?;
+    rt.current_thread.extend_environment(prms, args)?;
     rt.current_thread.pc = addr;
 
-    Ok(())
+    Ok(rt)
 }
 
 #[cfg(test)]
@@ -91,11 +91,11 @@ mod tests {
 
     #[test]
     fn test_call() {
-        let mut rt = Runtime::new(vec![ByteCode::CALL(0), ByteCode::DONE]);
-        let result = call(&mut rt, 0);
-
+        let rt = Runtime::new(vec![ByteCode::CALL(0), ByteCode::DONE]);
+        let result = call(rt, 0);
         assert!(result.is_err());
 
+        let mut rt = Runtime::new(vec![ByteCode::CALL(0), ByteCode::DONE]);
         rt.current_thread.operand_stack.push(Value::Closure {
             fn_type: FnType::User,
             sym: "Closure".to_string(),
@@ -104,8 +104,9 @@ mod tests {
             env: Environment::new_wrapped(),
         });
 
-        let result = call(&mut rt, 0);
+        let result = call(rt, 0);
         assert!(result.is_ok());
+        rt = result.unwrap();
         assert_eq!(rt.current_thread.pc, 123);
     }
 }

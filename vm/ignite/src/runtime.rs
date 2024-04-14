@@ -4,12 +4,12 @@ use std::{
 };
 
 use anyhow::Result;
-use bytecode::{ByteCode, ThreadID};
+use bytecode::{ByteCode, Semaphore, ThreadID};
 
-use crate::{micro_code, Thread, ThreadState, VmError};
+use crate::{micro_code, Thread, VmError};
 
-const DEFAULT_TIME_QUANTUM: Duration = Duration::from_millis(100);
-const MAIN_THREAD_ID: i64 = 1;
+pub const DEFAULT_TIME_QUANTUM: Duration = Duration::from_millis(100);
+pub const MAIN_THREAD_ID: i64 = 1;
 
 /// The runtime of the virtual machine.
 /// It contains the instructions to execute, the current thread, and the ready and suspended threads.
@@ -18,38 +18,46 @@ const MAIN_THREAD_ID: i64 = 1;
 /// The suspended queue is a queue of threads that are waiting for some event to occur.
 /// The running thread is the thread that is currently executing.
 pub struct Runtime {
-    time: Instant,
-    time_quantum: Duration,
+    pub time: Instant,
+    pub time_quantum: Duration,
     pub instrs: Vec<ByteCode>,
+    pub debug: bool,
+    pub done: bool,
     pub thread_count: i64,
-    pub thread_states: HashMap<ThreadID, ThreadState>,
     pub current_thread: Thread,
     pub ready_queue: VecDeque<Thread>,
-    pub suspended_queue: VecDeque<Thread>,
+    pub blocked_queue: VecDeque<(Thread, Semaphore)>,
     pub zombie_threads: HashMap<ThreadID, Thread>,
 }
 
 impl Runtime {
     pub fn new(instrs: Vec<ByteCode>) -> Self {
-        let mut thread_states = HashMap::new();
-        thread_states.insert(MAIN_THREAD_ID, ThreadState::Ready);
-        let current_thread = Thread::new(MAIN_THREAD_ID);
-
         Runtime {
             time: Instant::now(),
             time_quantum: DEFAULT_TIME_QUANTUM,
             instrs,
+            debug: false,
+            done: false,
             thread_count: 1,
-            thread_states,
-            current_thread,
+            current_thread: Thread::new(MAIN_THREAD_ID),
             ready_queue: VecDeque::new(),
-            suspended_queue: VecDeque::new(),
+            blocked_queue: VecDeque::new(),
             zombie_threads: HashMap::new(),
         }
     }
 
     pub fn set_time_quantum(&mut self, time_quantum: Duration) {
         self.time_quantum = time_quantum;
+    }
+
+    pub fn set_debug_mode(&mut self) {
+        self.debug = true;
+    }
+}
+
+impl Default for Runtime {
+    fn default() -> Self {
+        Runtime::new(vec![])
     }
 }
 
@@ -68,33 +76,17 @@ impl Runtime {
 /// If an error occurs during execution.
 pub fn run(mut rt: Runtime) -> Result<Runtime> {
     loop {
+        if rt.is_done() {
+            break;
+        }
+
         if rt.time_quantum_expired() {
-            rt = rt.yield_current_thread();
-        }
-
-        if rt.should_yield_current_thread() {
-            rt = rt.yield_current_thread();
-        }
-
-        if rt.is_current_thread_joining() {
-            rt = rt.join_current_thread()?;
+            rt = micro_code::yield_(rt)?;
+            continue;
         }
 
         let instr = rt.fetch_instr()?;
-
-        execute(&mut rt, instr)?;
-
-        if !rt.is_current_thread_done() {
-            continue;
-        }
-
-        if !rt.is_current_main_thread() {
-            rt = rt.zombify_current_thread();
-            continue;
-        }
-
-        // If the main thread is done, then the program is done.
-        break;
+        rt = execute(rt, instr)?;
     }
 
     Ok(rt)
@@ -115,152 +107,37 @@ pub fn run(mut rt: Runtime) -> Result<Runtime> {
 /// # Errors
 ///
 /// If an error occurs during execution.
-pub fn execute(rt: &mut Runtime, instr: ByteCode) -> Result<()> {
+pub fn execute(rt: Runtime, instr: ByteCode) -> Result<Runtime> {
+    if rt.debug {
+        println!(
+            "Thread: {}, PC: {}, {:?}",
+            rt.current_thread.thread_id,
+            rt.current_thread.pc - 1,
+            instr
+        );
+    }
+
     match instr {
-        ByteCode::DONE => micro_code::done(rt)?,
-        ByteCode::ASSIGN(sym) => micro_code::assign(rt, sym)?,
-        ByteCode::LD(sym) => micro_code::ld(rt, sym)?,
-        ByteCode::LDC(val) => micro_code::ldc(rt, val)?,
-        ByteCode::LDF(addr, prms) => micro_code::ldf(rt, addr, prms)?,
-        ByteCode::POP => micro_code::pop(rt)?,
-        ByteCode::UNOP(op) => micro_code::unop(rt, op)?,
-        ByteCode::BINOP(op) => micro_code::binop(rt, op)?,
-        ByteCode::JOF(pc) => micro_code::jof(rt, pc)?,
-        ByteCode::GOTO(pc) => micro_code::goto(rt, pc)?,
-        ByteCode::RESET(ft) => micro_code::reset(rt, ft)?,
-        ByteCode::ENTERSCOPE(syms) => micro_code::enter_scope(rt, syms)?,
-        ByteCode::EXITSCOPE => micro_code::exit_scope(rt)?,
-        ByteCode::CALL(arity) => micro_code::call(rt, arity)?,
-        ByteCode::SPAWN(addr) => micro_code::spawn(rt, addr)?,
-        ByteCode::JOIN(tid) => micro_code::join(rt, tid)?,
-        ByteCode::YIELD => micro_code::yield_(rt)?,
-    }
-    Ok(())
-}
-
-impl Runtime {
-    /// Get the current state of the current thread.
-    /// Panics if the current thread is not found.
-    pub fn get_current_thread_state(&self) -> ThreadState {
-        let current_thread_id = self.current_thread.thread_id;
-        *self
-            .thread_states
-            .get(&current_thread_id)
-            .ok_or(VmError::ThreadNotFound(current_thread_id))
-            .expect("Current thread not found")
-    }
-
-    pub fn set_thread_state(&mut self, thread_id: ThreadID, state: ThreadState) {
-        self.thread_states.insert(thread_id, state);
-    }
-
-    /// Check if the time quantum has expired.
-    /// The time quantum is the maximum amount of time a thread can run before it is preempted.
-    pub fn time_quantum_expired(&self) -> bool {
-        self.time.elapsed() >= self.time_quantum
-    }
-
-    /// Check if the current thread should yield.
-    /// This is set by the `YIELD` instruction.
-    pub fn should_yield_current_thread(&self) -> bool {
-        self.get_current_thread_state() == ThreadState::Yielded
-    }
-
-    /// Yield the current thread. Set the state of the current thread to `Ready` and push it onto the ready queue.
-    /// Pop the next thread from the ready queue and set it as the current thread.
-    /// The timer is reset to the current time.
-    /// Panics if the current thread is not found.
-    pub fn yield_current_thread(mut self) -> Self {
-        let current_thread_id = self.current_thread.thread_id;
-        self.set_thread_state(current_thread_id, ThreadState::Ready);
-
-        let current_thread = self.current_thread;
-        self.ready_queue.push_back(current_thread);
-
-        let next_ready_thread = self
-            .ready_queue
-            .pop_front()
-            .expect("No threads in ready queue");
-
-        self.current_thread = next_ready_thread;
-        self.time = Instant::now(); // Reset the time
-        self
-    }
-
-    /// Zombify the current thread. Set the state of the current thread to `Zombie` and add it into the zombie threads.
-    /// Pop the next thread from the ready queue and set it as the current thread.
-    pub fn zombify_current_thread(mut self) -> Self {
-        let current_thread = self.current_thread;
-        let current_thread_id = current_thread.thread_id;
-        let next_ready_thread = self
-            .ready_queue
-            .pop_front()
-            .expect("No threads in ready queue");
-
-        self.zombie_threads
-            .insert(current_thread_id, current_thread);
-        self.thread_states
-            .insert(current_thread_id, ThreadState::Zombie);
-
-        self.current_thread = next_ready_thread;
-        self
-    }
-
-    pub fn is_current_thread_done(&self) -> bool {
-        self.get_current_thread_state() == ThreadState::Done
-    }
-
-    pub fn is_current_main_thread(&self) -> bool {
-        self.current_thread.thread_id == MAIN_THREAD_ID
-    }
-
-    pub fn is_current_thread_joining(&self) -> bool {
-        matches!(self.get_current_thread_state(), ThreadState::Joining(_))
-    }
-
-    /// Join the current thread with the thread with the given ThreadID based on the current thread's state.
-    /// If the thread to join is in zombie state, then the current thread will be set to ready and the result
-    /// of the zombie thread will be pushed onto the current thread's operand stack. The zombie thread is deallocated.
-    /// If the thread to join is not found, then panic.
-    /// Otherwise, the current thread will yield.
-    pub fn join_current_thread(mut self) -> Result<Self> {
-        let current_thread_id = self.current_thread.thread_id;
-
-        let ThreadState::Joining(tid) = self.get_current_thread_state() else {
-            panic!("Current thread is not joining");
-        };
-
-        let thread_to_join_state = self.thread_states.get(&tid);
-
-        match thread_to_join_state {
-            // If the thread to join does not exist, then panic
-            None => {
-                panic!("Thread to join not found");
-            }
-            // If the thread to join is in zombie state, then the current thread will be set to ready
-            Some(ThreadState::Zombie) => {
-                self.set_thread_state(current_thread_id, ThreadState::Ready);
-                let mut zombie_thread = self
-                    .zombie_threads
-                    .remove(&tid)
-                    .ok_or(VmError::ThreadNotFound(tid))?;
-
-                let result = zombie_thread
-                    .operand_stack
-                    .pop()
-                    .ok_or(VmError::OperandStackUnderflow)?;
-
-                self.thread_states.remove(&tid); // Deallocate the zombie thread
-                self.current_thread.operand_stack.push(result);
-                Ok(self)
-            }
-            // Otherwise we will yield the current thread
-            _ => {
-                self.current_thread.pc -= 1; // Decrement the program counter to re-execute the join instruction
-                let rt = self.yield_current_thread();
-                Ok(rt)
-            }
-        }
+        ByteCode::DONE => micro_code::done(rt),
+        ByteCode::ASSIGN(sym) => micro_code::assign(rt, sym),
+        ByteCode::LD(sym) => micro_code::ld(rt, sym),
+        ByteCode::LDC(val) => micro_code::ldc(rt, val),
+        ByteCode::LDF(addr, prms) => micro_code::ldf(rt, addr, prms),
+        ByteCode::POP => micro_code::pop(rt),
+        ByteCode::UNOP(op) => micro_code::unop(rt, op),
+        ByteCode::BINOP(op) => micro_code::binop(rt, op),
+        ByteCode::JOF(pc) => micro_code::jof(rt, pc),
+        ByteCode::GOTO(pc) => micro_code::goto(rt, pc),
+        ByteCode::RESET(ft) => micro_code::reset(rt, ft),
+        ByteCode::ENTERSCOPE(syms) => micro_code::enter_scope(rt, syms),
+        ByteCode::EXITSCOPE => micro_code::exit_scope(rt),
+        ByteCode::CALL(arity) => micro_code::call(rt, arity),
+        ByteCode::SPAWN(addr) => micro_code::spawn(rt, addr),
+        ByteCode::JOIN => micro_code::join(rt),
+        ByteCode::YIELD => micro_code::yield_(rt),
+        ByteCode::SEMCREATE => micro_code::sem_create(rt),
+        ByteCode::WAIT => micro_code::wait(rt),
+        ByteCode::POST => micro_code::post(rt),
     }
 }
 
@@ -284,10 +161,21 @@ impl Runtime {
         self.current_thread.pc += 1;
         Ok(instr)
     }
+    /// Check if the time quantum has expired.
+    /// The time quantum is the maximum amount of time a thread can run before it is preempted.
+    pub fn time_quantum_expired(&self) -> bool {
+        self.time.elapsed() >= self.time_quantum
+    }
+
+    /// The program is done if the current thread is the main thread and the current thread is done.
+    pub fn is_done(&self) -> bool {
+        self.done
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::vec;
 
     use super::*;
     use anyhow::{Ok, Result};
@@ -533,7 +421,8 @@ mod tests {
             ByteCode::ldc(123),
             ByteCode::CALL(1),
             ByteCode::DONE,
-            ByteCode::JOIN(MAIN_THREAD_ID + 1), // Parent thread joins the child thread
+            ByteCode::ldc(MAIN_THREAD_ID + 1), // Load the child tid onto the stack
+            ByteCode::JOIN,
             ByteCode::DONE,
         ];
 
@@ -599,6 +488,347 @@ mod tests {
             .try_into()?;
 
         assert!(final_count > 0);
+        Ok(())
+    }
+
+    #[test]
+    fn test_concurrency_04() -> Result<()> {
+        // let count = 0;
+        //
+        // fn increment(times:  int) {
+        //   let i = 0;
+        //   while i < times {
+        //     count = count + 1;
+        //     i = i + 1;
+        //   }
+        // }
+        //
+        // let tid_2 = spawn increment(l00);
+        // let tid_3 = spawn increment(100);
+        // let tid_4 = spawn increment(100);
+        //
+        // join tid_2;
+        // join tid_3;
+        // join tid_4;
+        //
+        // count
+
+        let instrs = vec![
+            // pc 0
+            ByteCode::enterscope(vec!["count", "increment", "tid_2", "tid_3", "tid_4"]),
+            // pc 1
+            ByteCode::ldc(0),
+            // pc 2
+            ByteCode::assign("count"), // Set count to 0
+            // pc 3
+            ByteCode::ldf(6, vec!["times"]),
+            // pc 4
+            ByteCode::assign("increment"), // assign function
+            // pc 5
+            ByteCode::GOTO(25), // Jump past function body
+            // pc 6
+            ByteCode::enterscope(vec!["i"]),
+            // pc 7
+            ByteCode::ldc(0),
+            // pc 8
+            ByteCode::assign("i"),
+            // pc 9
+            ByteCode::ld("i"),
+            // pc 10
+            ByteCode::ld("times"),
+            // pc 11
+            ByteCode::BINOP(BinOp::Lt),
+            // pc 12
+            ByteCode::JOF(23), // Jump past the loop
+            // pc 13
+            ByteCode::ld("count"),
+            // pc 14
+            ByteCode::ldc(1),
+            // pc 15
+            ByteCode::BINOP(BinOp::Add),
+            // pc 16
+            ByteCode::YIELD, // Try to introduce race conditions
+            // pc 17
+            ByteCode::assign("count"),
+            // pc 18
+            ByteCode::ld("i"),
+            // pc 19
+            ByteCode::ldc(1),
+            // pc 20
+            ByteCode::BINOP(BinOp::Add),
+            // pc 21
+            ByteCode::assign("i"),
+            // pc 22
+            ByteCode::GOTO(9), // End of loop
+            // pc 23
+            ByteCode::EXITSCOPE,
+            // pc 24
+            ByteCode::RESET(FrameType::CallFrame), // End of function
+            // pc 25
+            ByteCode::SPAWN(28), // Parent operand stack will have child tid 2, child operand stack will have 0
+            // pc 26
+            ByteCode::assign("tid_2"), // Parent saves the child tid
+            // pc 27
+            ByteCode::GOTO(32), // Parent jumps past function call by the child
+            // pc 28
+            ByteCode::ld("increment"), // Child loads the function
+            // pc 29
+            ByteCode::ldc(100), // Child loads the argument
+            // pc 30
+            ByteCode::CALL(1), // Child calls the increment function with 100
+            // pc 31
+            ByteCode::DONE, // Child is done
+            // pc 32
+            ByteCode::SPAWN(35), // Parent operand stack will have child tid 3, child operand stack will have 0
+            // pc 33
+            ByteCode::assign("tid_3"), // Parent saves the child tid
+            // pc 34
+            ByteCode::GOTO(39), // Parent jumps past function call by the child
+            // pc 35
+            ByteCode::ld("increment"), // Child loads the function
+            // pc 36
+            ByteCode::ldc(100), // Child loads the argument
+            // pc 37
+            ByteCode::CALL(1), // Child calls the increment function with 100
+            // pc 38
+            ByteCode::DONE, // Child is done
+            // pc 39
+            ByteCode::SPAWN(42), // Parent operand stack will have child tid 4, child operand stack will have 0
+            // pc 40
+            ByteCode::assign("tid_4"), // Parent loads the child tid
+            // pc 41
+            ByteCode::GOTO(46), // Parent jumps past function call by the child
+            // pc 42
+            ByteCode::ld("increment"), // Child loads the function
+            // pc 43
+            ByteCode::ldc(100), // Child loads the argument
+            // pc 44
+            ByteCode::CALL(1), // Child calls the increment function with 100
+            // pc 45
+            ByteCode::DONE, // Child is done
+            // pc 46
+            ByteCode::ld("tid_2"),
+            // pc 47
+            ByteCode::JOIN, // Parent thread joins the child thread
+            // pc 48
+            ByteCode::ld("tid_3"), // Parent loads the child tid
+            // pc 49
+            ByteCode::JOIN, // Parent thread joins the child thread
+            // pc 50
+            ByteCode::ld("tid_4"), // Parent loads the child tid
+            // pc 51
+            ByteCode::JOIN, // Parent thread joins the child thread
+            // pc 52
+            ByteCode::ld("count"), // Parent loads the count
+            // pc 53
+            ByteCode::DONE, // Parent is done
+        ];
+
+        let mut rt = Runtime::new(instrs);
+
+        // Set the time quantum to a short time, so that race conditions are more likely to occur
+        rt.set_time_quantum(Duration::from_micros(1));
+        let rt = run(rt)?;
+
+        let final_count: i64 = rt
+            .current_thread
+            .env
+            .borrow()
+            .get(&"count".to_string())
+            .expect("Count not in environment")
+            .try_into()?;
+
+        println!("Final count: {}", final_count);
+        assert!(final_count < 300); // The count should be less than 300 due to race conditions
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_concurrency_05() -> Result<()> {
+        // let count = 0;
+        // let sem = Semaphore::new();
+        //
+        // fn increment(times:  int) {
+        //   let i = 0;
+        //   while i < times {
+        //     wait sem;
+        //     count = count + 1; // Critical section
+        //     post sem;
+        //     i = i + 1;
+        //   }
+        // }
+        //
+        // let tid_2 = spawn increment(l00);
+        // let tid_3 = spawn increment(100);
+        // let tid_4 = spawn increment(100);
+        //
+        // join tid_2;
+        // join tid_3;
+        // join tid_4;
+        //
+        // count
+
+        let instrs = vec![
+            // pc 0
+            ByteCode::enterscope(vec!["count", "sem", "increment", "tid_2", "tid_3", "tid_4"]),
+            // pc 1
+            ByteCode::ldc(0),
+            // pc 2
+            ByteCode::assign("count"), // Set count to 0
+            // pc 3
+            ByteCode::SEMCREATE,
+            // pc 4
+            ByteCode::assign("sem"), // Set sem to the semaphore
+            // pc 5
+            ByteCode::ldf(8, vec!["times"]),
+            // pc 6
+            ByteCode::assign("increment"), // assign function
+            // pc 7
+            ByteCode::GOTO(31), // Jump past function body
+            // pc 8
+            ByteCode::enterscope(vec!["i"]),
+            // pc 9
+            ByteCode::ldc(0),
+            // pc 10
+            ByteCode::assign("i"),
+            // pc 11
+            ByteCode::ld("i"),
+            // pc 12
+            ByteCode::ld("times"),
+            // pc 13
+            ByteCode::BINOP(BinOp::Lt),
+            // pc 14
+            ByteCode::JOF(29), // Jump past the loop
+            // pc 15
+            ByteCode::ld("sem"),
+            // pc 16
+            ByteCode::WAIT,
+            // pc 17
+            ByteCode::ld("count"),
+            // pc 18
+            ByteCode::ldc(1),
+            // pc 19
+            ByteCode::BINOP(BinOp::Add),
+            // pc 20
+            ByteCode::assign("count"),
+            // pc 21
+            ByteCode::ld("sem"),
+            // pc 22
+            ByteCode::POST,
+            // pc 23
+            ByteCode::ld("i"),
+            // pc 24
+            ByteCode::ldc(1),
+            // pc 25
+            ByteCode::YIELD, // Try to introduce race conditions
+            // pc 26
+            ByteCode::BINOP(BinOp::Add),
+            // pc 27
+            ByteCode::assign("i"),
+            // pc 28
+            ByteCode::GOTO(11), // End of loop
+            // pc 29
+            ByteCode::EXITSCOPE,
+            // pc 30
+            ByteCode::RESET(FrameType::CallFrame), // End of function
+            // pc 31
+            ByteCode::SPAWN(34), // Parent operand stack will have child tid 2, child operand stack will have 0
+            // pc 32
+            ByteCode::assign("tid_2"), // Parent saves the child tid
+            // pc 33
+            ByteCode::GOTO(38), // Parent jumps past function call by the child
+            // pc 34
+            ByteCode::ld("increment"), // Child loads the function
+            // pc 35
+            ByteCode::ldc(100), // Child loads the argument
+            // pc 36
+            ByteCode::CALL(1), // Child calls the increment function with 100
+            // pc 37
+            ByteCode::DONE, // Child is done
+            // pc 38
+            ByteCode::SPAWN(41), // Parent operand stack will have child tid 3, child operand stack will have 0
+            // pc 39
+            ByteCode::assign("tid_3"), // Parent saves the child tid
+            // pc 40
+            ByteCode::GOTO(45), // Parent jumps past function call by the child
+            // pc 41
+            ByteCode::ld("increment"), // Child loads the function
+            // pc 42
+            ByteCode::ldc(100), // Child loads the argument
+            // pc 43
+            ByteCode::CALL(1), // Child calls the increment function with 100
+            // pc 44
+            ByteCode::DONE, // Child is done
+            // pc 45
+            ByteCode::SPAWN(48), // Parent operand stack will have child tid 4, child operand stack will have 0
+            // pc 46
+            ByteCode::assign("tid_4"), // Parent loads the child tid
+            // pc 47
+            ByteCode::GOTO(52), // Parent jumps past function call by the child
+            // pc 48
+            ByteCode::ld("increment"), // Child loads the function
+            // pc 49
+            ByteCode::ldc(100), // Child loads the argument
+            // pc 50
+            ByteCode::CALL(1), // Child calls the increment function with 100
+            // pc 51
+            ByteCode::DONE, // Child is done
+            // pc 52
+            ByteCode::ld("tid_2"),
+            // pc 53
+            ByteCode::JOIN, // Parent thread joins the child thread
+            // pc 54
+            ByteCode::ld("tid_3"), // Parent loads the child tid
+            // pc 55
+            ByteCode::JOIN, // Parent thread joins the child thread
+            // pc 56
+            ByteCode::ld("tid_4"), // Parent loads the child tid
+            // pc 57
+            ByteCode::JOIN, // Parent thread joins the child thread
+            // pc 58
+            ByteCode::ld("count"), // Parent loads the count
+            // pc 59
+            ByteCode::DONE, // Parent is done
+        ];
+
+        let mut rt = Runtime::new(instrs.clone());
+        // Set the time quantum to a short time, so that race conditions are more likely to occur
+        rt.set_time_quantum(Duration::from_micros(10));
+        let rt = run(rt)?;
+
+        let final_count: i64 = rt
+            .current_thread
+            .env
+            .borrow()
+            .get(&"count".to_string())
+            .expect("Count not in environment")
+            .try_into()?;
+
+        println!(
+            "Time Quantum: {} microseconds, Final count: {}",
+            10, final_count
+        );
+        assert_eq!(final_count, 300); // The count should be exactly 300
+
+        let mut rt = Runtime::new(instrs.clone());
+        rt.set_time_quantum(Duration::from_micros(1));
+        let rt = run(rt)?;
+
+        let final_count: i64 = rt
+            .current_thread
+            .env
+            .borrow()
+            .get(&"count".to_string())
+            .expect("Count not in environment")
+            .try_into()?;
+
+        println!(
+            "Time Quantum: {} microseconds, Final count: {}",
+            1, final_count
+        );
+        assert_eq!(final_count, 300); // The count should be exactly 300
+
         Ok(())
     }
 }

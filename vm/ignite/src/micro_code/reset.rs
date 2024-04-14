@@ -14,7 +14,7 @@ use bytecode::FrameType;
 /// # Errors
 ///
 /// If the runtime stack underflows. i.e. there are no frames of the given type.
-pub fn reset(rt: &mut Runtime, ft: FrameType) -> Result<()> {
+pub fn reset(mut rt: Runtime, ft: FrameType) -> Result<Runtime> {
     loop {
         let frame = rt
             .current_thread
@@ -34,7 +34,7 @@ pub fn reset(rt: &mut Runtime, ft: FrameType) -> Result<()> {
         break;
     }
 
-    Ok(())
+    Ok(rt)
 }
 
 #[cfg(test)]
@@ -63,7 +63,7 @@ mod tests {
 
         assert!(rt.current_thread.runtime_stack.len() == 3);
 
-        reset(&mut rt, FrameType::BlockFrame).unwrap();
+        rt = reset(rt, FrameType::BlockFrame).unwrap();
 
         assert!(rt.current_thread.runtime_stack.len() == 1);
         assert_eq!(
@@ -92,7 +92,7 @@ mod tests {
 
         assert!(rt.current_thread.runtime_stack.len() == 3);
 
-        reset(&mut rt, FrameType::BlockFrame).unwrap();
+        rt = reset(rt, FrameType::BlockFrame).unwrap();
 
         assert!(rt.current_thread.runtime_stack.len() == 1);
         assert_eq!(rt.current_thread.pc, 123);

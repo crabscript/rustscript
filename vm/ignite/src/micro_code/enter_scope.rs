@@ -3,7 +3,7 @@ use std::rc::Rc;
 use anyhow::Result;
 use bytecode::{FrameType, StackFrame, Symbol, Value};
 
-use crate::{extend_environment, Runtime};
+use crate::Runtime;
 
 /// Create a new scope in the current environment. The new environment will be a child of the current
 /// environment. All symbols in the new scope will be initialized to `Value::Unitialized`.
@@ -17,7 +17,7 @@ use crate::{extend_environment, Runtime};
 /// # Errors
 ///
 /// Infallible.
-pub fn enter_scope(rt: &mut Runtime, syms: Vec<Symbol>) -> Result<()> {
+pub fn enter_scope(mut rt: Runtime, syms: Vec<Symbol>) -> Result<Runtime> {
     let current_env = Rc::clone(&rt.current_thread.env);
 
     // Preserve the current environment in a stack frame
@@ -31,9 +31,9 @@ pub fn enter_scope(rt: &mut Runtime, syms: Vec<Symbol>) -> Result<()> {
         .map(|_| Value::Unitialized)
         .collect::<Vec<Value>>();
 
-    extend_environment(&mut rt.current_thread, syms, uninitialized)?;
+    rt.current_thread.extend_environment(syms, uninitialized)?;
 
-    Ok(())
+    Ok(rt)
 }
 
 #[cfg(test)]
@@ -50,7 +50,7 @@ mod tests {
         rt.current_thread.env.borrow_mut().set("a", 42);
         rt.current_thread.env.borrow_mut().set("b", 123);
 
-        enter_scope(&mut rt, vec!["c".to_string(), "d".to_string()]).unwrap();
+        rt = enter_scope(rt, vec!["c".to_string(), "d".to_string()]).unwrap();
 
         assert_eq!(rt.current_thread.runtime_stack.len(), 1);
         assert_eq!(

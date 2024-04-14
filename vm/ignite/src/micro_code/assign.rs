@@ -15,14 +15,14 @@ use crate::{Runtime, VmError};
 ///
 /// If the stack is empty.
 /// If the symbol is not found in the environment chain.
-pub fn assign(rt: &mut Runtime, sym: Symbol) -> Result<()> {
+pub fn assign(mut rt: Runtime, sym: Symbol) -> Result<Runtime> {
     let val = rt
         .current_thread
         .operand_stack
         .pop()
         .ok_or(VmError::OperandStackUnderflow)?;
     rt.current_thread.env.borrow_mut().update(sym, val)?;
-    Ok(())
+    Ok(rt)
 }
 
 #[cfg(test)]
@@ -42,7 +42,7 @@ mod tests {
             .set("x", Value::Unitialized);
         rt.current_thread.operand_stack.push(Value::Int(42));
 
-        assign(&mut rt, "x".to_string()).unwrap();
+        rt = assign(rt, "x".to_string()).unwrap();
 
         assert_ne!(
             rt.current_thread.env.borrow().get(&"x".to_string()),
@@ -67,7 +67,7 @@ mod tests {
 
         rt.current_thread.env = Rc::clone(&child_env);
         rt.current_thread.operand_stack.push(Value::Int(123));
-        assign(&mut rt, "x".to_string()).unwrap();
+        rt = assign(rt, "x".to_string()).unwrap();
 
         assert_eq!(
             parent_env.borrow().get(&"x".to_string()),
@@ -77,7 +77,7 @@ mod tests {
         assert!(!child_env.borrow().env.contains_key(&"x".to_string()));
 
         rt.current_thread.operand_stack.push(Value::Int(789));
-        assign(&mut rt, "y".to_string()).unwrap();
+        rt = assign(rt, "y".to_string()).unwrap();
 
         assert!(parent_env.borrow().get(&"y".to_string()).is_none());
         assert_eq!(

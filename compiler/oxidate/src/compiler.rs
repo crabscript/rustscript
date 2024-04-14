@@ -1,5 +1,5 @@
 use anyhow::Result;
-use std::fmt::Display;
+use std::{fmt::Display, rc::Rc, vec};
 use types::type_checker::TypeChecker;
 
 use bytecode::{BinOp, ByteCode, Value};
@@ -49,16 +49,65 @@ impl Compiler {
     }
 
     // And, Or - short-circuiting
-    // fn compile_and_or(
-    //     op: &BinOpType,
-    //     lhs: &Expr,
-    //     rhs: &Expr,
-    //     arr: &mut Vec<ByteCode>,
-    // ) -> Result<(), CompileError> {
-    //     dbg!("AND_OR");
-    //     Ok(())
-    // }
-    // TODO: how to do type checking here?
+    fn compile_and_or(
+        op: &BinOpType,
+        lhs: &Expr,
+        rhs: &Expr,
+        arr: &mut Vec<ByteCode>,
+    ) -> Result<(), CompileError> {
+        match op {
+            // x && y => if x { y } else { false }
+            // if true, keep going. else, return false out and stop
+            BinOpType::LogicalAnd => {
+                let if_blk = BlockSeq {
+                    decls: vec![],
+                    last_expr: Some(Rc::new(rhs.clone())),
+                    symbols: vec![],
+                };
+
+                let else_blk = BlockSeq {
+                    decls: vec![],
+                    last_expr: Some(Rc::new(Expr::Bool(false))),
+                    symbols: vec![],
+                };
+
+                let stmt = IfElseData {
+                    cond: lhs.clone(),
+                    if_blk,
+                    else_blk: Some(else_blk),
+                };
+
+                Compiler::compile_if_else(&stmt, arr)?;
+            }
+            // x || y => if x { true } else { y }
+            // if x true, stop and return true. else, keep going
+            BinOpType::LogicalOr => {
+                let if_blk = BlockSeq {
+                    decls: vec![],
+                    last_expr: Some(Rc::new(Expr::Bool(true))),
+                    symbols: vec![],
+                };
+
+                let else_blk = BlockSeq {
+                    decls: vec![],
+                    last_expr: Some(Rc::new(rhs.clone())),
+                    symbols: vec![],
+                };
+
+                let stmt = IfElseData {
+                    cond: lhs.clone(),
+                    if_blk,
+                    else_blk: Some(else_blk),
+                };
+
+                Compiler::compile_if_else(&stmt, arr)?;
+            }
+            _ => unreachable!(),
+        }
+
+        Ok(())
+    }
+
     // Distinct phase before compilation is reached? Assign types to all expressions
     fn compile_binop(
         op: &BinOpType,
@@ -68,7 +117,7 @@ impl Compiler {
     ) -> Result<(), CompileError> {
         // avoid compiling exprs first for these
         if matches!(op, BinOpType::LogicalAnd | BinOpType::LogicalOr) {
-            // return Compiler::compile_and_or(op, lhs, rhs, arr);
+            return Compiler::compile_and_or(op, lhs, rhs, arr);
         }
 
         Compiler::compile_expr(lhs, arr)?;
@@ -1041,8 +1090,91 @@ mod tests {
     }
 
     #[test]
-    fn test_logical_ops() {
-        // &&, ||, ==
-        // test_comp("true && false", vec![]);
+    fn test_compile_logical_ops() {
+        // &&
+        test_comp(
+            "true && false",
+            vec![
+                LDC(Bool(true)),
+                JOF(4),
+                LDC(Bool(false)),
+                GOTO(5),
+                LDC(Bool(false)),
+                DONE,
+            ],
+        );
+        test_comp(
+            "true && false && true",
+            vec![
+                LDC(Bool(true)),
+                JOF(4),
+                LDC(Bool(false)),
+                GOTO(5),
+                LDC(Bool(false)),
+                JOF(8),
+                LDC(Bool(true)),
+                GOTO(9),
+                LDC(Bool(false)),
+                DONE,
+            ],
+        );
+        test_comp(
+            "2 < 3 && true",
+            vec![
+                LDC(Int(2)),
+                LDC(Int(3)),
+                BINOP(bytecode::BinOp::Lt),
+                JOF(6),
+                LDC(Bool(true)),
+                GOTO(7),
+                LDC(Bool(false)),
+                DONE,
+            ],
+        );
+
+        // ||
+        test_comp(
+            "true || false",
+            vec![
+                LDC(Bool(true)),
+                JOF(4),
+                LDC(Bool(true)),
+                GOTO(5),
+                LDC(Bool(false)),
+                DONE,
+            ],
+        );
+        test_comp(
+            "true || false || false",
+            vec![
+                LDC(Bool(true)),
+                JOF(4),
+                LDC(Bool(true)),
+                GOTO(5),
+                LDC(Bool(false)),
+                JOF(8),
+                LDC(Bool(true)),
+                GOTO(9),
+                LDC(Bool(false)),
+                DONE,
+            ],
+        );
+
+        // mix
+        test_comp(
+            "true || false && false",
+            vec![
+                LDC(Bool(true)),
+                JOF(4),
+                LDC(Bool(true)),
+                GOTO(9),
+                LDC(Bool(false)),
+                JOF(8),
+                LDC(Bool(false)),
+                GOTO(9),
+                LDC(Bool(false)),
+                DONE,
+            ],
+        );
     }
 }

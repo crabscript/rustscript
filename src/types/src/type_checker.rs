@@ -1,12 +1,12 @@
-use parser::{BinOpType, Type, UnOpType};
+use parser::{structs::*, Parser};
 use std::{collections::HashMap, fmt::Display};
 
-use parser::{BlockSeq, Decl, Expr};
+use parser::structs::{BlockSeq, Decl, Expr, Type};
 
 #[derive(Debug, PartialEq)]
 pub struct TypeErrors {
-    errs: Vec<String>,
-    cont: bool,
+    pub(crate) errs: Vec<String>,
+    pub(crate) cont: bool,
 }
 
 impl TypeErrors {
@@ -32,6 +32,7 @@ impl TypeErrors {
         self.errs.push(err.to_string());
     }
 
+    /// Move errors from the other into this one, leaving the other empty
     pub fn append(&mut self, errs: &mut TypeErrors) {
         self.errs.append(&mut errs.errs)
     }
@@ -55,23 +56,72 @@ impl Display for TypeErrors {
 
 impl std::error::Error for TypeErrors {}
 
+type Env = HashMap<String, Type>;
+
+pub fn new_env_with_syms(syms: Vec<String>) -> Env {
+    let mut env: Env = HashMap::new();
+    for sym in syms.iter() {
+        env.insert(sym.to_owned(), Type::Unitialised);
+    }
+
+    env
+}
+
 /// Struct to enable type checking by encapsulating type environment.
 pub struct TypeChecker<'prog> {
     program: &'prog BlockSeq,
+    pub(crate) envs: Vec<Env>,
 }
-
-type TyEnv = HashMap<String, Type>;
 
 impl<'prog> TypeChecker<'prog> {
     pub fn new(program: &BlockSeq) -> TypeChecker<'_> {
-        TypeChecker { program }
+        TypeChecker {
+            program,
+            envs: vec![],
+        }
     }
 
-    fn check_unop(op: &UnOpType, expr: &Expr, ty_env: &mut TyEnv) -> Result<Type, TypeErrors> {
+    /// Return type of identifier by looking up nested scopes, or error if not there.
+    pub(crate) fn get_type(&self, ident: &str) -> Result<Type, TypeErrors> {
+        for env in self.envs.iter().rev() {
+            let ty = env.get(ident);
+            if let Some(ty) = ty {
+                return Ok(ty.to_owned());
+            }
+        }
+
+        let e = format!("Identifier '{}' not declared", ident);
+        Err(TypeErrors::new_err(&e))
+    }
+
+    /// Returns type of identifier if initialised. If identifier doesn't exist or still uninit, returns Error.
+    /// For use in AssignStmt e.g x = 10;
+    pub(crate) fn get_type_if_init(&self, ident: &str) -> Result<Type, TypeErrors> {
+        let ty = self.get_type(ident)?;
+        if ty.eq(&Type::Unitialised) {
+            let e = format!("Identifier '{}' assigned before declaration", ident);
+            Err(TypeErrors::new_err(&e))
+        } else {
+            Ok(ty)
+        }
+    }
+
+    /// Assign type to identifier if exists (either Unit or actual type). Else, error
+    /// Only for LetStmt so we only assign in the last env (e.g x = 2; means x already declared with let)
+    pub(crate) fn assign_ident(&mut self, ident: &str, ty: Type) -> Result<(), TypeErrors> {
+        self.get_type(ident)?; // actually we should only check last env?
+        if let Some(env) = self.envs.last_mut() {
+            env.insert(ident.to_string(), ty);
+        }
+
+        Ok(())
+    }
+
+    pub(crate) fn check_unop(&mut self, op: &UnOpType, expr: &Expr) -> Result<Type, TypeErrors> {
         match op {
             UnOpType::Negate => {
                 // Return err imm if operand itself is not well typed
-                let ty = TypeChecker::check_expr(expr, ty_env)?;
+                let ty = self.check_expr(expr)?;
                 match ty {
                     Type::Int | Type::Float => Ok(ty),
                     _ => {
@@ -81,7 +131,7 @@ impl<'prog> TypeChecker<'prog> {
                 }
             }
             UnOpType::Not => {
-                let ty = TypeChecker::check_expr(expr, ty_env)?;
+                let ty = self.check_expr(expr)?;
                 match ty {
                     Type::Bool => Ok(ty),
                     _ => {
@@ -93,14 +143,14 @@ impl<'prog> TypeChecker<'prog> {
         }
     }
 
-    fn check_binop(
+    pub(crate) fn check_binop(
+        &mut self,
         op: &BinOpType,
         lhs: &Expr,
         rhs: &Expr,
-        ty_env: &mut TyEnv,
     ) -> Result<Type, TypeErrors> {
-        let l_type = TypeChecker::check_expr(lhs, ty_env)?;
-        let r_type = TypeChecker::check_expr(rhs, ty_env)?;
+        let l_type = self.check_expr(lhs)?;
+        let r_type = self.check_expr(rhs)?;
 
         match (l_type, r_type) {
             (Type::Int, Type::Int) => Ok(Type::Int),
@@ -117,28 +167,24 @@ impl<'prog> TypeChecker<'prog> {
 
     /// Return the type errors out instead of using mutable ref
     // because for nested errors in the expr we want to propagate those
-    fn check_expr(expr: &Expr, ty_env: &mut TyEnv) -> Result<Type, TypeErrors> {
+    pub(crate) fn check_expr(&mut self, expr: &Expr) -> Result<Type, TypeErrors> {
         let local_errs = TypeErrors::new();
         let ty = match expr {
             Expr::Integer(_) => Type::Int,
             Expr::Float(_) => Type::Float,
             Expr::Bool(_) => Type::Bool,
             Expr::Symbol(ident) => {
-                let get_type = ty_env.get(ident);
-                if get_type.is_none() {
-                    let e = format!("Identifier '{}' not declared", ident);
-                    return Err(TypeErrors::new_err(&e));
-                }
-
-                get_type.expect("Should have type").to_owned()
+                // self.ty_env.borrow().get(ident)?
+                self.get_type(ident)?
             }
             Expr::UnOpExpr(op, expr) => {
-                return TypeChecker::check_unop(op, expr, ty_env);
+                return self.check_unop(op, expr);
             }
             Expr::BinOpExpr(op, lhs, rhs) => {
-                return TypeChecker::check_binop(op, lhs, rhs, ty_env);
+                return self.check_binop(op, lhs, rhs);
             }
-            _ => todo!(),
+            Expr::BlockExpr(blk) => self.check_block(blk)?,
+            Expr::IfElseExpr(if_else) => self.check_if_else(if_else)?,
         };
 
         if local_errs.is_ok() {
@@ -149,106 +195,39 @@ impl<'prog> TypeChecker<'prog> {
     }
 
     /// Type check declaration and add errors if any
-    fn check_decl(decl: &Decl, ty_env: &mut HashMap<String, Type>) -> Result<(), TypeErrors> {
+    pub(crate) fn check_decl(&mut self, decl: &Decl) -> Result<(), TypeErrors> {
         // dbg!("Type checking decl:", decl);
         match decl {
             Decl::LetStmt(stmt) => {
-                let mut ty_errs = TypeErrors::new();
-
-                let mut expr_type: Option<Type> = None;
-                match TypeChecker::check_expr(&stmt.expr, ty_env) {
-                    Ok(res) => {
-                        expr_type.replace(res);
-                    }
-                    Err(mut err) => {
-                        ty_errs.append(&mut err);
-                    }
-                };
-
-                match (expr_type, stmt.type_ann) {
-                    // type check expr has error + we have no type annotation: e.g let x = !2;
-                    // cannot proceed, error out with cont = false
-                    (None, None) => {
-                        ty_errs.cont = false;
-                        return Err(ty_errs);
-                    }
-
-                    // type check expr has err + we have type ann: e.g let x : int = !2;
-                    // use type of annotation, continue
-                    (None, Some(ty_ann)) => {
-                        ty_env.insert(stmt.ident.to_owned(), ty_ann);
-                        return Err(ty_errs);
-                    }
-
-                    // expr is well-typed + no type annotation e.g let x = 2+2;
-                    // use expr type, no err
-                    (Some(ty), None) => {
-                        ty_env.insert(stmt.ident.to_owned(), ty);
-                    }
-
-                    // expr is well-typed + have ty ann: e.g let x : int = true; or let x : int  = 2;
-                    // either way, insert type of binding = annotation so we can ty check rest. error out if mismatch
-                    (Some(ty), Some(ty_ann)) => {
-                        ty_env.insert(stmt.ident.to_owned(), ty_ann);
-
-                        if !ty_ann.eq(&ty) {
-                            let string = format!(
-                                "'{}' has declared type {} but assigned type {}",
-                                stmt.ident, ty_ann, ty
-                            );
-                            ty_errs.add(&string);
-                            return Err(ty_errs);
-                        }
-                    }
-                };
+                self.check_let(stmt)?;
             }
             // Type check the expr and return any errors
             Decl::ExprStmt(expr) => {
-                TypeChecker::check_expr(expr, ty_env)?;
+                self.check_expr(expr)?;
             }
-            _ => todo!(),
+            // Check if sym is declared already. Then check expr matches type at decl
+            Decl::AssignStmt(stmt) => {
+                let sym_ty = self.get_type_if_init(&stmt.ident.to_owned())?;
+                let exp_ty = self.check_expr(&stmt.expr)?;
+
+                if !sym_ty.eq(&exp_ty) {
+                    let e = format!(
+                        "'{}' declared with type {} but assigned type {}",
+                        stmt.ident, sym_ty, exp_ty
+                    );
+                    return Err(TypeErrors::new_err(&e));
+                }
+            }
+            Decl::IfOnlyStmt(if_else) => {
+                self.check_if_else(if_else)?;
+            }
         }
 
         Ok(())
     }
 
-    pub fn type_check(self) -> Result<Type, TypeErrors> {
-        let mut errs = TypeErrors::new();
-        // map bindings to types
-        let mut ty_env: HashMap<String, Type> = HashMap::new();
-
-        for decl in self.program.decls.iter() {
-            if let Err(mut decl_errs) = TypeChecker::check_decl(decl, &mut ty_env) {
-                errs.append(&mut decl_errs);
-
-                // if this err means we can't proceed, stop e.g let x = -true; let y = x + 3; - we don't know type of x since invalid
-                if !decl_errs.cont {
-                    break;
-                }
-            }
-        }
-
-        // Return type of last expr if any. If errs, add to err list
-        if let Some(last) = &self.program.last_expr {
-            let res = TypeChecker::check_expr(last, &mut ty_env);
-            match res {
-                Ok(ty) => {
-                    // if before has errs, return that out instead
-                    if !errs.is_ok() {
-                        return Err(errs);
-                    }
-
-                    return Ok(ty);
-                }
-                Err(mut expr_errs) => errs.append(&mut expr_errs),
-            };
-        }
-
-        if errs.is_ok() {
-            Ok(Type::Unit)
-        } else {
-            Err(errs)
-        }
+    pub fn type_check(mut self) -> Result<Type, TypeErrors> {
+        self.check_block(self.program)
     }
 }
 
@@ -258,34 +237,33 @@ impl Default for TypeErrors {
     }
 }
 
+pub fn expect_pass(inp: &str, exp_type: Type) {
+    let prog = Parser::new_from_string(inp).parse().expect("Should parse");
+    let ty = TypeChecker::new(&prog).type_check();
+    assert_eq!(Ok(exp_type), ty)
+}
+
+// contains true means check if input contains exp_err. else check full equals
+pub fn expect_err(inp: &str, exp_err: &str, contains: bool) {
+    let prog = Parser::new_from_string(inp).parse().expect("Should parse");
+    dbg!(&prog);
+    let ty_err = TypeChecker::new(&prog)
+        .type_check()
+        .expect_err("Should err");
+
+    if contains {
+        dbg!(ty_err.to_string());
+        assert!(ty_err.to_string().contains(exp_err))
+    } else {
+        dbg!(ty_err.to_string());
+        assert_eq!(ty_err.to_string(), exp_err)
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use parser::Parser;
-    use parser::Type;
-
-    use super::TypeChecker;
-
-    fn expect_pass(inp: &str, exp_type: Type) {
-        let prog = Parser::new_from_string(inp).parse().expect("Should parse");
-        let ty = TypeChecker::new(&prog).type_check();
-        assert_eq!(Ok(exp_type), ty)
-    }
-
-    // contains true means check if input contains exp_err. else check full equals
-    fn expect_err(inp: &str, exp_err: &str, contains: bool) {
-        let prog = Parser::new_from_string(inp).parse().expect("Should parse");
-        let ty_err = TypeChecker::new(&prog)
-            .type_check()
-            .expect_err("Should err");
-
-        if contains {
-            dbg!(ty_err.to_string());
-            assert!(ty_err.to_string().contains(exp_err))
-        } else {
-            dbg!(ty_err.to_string());
-            assert_eq!(ty_err.to_string(), exp_err)
-        }
-    }
+    use super::{expect_err, expect_pass};
+    use parser::structs::Type;
 
     #[test]
     fn test_type_check_basic() {
@@ -366,53 +344,5 @@ mod tests {
             true,
         );
         expect_err("let x : bool = true +2;", "apply", true);
-    }
-
-    #[test]
-    fn test_type_check_sym_advanced() {
-        // first has err but no type ann: we don't proceed
-        expect_err(
-            "let x = -true; let y : int = x + 2; let z : bool = !x;",
-            "[TypeError]: Can't negate type bool",
-            false,
-        );
-
-        // expr has err but we have ann: can proceed
-        expect_err("let x : int = -true; let y : int = x + false;", 
-        "[TypeError]: Can't negate type bool\n[TypeError]: Can't apply '+' to types 'int' and 'bool'", false);
-
-        // expr is fine but no annotation: use inferred type
-        expect_err(
-            "let x = 2+2; let y : int = !x;",
-            "Can't apply logical NOT to type int",
-            true,
-        );
-        expect_pass("let x = 2+2; let y : int = -x*3; y", Type::Int);
-
-        // expr is fine and we have annotation: check for mismatch, can proceed with binding type = annotation
-        // here !y is fine so no error, since y is annotated bool
-        expect_err("let x : int = !true; let y: bool = x + false; let z : bool = !y;", 
-        "[TypeError]: 'x' has declared type int but assigned type bool\n[TypeError]: Can't apply '+' to types 'int' and 'bool'", false);
-
-        expect_err("let x : int = !true; let y: bool = x + false; let z : bool = y + x;", 
-        "[TypeError]: 'x' has declared type int but assigned type bool\n[TypeError]: Can't apply '+' to types 'int' and 'bool'\n[TypeError]: Can't apply '+' to types 'bool' and 'int'",
-        false);
-    }
-
-    #[test]
-    fn test_type_check_ident_decl() {
-        // stops immediately because y has no annotation
-        let t = "let y = x + 2; let z = y - false;";
-        expect_err(t, "[TypeError]: Identifier 'x' not declared", false);
-
-        // continues because y has type annotation
-        let t = "let y : int = x + 2; let z = y - false;";
-        expect_err(t, "[TypeError]: Identifier 'x' not declared\n[TypeError]: Can't apply '-' to types 'int' and 'bool'", false);
-    }
-
-    #[test]
-    fn test_type_check_bigger() {
-        let t = "let y : bool = 20; let x : int = y; let z : int = x*y + 3; z";
-        expect_err(t, "[TypeError]: 'y' has declared type bool but assigned type int\n[TypeError]: 'x' has declared type int but assigned type bool\n[TypeError]: Can't apply '*' to types 'int' and 'bool'", false);
     }
 }

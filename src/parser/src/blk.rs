@@ -5,9 +5,8 @@ use crate::Parser;
 use lexer::Token;
 
 impl<'inp> Parser<'inp> {
-    pub(crate) fn parse_blk(&mut self, _min_bp: u8) -> Result<Decl, ParseError> {
+    pub(crate) fn parse_blk(&mut self) -> Result<Decl, ParseError> {
         // BlockSeq - vec decls, last expr
-        // self.advance(); // put first tok of block into prev_tok
         let blk = self.parse_seq()?;
         let res = Decl::ExprStmt(Expr::BlockExpr(blk));
         let err = format!("Expected '{}' to close block", Token::CloseBrace);

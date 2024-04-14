@@ -43,7 +43,7 @@ impl<'inp> Parser<'inp> {
                 // dbg!(&self.lexer.peek());
                 self.parse_ident(id.to_string(), min_bp)
             }
-            Token::OpenBrace => self.parse_blk(min_bp),
+            Token::OpenBrace => self.parse_blk(),
             Token::If => self.parse_if_else(min_bp),
             _ => Err(ParseError::new(&format!(
                 "Unexpected token - not an expression: '{}'",

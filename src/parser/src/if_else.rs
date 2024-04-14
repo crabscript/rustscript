@@ -26,7 +26,7 @@ impl<'inp> Parser<'inp> {
             &format!("Expected {} for if block", Token::OpenBrace),
         )?;
 
-        let if_blk = self.parse_blk(min_bp)?.to_block()?;
+        let if_blk = self.parse_blk()?.to_block()?;
 
         // check else
         let mut else_blk: Option<BlockSeq> = None;
@@ -38,7 +38,7 @@ impl<'inp> Parser<'inp> {
                 &format!("Expected {} for else block", Token::OpenBrace),
             )?;
 
-            let blk = self.parse_blk(min_bp)?.to_block()?;
+            let blk = self.parse_blk()?.to_block()?;
 
             else_blk.replace(blk);
         }

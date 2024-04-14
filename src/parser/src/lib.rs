@@ -7,6 +7,7 @@ pub mod blk;
 pub mod expr;
 pub mod if_else;
 pub mod let_stmt;
+pub mod parse_loop;
 pub mod seq;
 pub mod structs;
 

@@ -153,4 +153,95 @@ mod tests {
         test_pass("(true || false) && false", "false");
         test_pass("true || false && false", "true"); // true || (false && false) - && has higher prec
     }
+
+    #[test]
+    fn e2e_short_circuiting() {
+        // test &&, || shortcircuit
+
+        // &&
+        test_pass(
+            r"
+        let x = 0;
+        {x = 1; false} && {x=2; true}
+        x",
+            "1",
+        );
+
+        test_pass(
+            r"
+        let x = 0;
+        {x = 1; true} && {x=2; true}
+        x",
+            "2",
+        );
+
+        test_pass(
+            r"
+        let x = 0;
+        {x = 1; true} && {x=2; false}
+        x",
+            "2",
+        );
+
+        // stops at 2nd
+        test_pass(
+            r"
+        let x = 0;
+        {x=1; true} && {x=2; false} && {x=3; true}
+        x",
+            "2",
+        );
+
+        // goes till last
+        test_pass(
+            r"
+        let x = 0;
+        {x=1; true} && {x=2; true} && {x=3; false}
+        x",
+            "3",
+        );
+
+        // ||
+        test_pass(
+            r"
+        let x = 0;
+        {x = 1; true} || {x=2; true}
+        x",
+            "1",
+        );
+
+        test_pass(
+            r"
+        let x = 0;
+        {x = 1; false} || {x=2; true}
+        x",
+            "2",
+        );
+
+        test_pass(
+            r"
+        let x = 0;
+        {x = 1; false} || {x=2; false}
+        x",
+            "2",
+        );
+
+        // stops at 2nd
+        test_pass(
+            r"
+        let x = 0;
+        {x=1; false} || {x=2; true} || {x=3; true}
+        x",
+            "2",
+        );
+
+        // 3rd
+        test_pass(
+            r"
+        let x = 0;
+        {x=1; false} || {x=2; false} || {x=3; false}
+        x",
+            "3",
+        );
+    }
 }

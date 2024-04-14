@@ -605,7 +605,6 @@ mod tests {
         assert_eq!(res, exp);
     }
 
-    use bytecode::Value::*;
     #[test]
     fn test_compile_blk_simple() {
         let t = "{ 2 }";

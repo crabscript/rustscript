@@ -160,6 +160,22 @@ pub fn apply_builtin(mut rt: Runtime, sym: &str, args: Vec<Value>) -> Result<Run
             let int_to_float = builtin::int_to_float_impl(x)?;
             rt.current_thread.operand_stack.push(int_to_float);
         }
+        builtin::SEM_CREATE_SYM => {
+            let sem = builtin::sem_create_impl();
+            rt.current_thread.operand_stack.push(sem);
+        }
+        builtin::SEM_SET_SYM => {
+            let sem = args.first().ok_or(VmError::InsufficientArguments {
+                expected: 2,
+                got: args.len(),
+            })?;
+            let val = args.get(1).ok_or(VmError::InsufficientArguments {
+                expected: 2,
+                got: args.len(),
+            })?;
+
+            builtin::sem_set_impl(sem, val)?;
+        }
         _ => {
             return Err(VmError::UnknownBuiltin {
                 sym: sym.to_string(),
@@ -175,11 +191,11 @@ pub fn apply_builtin(mut rt: Runtime, sym: &str, args: Vec<Value>) -> Result<Run
 mod tests {
     use super::*;
     use anyhow::Ok;
-    use bytecode::builtin::*;
+    use bytecode::{builtin::*, type_of, Semaphore};
 
     #[test]
     fn test_apply_builtin() -> Result<()> {
-        let mut rt = Runtime::new(vec![]);
+        let mut rt = Runtime::default();
         let hello_world = "Hello, world!".to_string();
 
         // Stdout
@@ -231,7 +247,7 @@ mod tests {
         let result = apply_builtin(rt, sym, args);
         assert!(result.is_err());
 
-        let mut rt = Runtime::new(vec![]);
+        let mut rt = Runtime::default();
         let sym = ITOA_SYM;
         let args = vec![Value::Int(42)];
         rt = apply_builtin(rt, sym, args)?;
@@ -358,7 +374,7 @@ mod tests {
         let result = apply_builtin(rt, sym, args);
         assert!(result.is_err());
 
-        let mut rt = Runtime::new(vec![]);
+        let mut rt = Runtime::default();
         let sym = LOG_SYM;
         let args = vec![Value::Float(42.0)];
         rt = apply_builtin(rt, sym, args)?;
@@ -366,6 +382,21 @@ mod tests {
             Value::Float(42.0_f64.log(10.0)),
             rt.current_thread.operand_stack.pop().unwrap()
         );
+
+        let sym = SEM_CREATE_SYM;
+        let args = vec![];
+        rt = apply_builtin(rt, sym, args)?;
+        assert_eq!(
+            type_of(&Value::Semaphore(Semaphore::default())),
+            type_of(&rt.current_thread.operand_stack.pop().unwrap())
+        );
+
+        let sym = SEM_SET_SYM;
+        let sem = Semaphore::default();
+        let args = vec![sem.clone().into(), Value::Int(42)];
+        _ = apply_builtin(rt, sym, args)?;
+        let sem_guard = sem.lock().unwrap();
+        assert_eq!(42, *sem_guard);
 
         Ok(())
     }

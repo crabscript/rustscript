@@ -7,6 +7,9 @@ use parser::structs::{BinOpType, BlockSeq, Decl, Expr, IfElseData, UnOpType};
 
 pub struct Compiler {
     program: BlockSeq,
+    // Tracks idx in bytecode for any nested break stmts compiled for that loop. Stack of vecs since we can have nested loops
+    // and break should only break the closest enclosing loop
+    // loop_stack: Vec<Vec<usize>>
 }
 
 #[derive(Debug, PartialEq)]
@@ -36,11 +39,12 @@ impl Compiler {
     }
 
     fn compile_unop(
+        &mut self,
         op: &UnOpType,
         expr: &Expr,
         arr: &mut Vec<ByteCode>,
     ) -> Result<(), CompileError> {
-        Compiler::compile_expr(expr, arr)?;
+        self.compile_expr(expr, arr)?;
         match op {
             UnOpType::Negate => arr.push(ByteCode::UNOP(bytecode::UnOp::Neg)),
             UnOpType::Not => arr.push(ByteCode::UNOP(bytecode::UnOp::Not)),
@@ -50,6 +54,7 @@ impl Compiler {
 
     // And, Or - short-circuiting
     fn compile_and_or(
+        &mut self,
         op: &BinOpType,
         lhs: &Expr,
         rhs: &Expr,
@@ -77,7 +82,7 @@ impl Compiler {
                     else_blk: Some(else_blk),
                 };
 
-                Compiler::compile_if_else(&stmt, arr)?;
+                self.compile_if_else(&stmt, arr)?;
             }
             // x || y => if x { true } else { y }
             // if x true, stop and return true. else, keep going
@@ -100,7 +105,7 @@ impl Compiler {
                     else_blk: Some(else_blk),
                 };
 
-                Compiler::compile_if_else(&stmt, arr)?;
+                self.compile_if_else(&stmt, arr)?;
             }
             _ => unreachable!(),
         }
@@ -110,6 +115,7 @@ impl Compiler {
 
     // Distinct phase before compilation is reached? Assign types to all expressions
     fn compile_binop(
+        &mut self,
         op: &BinOpType,
         lhs: &Expr,
         rhs: &Expr,
@@ -117,11 +123,11 @@ impl Compiler {
     ) -> Result<(), CompileError> {
         // avoid compiling exprs first for these
         if matches!(op, BinOpType::LogicalAnd | BinOpType::LogicalOr) {
-            return Compiler::compile_and_or(op, lhs, rhs, arr);
+            return self.compile_and_or(op, lhs, rhs, arr);
         }
 
-        Compiler::compile_expr(lhs, arr)?;
-        Compiler::compile_expr(rhs, arr)?;
+        self.compile_expr(lhs, arr)?;
+        self.compile_expr(rhs, arr)?;
 
         match op {
             BinOpType::Add => arr.push(ByteCode::BINOP(bytecode::BinOp::Add)),
@@ -138,36 +144,41 @@ impl Compiler {
         Ok(())
     }
 
-    pub fn compile_expr(expr: &Expr, arr: &mut Vec<ByteCode>) -> Result<(), CompileError> {
+    pub fn compile_expr(
+        &mut self,
+        expr: &Expr,
+        arr: &mut Vec<ByteCode>,
+    ) -> Result<(), CompileError> {
         match expr {
             Expr::Integer(val) => arr.push(ByteCode::ldc(*val)),
             Expr::Float(val) => arr.push(ByteCode::ldc(*val)),
             Expr::Bool(val) => arr.push(ByteCode::ldc(*val)),
             Expr::BinOpExpr(op, lhs, rhs) => {
-                Compiler::compile_binop(op, lhs, rhs, arr)?;
+                self.compile_binop(op, lhs, rhs, arr)?;
             }
             Expr::UnOpExpr(op, expr) => {
-                Compiler::compile_unop(op, expr, arr)?;
+                self.compile_unop(op, expr, arr)?;
             }
             // Load symbol
             Expr::Symbol(sym) => {
                 arr.push(ByteCode::LD(sym.to_string()));
             }
             Expr::BlockExpr(blk) => {
-                Compiler::compile_block(blk, arr)?;
+                self.compile_block(blk, arr)?;
             }
-            Expr::IfElseExpr(if_else) => Compiler::compile_if_else(if_else, arr)?,
+            Expr::IfElseExpr(if_else) => self.compile_if_else(if_else, arr)?,
         }
 
         Ok(())
     }
 
     fn compile_assign(
+        &mut self,
         ident: &String,
         expr: &Expr,
         arr: &mut Vec<ByteCode>,
     ) -> Result<(), CompileError> {
-        Compiler::compile_expr(expr, arr)?;
+        self.compile_expr(expr, arr)?;
 
         let assign = ByteCode::ASSIGN(ident.to_owned());
         arr.push(assign);
@@ -180,7 +191,11 @@ impl Compiler {
 
     /// Compiles block body without checking if need to push Unit at the end.
     // So we can call this when compiling from global block to avoid pushing Unit there
-    fn compile_block_body(blk: &BlockSeq, arr: &mut Vec<ByteCode>) -> Result<(), CompileError> {
+    fn compile_block_body(
+        &mut self,
+        blk: &BlockSeq,
+        arr: &mut Vec<ByteCode>,
+    ) -> Result<(), CompileError> {
         let decls = &blk.decls;
         let syms = &blk.symbols;
 
@@ -189,14 +204,14 @@ impl Compiler {
         }
 
         for decl in decls {
-            Compiler::compile_decl(decl, arr)?;
+            self.compile_decl(decl, arr)?;
             // pop result of statements - need to ensure all stmts produce something (either Unit or something else)
             arr.push(ByteCode::POP);
         }
 
         // Handle expr
         if let Some(expr) = &blk.last_expr {
-            Compiler::compile_expr(expr.as_ref(), arr)?;
+            self.compile_expr(expr.as_ref(), arr)?;
         }
 
         if !syms.is_empty() {
@@ -207,8 +222,12 @@ impl Compiler {
     }
 
     /// Compile block appropriately based on whether it is none-like
-    fn compile_block(blk: &BlockSeq, arr: &mut Vec<ByteCode>) -> Result<(), CompileError> {
-        Compiler::compile_block_body(blk, arr)?;
+    fn compile_block(
+        &mut self,
+        blk: &BlockSeq,
+        arr: &mut Vec<ByteCode>,
+    ) -> Result<(), CompileError> {
+        self.compile_block_body(blk, arr)?;
 
         // does not produce value: return Unit
         if Compiler::blk_produces_nothing(blk) {
@@ -224,18 +243,18 @@ impl Compiler {
         blk.last_expr.is_none()
     }
 
-    fn compile_decl(decl: &Decl, arr: &mut Vec<ByteCode>) -> Result<(), CompileError> {
+    fn compile_decl(&mut self, decl: &Decl, arr: &mut Vec<ByteCode>) -> Result<(), CompileError> {
         match decl {
             Decl::ExprStmt(expr) => {
-                Compiler::compile_expr(expr, arr)?;
+                self.compile_expr(expr, arr)?;
             }
             Decl::LetStmt(stmt) => {
-                Compiler::compile_assign(&stmt.ident, &stmt.expr, arr)?;
+                self.compile_assign(&stmt.ident, &stmt.expr, arr)?;
             }
             Decl::AssignStmt(stmt) => {
-                Compiler::compile_assign(&stmt.ident, &stmt.expr, arr)?;
+                self.compile_assign(&stmt.ident, &stmt.expr, arr)?;
             }
-            Decl::IfOnlyStmt(if_else) => Compiler::compile_if_else(if_else, arr)?,
+            Decl::IfOnlyStmt(if_else) => self.compile_if_else(if_else, arr)?,
             Decl::LoopStmt(_) => todo!(),
             Decl::BreakStmt => todo!(),
         };
@@ -244,12 +263,16 @@ impl Compiler {
     }
 
     /// Compile if_else as statement or as expr - changes how blocks are compiled
-    fn compile_if_else(if_else: &IfElseData, arr: &mut Vec<ByteCode>) -> Result<(), CompileError> {
-        Compiler::compile_expr(&if_else.cond, arr)?;
+    fn compile_if_else(
+        &mut self,
+        if_else: &IfElseData,
+        arr: &mut Vec<ByteCode>,
+    ) -> Result<(), CompileError> {
+        self.compile_expr(&if_else.cond, arr)?;
         let jof_idx = arr.len();
         arr.push(ByteCode::JOF(0));
 
-        Compiler::compile_block(&if_else.if_blk, arr)?;
+        self.compile_block(&if_else.if_blk, arr)?;
 
         let goto_idx = arr.len();
         arr.push(ByteCode::GOTO(0));
@@ -261,7 +284,7 @@ impl Compiler {
         }
 
         if let Some(else_blk) = &if_else.else_blk {
-            Compiler::compile_block(else_blk, arr)?;
+            self.compile_block(else_blk, arr)?;
         } else {
             // no else: push Unit so decl pop doesn't underflow if branch didn't run
             arr.push(ByteCode::ldc(Value::Unit));
@@ -276,13 +299,19 @@ impl Compiler {
         Ok(())
     }
 
-    // fn compile_loop(loop_data: &LoopData, arr: &mut Vec<ByteCode>) -> Result<(), CompileError> {
+    // fn compile_loop_inner(loop_data: &LoopData, arr: &mut Vec<ByteCode>) -> Result<(), CompileError> {
     //     Ok(())
     // }
 
-    pub fn compile(self) -> anyhow::Result<Vec<ByteCode>, CompileError> {
+    // fn compile_loop(loop_data: &LoopData, arr: &mut Vec<ByteCode>) -> Result<(), CompileError> {
+
+    //     Ok(())
+    // }
+
+    pub fn compile(mut self) -> anyhow::Result<Vec<ByteCode>, CompileError> {
         let mut bytecode: Vec<ByteCode> = vec![];
-        Compiler::compile_block_body(&self.program, &mut bytecode)?;
+        let prog = self.program.clone();
+        self.compile_block_body(&prog, &mut bytecode)?;
         bytecode.push(ByteCode::DONE);
 
         Ok(bytecode)

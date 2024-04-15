@@ -883,8 +883,9 @@ mod tests {
     fn test_compile_loop() {
         let t = r"
         loop {
-            
+
         }
         ";
+        // test_comp(t, vec![]);
     }
 }

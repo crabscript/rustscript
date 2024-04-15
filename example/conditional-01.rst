@@ -11,3 +11,5 @@ if !y {
 } else {
     x
 }
+
+// expected: 42

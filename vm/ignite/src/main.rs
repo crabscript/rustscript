@@ -121,7 +121,7 @@ mod tests {
         }
     }
     #[test]
-    fn e2e_simple() {
+    fn test_e2e_simple() {
         // int
         test_pass("2;", "");
         test_pass("2", "2");
@@ -155,7 +155,180 @@ mod tests {
     }
 
     #[test]
-    fn e2e_short_circuiting() {
+    fn test_e2e_blks() {
+        // different combinations of semicolon/stmts: popped correctly
+        test_pass("20 + { { 40; } 30 }", "50");
+        test_pass("20 + { { 40 } 30 }", "50");
+        test_pass("20 + { { 40 }; 30 }", "50");
+        test_pass("20 + { { 40; } 30 }", "50");
+        test_pass("20 + { { 40; }; 30 }", "50");
+        test_pass("let y = 20 + { { 40 } 30 }; y", "50");
+    }
+
+    #[test]
+    fn test_e2e_blks_pop() {
+        // more tests to ensure popped correctly
+        test_pass(
+            r"
+        let x = 2;
+        {
+           let y = 3;
+           {
+               let z = x;
+               x = 10;
+               z+y;
+           }
+        } 
+        
+        x
+        ",
+            "10",
+        );
+
+        test_pass("let x = 2; { {2+2;} }", "()");
+        test_pass("let x = 2; { {2+2;} } {3}", "3");
+        test_pass(
+            r"
+        let x = 2;
+        {
+           {
+              2+2;
+           }
+        }
+        
+        x
+        ",
+            "2",
+        );
+
+        test_pass(
+            "
+        let x = 2; { 
+
+            {
+                {
+                    2+2;
+                }
+            } 
+        
+        }
+        ",
+            "()",
+        );
+    }
+
+    #[test]
+    fn test_e2e_if_else() {
+        test_pass(
+            r"
+        let x = { 
+            let x = 10; 
+            
+            if !true {
+                x+2 
+               } else { 
+                   x+4 
+               }
+               
+        }; x
+        ",
+            "14",
+        );
+
+        test_pass("if false { 20 }; 30", "30");
+        test_pass("if false { 20 }", "");
+        test_pass("if false { 20; }", "");
+        test_pass("if false { 20; };", "");
+
+        // mix
+        test_pass(
+            r"
+        let condition1 = true;
+        let condition2 = false;
+        
+        let result = if condition1 && condition2 {
+            2
+        } else {
+            if condition1 || condition2 {
+                let x = 3;
+                condition1 = false;
+                x
+            } else {
+                let y = 4;
+                y
+            }
+        };
+        
+        
+        if !condition1 {
+            result = result + 5;
+        }
+        
+        result
+        ",
+            "8",
+        );
+    }
+
+    #[test]
+    fn test_e2e_lexical_scope() {
+        let t = r"
+        let x = 10;
+
+        let result : int = {
+            let x = 5;
+            x
+        };
+        
+        result
+        ";
+        test_pass(t, "5");
+
+        let t = r"
+        let x = 10;
+
+        let result : int = {
+            let x = 5;
+            x
+        };
+        
+        result + x
+        ";
+        test_pass(t, "15");
+
+        // assign + new var
+        let t = r"
+        let x = 2; 
+        let y = 0; 
+        { 
+            let x = 3; 
+            y = 4 + x; 
+        } 
+        x+y
+        ";
+        test_pass(t, "9");
+
+        // nested, and assign to outer
+        let t = r"
+        let x = 2;
+
+
+        let z : int = {
+           let y = 3;
+           {
+               let z = x;
+               x = 10;
+               z+y
+           }
+        };
+        
+        x+z
+        ";
+        test_pass(t, "15");
+    }
+
+    #[test]
+    fn test_e2e_short_circuiting() {
         // test &&, || shortcircuit
 
         // &&
@@ -242,6 +415,146 @@ mod tests {
         {x=1; false} || {x=2; false} || {x=3; false}
         x",
             "3",
+        );
+    }
+
+    #[test]
+    fn test_e2e_loops() {
+        let t = r"
+        let x = 0;
+        loop x < 3 {
+            x = x + 1;
+        }
+        x
+        ";
+        test_pass(t, "3");
+
+        // loop-01.rst
+        let t = r"
+        let i = 0;
+
+        loop {
+          if i > 10 {
+            break;
+          }
+          
+          i = i + 1;
+        }
+        
+        i
+        
+        ";
+        test_pass(t, "11");
+
+        let t = r"
+        let x = 0;
+        loop x < 3 {
+            x = x + 1;
+            
+            if x == 2 {
+                break;
+              }
+        }
+        x
+        ";
+        test_pass(t, "2");
+
+        // sum of naturals - nested loop
+        let t = r"
+        let count = 0;
+        let x = 0;
+        let end = 10;
+        
+        loop x < end|| x == end{
+            let j = 0;
+            
+            loop j < x {
+                count = count + 1;
+                j = j + 1;
+            }
+            
+            x = x + 1;
+        }
+        
+        count
+        ";
+        test_pass(t, "55");
+
+        // nested, both have break - break targets correct loop each time
+        let t = r"
+        let count = 0;
+        let x = 0;
+        
+        loop x < 10 || x == 10 {
+            let j = 0;
+            
+            
+            loop {
+                    if !(j < x) {
+                          break;
+                    }
+                    
+                count = count + 1;
+                j = j + 1;
+                
+                if j == 5 {
+                    break;
+                }
+            }
+            
+            x = x + 1;
+            
+            if x == 7 {
+                break;
+            }
+        }
+        
+        count
+        ";
+        test_pass(t, "20");
+
+        // Triple nested
+        test_pass(
+            r"
+        let count = 0;
+
+        let x = 0;
+        loop x < 5 || x == 5 {
+            let y = 0;
+            
+            loop y < 5 || y == 5 {
+                let z = 0;
+                
+                loop {
+                        if !(z < 5 || z == 5) {
+                            break;
+                        }
+                        
+                    count = count + 1;
+                    z = z + 1;
+        
+                    if z == 3 {
+                        break;
+                    }
+                }
+                
+                y = y + 1;
+        
+                if y == 3 {
+                    break;
+                }
+            }
+            
+            x = x + 1;
+        
+            if x == 3 {
+                break;
+            }
+        }
+        
+        count
+        ",
+            "27",
         );
     }
 }

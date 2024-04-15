@@ -36,8 +36,8 @@ cd rustscript
 
 ```bash
 # Assuming you are in the rustscript directory
-./bin/oxidate example.rst # Should generate example.o2
-./bin/ignite example.o2
+./bin/oxidate example/hello-world.rst # Should generate example.o2
+./bin/ignite hello-world.o2
 ```
 
 ## Project Deliverables

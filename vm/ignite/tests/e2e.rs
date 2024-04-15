@@ -33,7 +33,7 @@ fn test_pass(inp: &str, exp: &str) -> Result<()> {
 }
 
 // Test files in example/
-// file_name is expected to be prefix before .rst 
+// file_name is expected to be prefix before .rst
 fn test_file(file_name: &str, exp: &str) -> Result<()> {
     let file_name_rst = format!("../../example/{file_name}.rst");
 

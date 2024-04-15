@@ -6,6 +6,7 @@ use bytecode::{Environment, StackFrame, Symbol, ThreadID, Value};
 use crate::VmError;
 
 /// A thread of execution.
+/// Each thread has its own environment, operand stack, runtime stack, and program counter.
 #[derive(Debug, Default, Clone)]
 pub struct Thread {
     pub thread_id: ThreadID,
@@ -26,6 +27,8 @@ impl Thread {
         }
     }
 
+    /// Create a new thread with the same environment as the current thread.
+    /// But operand stack and runtime stack are empty.
     pub fn spawn_child(&self, thread_id: i64, pc: usize) -> Self {
         Thread {
             thread_id,

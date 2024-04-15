@@ -15,14 +15,5 @@ pub fn println(global_env: Rc<RefCell<Environment>>) -> Value {
 }
 
 pub fn println_impl(v: &Value) {
-    match v {
-        Value::Unitialized => println!("uninitialized"),
-        Value::Unit => println!("()"),
-        Value::String(s) => println!("{}", s),
-        Value::Bool(b) => println!("{}", b),
-        Value::Int(i) => println!("{}", i),
-        Value::Float(f) => println!("{}", f),
-        Value::Semaphore(_) => println!("semaphore"),
-        Value::Closure { .. } => println!("closure"),
-    }
+    println!("{v}");
 }

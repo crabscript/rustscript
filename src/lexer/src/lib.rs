@@ -1,8 +1,24 @@
-use logos::{Lexer, Logos};
+use logos::{Lexer, Logos, Skip};
+
+/// Update the line count and the char index.
+fn newline_callback(lex: &mut Lexer<Token>) -> Skip {
+    lex.extras.0 += 1;
+    lex.extras.1 = lex.span().end;
+    Skip
+}
+
+// Just skip comments
+fn comment_callback(_lex: &mut Lexer<Token>) -> Skip {
+    Skip
+}
 
 #[derive(Debug, Logos, PartialEq, Clone)]
-#[logos(skip r"[ \t\r\n\f]+")]
+#[logos(skip r"[ \t\r\f]+", extras=(usize, usize))]
+// #[logos(extras = (usize, usize))]
 pub enum Token {
+    #[regex(r"\n", newline_callback)]
+    Newline,
+
     #[token(";")]
     Semi,
 
@@ -51,6 +67,9 @@ pub enum Token {
     #[token("=")]
     Eq,
 
+    #[token("==")]
+    LogEq,
+
     #[token("!")]
     Bang,
 
@@ -66,8 +85,14 @@ pub enum Token {
     #[token("&")]
     And,
 
+    #[token("&&")]
+    LogAnd,
+
     #[token("|")]
     Or,
+
+    #[token("||")]
+    LogOr,
 
     #[token("+")]
     Plus,
@@ -95,6 +120,15 @@ pub enum Token {
 
     #[regex(r#"[a-zA-Z_][a-zA-Z0-9_]*"#, |lex| lex.slice().to_owned())]
     Ident(String),
+
+    #[regex(r#"//[^\n]*"#, comment_callback)]
+    Comment,
+
+    #[token("loop")]
+    Loop,
+
+    #[token("break")]
+    Break,
 
     #[token("false", |_| false)]
     #[token("true", |_| true)]
@@ -161,6 +195,13 @@ impl Token {
             Self::Float(val) => val.to_string(),
             Self::If => "if".to_string(),
             Self::Else => "else".to_string(),
+            Self::LogEq => "==".to_string(),
+            Self::LogAnd => "&&".to_string(),
+            Self::LogOr => "||".to_string(),
+            Self::Loop => "loop".to_string(),
+            Self::Break => "break".to_string(),
+            Self::Comment => "//".to_string(),
+            Self::Newline => "\n".to_string(),
         }
     }
 }
@@ -356,7 +397,7 @@ mod test {
             Token::Let,
             Token::Ident("mut".to_string()),
             Token::Ident("continue".to_string()),
-            Token::Ident("break".to_string()),
+            Token::Break,
         ];
 
         for e in expected {
@@ -459,5 +500,110 @@ mod test {
         for e in expected {
             assert_eq!(e, lexer.next().unwrap().expect("Expected token"));
         }
+    }
+
+    #[test]
+    fn test_lex_comp_ops() {
+        // ==, <, >, &&, ||
+        let t = "== = < > && ||";
+        let mut lexer = Token::lexer(t);
+        let exp: Vec<Token> = vec![
+            Token::LogEq,
+            Token::Eq,
+            Token::Lt,
+            Token::Gt,
+            Token::LogAnd,
+            Token::LogOr,
+        ];
+        for e in exp {
+            assert_eq!(e, lexer.next().unwrap().expect("Expected token"));
+        }
+
+        // usage
+        let t = "x = x < 10 && x > 3 || y == 4; ";
+        let mut lexer = Token::lexer(t);
+
+        let exp: Vec<Token> = vec![
+            Token::Ident("x".to_string()),
+            Token::Eq,
+            Token::Ident("x".to_string()),
+            Token::Lt,
+            Token::Integer(10),
+            Token::LogAnd,
+            Token::Ident("x".to_string()),
+            Token::Gt,
+            Token::Integer(3),
+            Token::LogOr,
+            Token::Ident("y".to_string()),
+            Token::LogEq,
+            Token::Integer(4),
+        ];
+        for e in exp {
+            assert_eq!(e, lexer.next().unwrap().expect("Expected token"));
+        }
+    }
+
+    #[test]
+    fn test_lex_loop() {
+        let t = r"
+        loop {
+            break;
+        }
+        ";
+        let exp = vec![
+            Token::Loop,
+            Token::OpenBrace,
+            Token::Break,
+            Token::Semi,
+            Token::CloseBrace,
+        ];
+        let mut lexer = Token::lexer(t);
+        for e in exp {
+            assert_eq!(e, lexer.next().unwrap().expect("Expected token"));
+        }
+    }
+
+    #[test]
+    fn test_lex_comments() {
+        let t = r"
+        // comment
+        1
+        // comment2
+        2
+        // c3
+        // c4
+        3;
+        ";
+        let mut lexer = Token::lexer(t);
+        // skips comment but adds to newline
+        assert_eq!(lexer.next().unwrap().unwrap(), Token::Integer(1));
+        assert_eq!(lexer.extras.0, 2);
+
+        assert_eq!(lexer.next().unwrap().unwrap(), Token::Integer(2));
+        assert_eq!(lexer.extras.0, 4);
+
+        assert_eq!(lexer.next().unwrap().unwrap(), Token::Integer(3));
+        assert_eq!(lexer.next().unwrap().unwrap(), Token::Semi);
+        assert_eq!(lexer.extras.0, 7);
+
+        assert_eq!(lexer.next(), None);
+
+        // comment on same line
+        let t = r"
+        // ignored, but adds to line counter since next line is 2
+        2; // int
+        3 // int2
+        // more comments
+        // blah
+        // ignored
+        ";
+        let mut lexer = Token::lexer(t);
+        assert_eq!(lexer.next().unwrap().unwrap(), Token::Integer(2));
+        assert_eq!(lexer.next().unwrap().unwrap(), Token::Semi);
+        assert_eq!(lexer.extras.0, 2);
+
+        assert_eq!(lexer.next().unwrap().unwrap(), Token::Integer(3));
+        assert_eq!(lexer.extras.0, 3);
+        assert_eq!(lexer.next(), None);
     }
 }

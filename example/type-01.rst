@@ -7,3 +7,5 @@ let x : () = {
 };
 
 y
+
+// expected: 33

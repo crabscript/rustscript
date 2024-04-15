@@ -143,24 +143,90 @@ impl<'prog> TypeChecker<'prog> {
         }
     }
 
+    // Add, Sub, Mul, Div where allowed are (int, int) and (float, float)
+    fn check_math_ops(op: &BinOpType, left_ty: &Type, right_ty: &Type) -> Result<Type, TypeErrors> {
+        match op {
+            BinOpType::Add | BinOpType::Sub | BinOpType::Div | BinOpType::Mul => {
+                match (left_ty, right_ty) {
+                    (Type::Int, Type::Int) => Ok(Type::Int),
+                    (Type::Float, Type::Float) => Ok(Type::Float),
+                    _ => {
+                        let e = format!(
+                            "Can't apply '{}' to types '{}' and '{}'",
+                            op, left_ty, right_ty
+                        );
+                        Err(TypeErrors::new_err(&e))
+                    }
+                }
+            }
+            _ => unreachable!(),
+        }
+    }
+
     pub(crate) fn check_binop(
         &mut self,
         op: &BinOpType,
         lhs: &Expr,
         rhs: &Expr,
     ) -> Result<Type, TypeErrors> {
-        let l_type = self.check_expr(lhs)?;
-        let r_type = self.check_expr(rhs)?;
+        let mut ty_errs = TypeErrors::new();
+        let mut l_type = self.check_expr(lhs);
+        let mut r_type = self.check_expr(rhs);
 
-        match (l_type, r_type) {
-            (Type::Int, Type::Int) => Ok(Type::Int),
-            (Type::Float, Type::Float) => Ok(Type::Float),
-            _ => {
-                let e = format!(
-                    "Can't apply '{}' to types '{}' and '{}'",
-                    op, l_type, r_type
-                );
-                Err(TypeErrors::new_err(&e))
+        if let Err(ref mut errs) = l_type {
+            ty_errs.append(errs);
+        }
+
+        if let Err(ref mut errs) = r_type {
+            ty_errs.append(errs);
+        }
+
+        // have errs from lhs and/or rhs: return out, no types to check
+        if !ty_errs.is_ok() {
+            return Err(ty_errs);
+        }
+
+        // let x = matches!((l_type, r_type), (Ok(Type::Int), Ok(Type::Int)));
+        let l_type = l_type?;
+        let r_type = r_type?;
+
+        let err = format!(
+            "Can't apply '{}' to types '{}' and '{}'",
+            op, l_type, r_type
+        );
+
+        let err: Result<Type, TypeErrors> = Err(TypeErrors::new_err(&err));
+
+        match op {
+            BinOpType::Add | BinOpType::Sub | BinOpType::Div | BinOpType::Mul => {
+                TypeChecker::check_math_ops(op, &l_type, &r_type)
+            }
+            // (num, num) => bool
+            BinOpType::Gt | BinOpType::Lt => {
+                if matches!(
+                    (l_type, r_type),
+                    (Type::Int, Type::Int) | (Type::Float, Type::Float)
+                ) {
+                    Ok(Type::Bool)
+                } else {
+                    err
+                }
+            }
+            // (bool, bool) => bool
+            BinOpType::LogicalOr | BinOpType::LogicalAnd => {
+                if matches!((l_type, r_type), (Type::Bool, Type::Bool)) {
+                    Ok(Type::Bool)
+                } else {
+                    err
+                }
+            }
+            // (t, t) => bool
+            BinOpType::LogicalEq => {
+                if l_type.eq(&r_type) {
+                    Ok(Type::Bool)
+                } else {
+                    err
+                }
             }
         }
     }
@@ -221,6 +287,8 @@ impl<'prog> TypeChecker<'prog> {
             Decl::IfOnlyStmt(if_else) => {
                 self.check_if_else(if_else)?;
             }
+            Decl::LoopStmt(lp) => self.check_loop(lp)?,
+            Decl::BreakStmt => (),
         }
 
         Ok(())
@@ -323,7 +391,7 @@ mod tests {
     }
 
     #[test]
-    fn test_type_check_binops() {
+    fn test_type_check_binops_math() {
         expect_pass("2+2", Type::Int);
         expect_pass("let x : int = 2; let y : int = 3; x + y", Type::Int);
         expect_pass("let x : int = 2; let y : int = 3; x + y;", Type::Unit);
@@ -344,5 +412,118 @@ mod tests {
             true,
         );
         expect_err("let x : bool = true +2;", "apply", true);
+    }
+
+    #[test]
+    fn test_type_check_binops_collect() {
+        // Collect errors from lhs/rhs
+        let t = "x+y";
+        expect_err(
+            t,
+            "[TypeError]: Identifier 'x' not declared\n[TypeError]: Identifier 'y' not declared",
+            true,
+        );
+
+        // blks - can't get types from the blks since they have errs but those are collected
+        let t = "{ 2+false; 3} - {3+3.5; true}";
+        expect_err(t,  "[TypeError]: Can't apply '+' to types 'int' and 'bool'\n[TypeError]: Can't apply '+' to types 'int' and 'float'", true);
+
+        let t = "x+y+z";
+        expect_err(t, "[TypeError]: Identifier 'x' not declared\n[TypeError]: Identifier 'y' not declared\n[TypeError]: Identifier 'z' not declared", false);
+    }
+
+    #[test]
+    fn test_type_check_binops_logical() {
+        // &&, ||
+        expect_pass("true && false", Type::Bool);
+        expect_err(
+            "2 && false",
+            "Can't apply '&&' to types 'int' and 'bool'",
+            true,
+        );
+        expect_err(
+            "false && 2",
+            "Can't apply '&&' to types 'bool' and 'int'",
+            true,
+        );
+
+        expect_pass("true || false", Type::Bool);
+        expect_err(
+            "2 || false",
+            "Can't apply '||' to types 'int' and 'bool'",
+            true,
+        );
+
+        // chaining ok
+        expect_pass("let x = true; true && false && x", Type::Bool);
+        expect_pass("let x = true; true && false || x", Type::Bool);
+    }
+
+    #[test]
+    fn test_type_check_binops_cmp() {
+        // ==, >, <
+
+        // eq
+        expect_pass("true == false", Type::Bool);
+        expect_pass("23 == 56", Type::Bool);
+        expect_pass("23.5 == 56.2", Type::Bool);
+        expect_err(
+            "true == {2;3 }",
+            "Can't apply '==' to types 'bool' and 'int'",
+            true,
+        );
+
+        // >
+        expect_pass("2 > 3", Type::Bool);
+        expect_pass("2.5 > 3.2", Type::Bool);
+        expect_err(
+            "true > false",
+            "Can't apply '>' to types 'bool' and 'bool'",
+            true,
+        );
+
+        // <
+        expect_pass("2 < 3", Type::Bool);
+        expect_pass("2.5 < 3.2", Type::Bool);
+        expect_err(
+            "true < false",
+            "Can't apply '<' to types 'bool' and 'bool'",
+            true,
+        );
+
+        // mix
+        expect_pass("false == (3 > 5)", Type::Bool);
+        expect_err(
+            "(5 == 3) < 5",
+            "[TypeError]: Can't apply '<' to types 'bool' and 'int'",
+            false,
+        );
+    }
+
+    #[test]
+    fn test_type_check_binops_log_cmp() {
+        // mix ==, >, <, &&, ||
+        expect_pass(r"2 == 2 && !true == false || 1 > 3 && 2 < 5 ", Type::Bool);
+
+        expect_pass(
+            r"
+        let x : int = 2;
+        let y : int = 3;
+        let z : bool = 2 == 3;
+        x == y && !z || y > x && x+2 < 5
+        ",
+            Type::Bool,
+        );
+
+        expect_err(
+            r"
+        let x : int = 2;
+        let y : int = 3;
+        let z : bool = 2 == 3;
+        x == y && !z || y > x && z < 5
+        ",
+            "Can't apply '<' to types 'bool' and 'int'",
+            true,
+        );
     }
 }

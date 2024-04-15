@@ -3,7 +3,7 @@ use bytecode::builtin;
 use compiler::compiler;
 use rustyline::DefaultEditor;
 
-use crate::runtime::{run, Runtime};
+use crate::{run, Runtime};
 
 pub fn ignite_repl(type_check: bool) -> Result<()> {
     let mut rl = DefaultEditor::new().unwrap();

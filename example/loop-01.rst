@@ -8,4 +8,4 @@ loop {
   i = i + 1;
 }
 
-i
+i // expected: 11

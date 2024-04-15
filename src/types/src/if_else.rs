@@ -53,7 +53,11 @@ impl<'prog> TypeChecker<'prog> {
 
         if let (Ok(if_ty), Ok(else_ty)) = (check_if, check_else) {
             if if_ty.eq(&else_ty) {
-                return Ok(if_ty);
+                if ty_errs.is_ok() {
+                    return Ok(if_ty);
+                } else {
+                    return Err(ty_errs);
+                }
             }
 
             let e = format!(
@@ -130,6 +134,10 @@ mod tests {
         }
         ";
         expect_err(t, "Expected type 'bool' for if condition, got 'int'", true);
+
+        // cond has err when if-else types match
+        let t = r"let x = 2; let y = 3; if !x == y { 20 } else { 30 }";
+        expect_err(t, "Can't apply logical NOT to type int", true);
     }
 
     #[test]

@@ -2,7 +2,7 @@ let count = 0;
 
 fn increment(times: int) {
   let i = 0;
-  while i < times {
+  loop i < times {
     count = count + 1;
     i = i + 1;
   }

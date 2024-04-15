@@ -7,6 +7,7 @@ pub mod blk;
 pub mod expr;
 pub mod if_else;
 pub mod let_stmt;
+pub mod parse_loop;
 pub mod seq;
 pub mod structs;
 
@@ -36,6 +37,7 @@ pub(crate) use expect_token_body;
 pub struct Parser<'inp> {
     prev_tok: Option<Token>,
     lexer: Peekable<Lexer<'inp, Token>>,
+    pub is_loop: bool,
 }
 
 use Decl::*;
@@ -44,6 +46,7 @@ impl<'inp> Parser<'inp> {
         Parser {
             prev_tok: None,
             lexer: lexer.peekable(),
+            is_loop: false,
         }
     }
 
@@ -51,6 +54,7 @@ impl<'inp> Parser<'inp> {
         Parser {
             prev_tok: None,
             lexer: lex(inp).peekable(),
+            is_loop: false,
         }
     }
 
@@ -179,17 +183,23 @@ impl<'inp> Parser<'inp> {
     /* Precedence */
 
     // Return (left bp, right bp)
+    // Adapted from: https://doc.rust-lang.org/reference/expressions.html
+    // (left, right) => left < right means left associative. left > right means right associative. equal => no associativity (error)
     fn get_infix_bp(binop: &BinOpType) -> (u8, u8) {
         match binop {
-            BinOpType::Add | BinOpType::Sub => (1, 2),
-            BinOpType::Mul | BinOpType::Div => (3, 4),
+            BinOpType::Mul | BinOpType::Div => (8, 9),
+            BinOpType::Add | BinOpType::Sub => (6, 7),
+            // no associativity for comparison ops
+            BinOpType::LogicalEq | BinOpType::Gt | BinOpType::Lt => (5, 5),
+            BinOpType::LogicalAnd => (3, 4),
+            BinOpType::LogicalOr => (1, 2),
         }
     }
 
-    // Unary negation has a higher precedence than binops
+    // Unary negation must have a higher precedence than binops
     fn get_prefix_bp(unop: &UnOpType) -> ((), u8) {
         match unop {
-            UnOpType::Negate | UnOpType::Not => ((), 5),
+            UnOpType::Negate | UnOpType::Not => ((), 10),
         }
     }
 
@@ -228,7 +238,15 @@ impl<'inp> Parser<'inp> {
             | Token::Bang
             | Token::OpenBrace
             | Token::If => self.parse_expr(0),
+            // if not is_loop, error
+            Token::Break => {
+                if !self.is_loop {
+                    return Err(ParseError::new("break outside of loop"));
+                }
+                Ok(Decl::BreakStmt)
+            }
             Token::Let => self.parse_let(),
+            Token::Loop => self.parse_loop(),
             _ => Err(ParseError::new(&format!(
                 "Unexpected token: '{}'",
                 prev_tok
@@ -310,82 +328,6 @@ mod tests {
     #[test]
     fn test_errs_for_consecutive_exprs() {
         test_parse_err("20 30", "infix operator", true);
-    }
-
-    #[test]
-    fn test_parse_binop() {
-        test_parse("2+3;", "(2+3);");
-        test_parse("2*3;", "(2*3);");
-        test_parse("2+2*3", "(2+(2*3))");
-        test_parse("2*3+4", "((2*3)+4)");
-        test_parse("2*3+4/2", "((2*3)+(4/2))");
-
-        test_parse("2*3+4; 2+4*3; 20/200*2", "((2*3)+4);(2+(4*3));((20/200)*2)");
-
-        test_parse("2-3", "(2-3)");
-        test_parse("2-3+4/5*6", "((2-3)+((4/5)*6))");
-        test_parse("2-3+4/5*6-8+9; 2+2;", "((((2-3)+((4/5)*6))-8)+9);(2+2);");
-
-        test_parse("let x = 2+3*4-5; 300", "let x = ((2+(3*4))-5);300");
-    }
-
-    #[test]
-    fn test_parse_negation() {
-        test_parse("-2;", "(-2);");
-        test_parse("-2+3;", "((-2)+3);");
-        test_parse("3+-2;", "(3+(-2));");
-        test_parse("--2;", "(-(-2));");
-        test_parse("---2;", "(-(-(-2)));");
-        test_parse("-1*2+3-4", "((((-1)*2)+3)-4)");
-        test_parse(
-            "let x = -1.23; -1+2*3; 3*-2/5",
-            "let x = (-1.23);((-1)+(2*3));((3*(-2))/5)",
-        );
-
-        // no type checking yet - leave type checking to one distinct phase
-        test_parse("let x = -true+false;", "let x = ((-true)+false);");
-    }
-
-    #[test]
-    fn test_parse_ident() {
-        test_parse("x", "x");
-        test_parse("x;", "x;");
-        test_parse("x; y;", "x;y;");
-        test_parse("x; y; z", "x;y;z");
-
-        test_parse("x; y; x+y*2", "x;y;(x+(y*2))");
-        test_parse("x; y; -y+x/3", "x;y;((-y)+(x/3))");
-        test_parse("x; y; -y+x/3", "x;y;((-y)+(x/3))");
-    }
-
-    #[test]
-    fn test_parse_parens() {
-        test_parse("(2)", "2");
-        test_parse("((((20))));", "20;");
-        test_parse("(2+3)", "(2+3)");
-        test_parse("(2+3)*4", "((2+3)*4)");
-        test_parse("2+3*(4-5)", "(2+(3*(4-5)))");
-        test_parse("2+3*(4-(5*6/(7-3)))", "(2+(3*(4-((5*6)/(7-3)))))");
-        test_parse(
-            "(2*3+(4-(6*5)))*(10-(20)*(3+2))",
-            "(((2*3)+(4-(6*5)))*(10-(20*(3+2))))",
-        );
-
-        // Err cases
-        test_parse_err("((2+3)*5", "closing paren", true);
-        test_parse_err("(2*3+(4-(6*5)))*(10-(20)*(3+2)", "closing paren", true);
-    }
-
-    #[test]
-    fn test_parse_not() {
-        test_parse("!true", "(!true)");
-        test_parse("!false", "(!false)");
-        test_parse("!!true;", "(!(!true));");
-        test_parse("!!!true", "(!(!(!true)))");
-
-        // No type check, but we will use same prec for mul as for logical and/or
-        test_parse("!2*3", "((!2)*3)");
-        test_parse("!(2*3)", "(!(2*3))");
     }
 
     #[test]

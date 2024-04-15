@@ -4,6 +4,7 @@ use std::time::Duration;
 use anyhow::{Error, Result};
 use bytecode::{builtin, read_bytecode};
 use clap::Parser;
+use compiler::compiler::compile_from_string;
 use repl::ignite_repl;
 use runtime::*;
 
@@ -90,4 +91,33 @@ fn main() -> Result<()> {
     }
 
     Ok(())
+}
+
+pub fn run_from_string(inp: &str) -> Result<Runtime> {
+    let comp = compile_from_string(inp, true)?;
+    let rt = Runtime::new(comp);
+    let rt = run(rt)?;
+    Ok(rt)
+}
+
+// E2E tests. Not sure how to use Runtime from tests/
+#[cfg(test)]
+mod tests {
+    use crate::run_from_string;
+
+    fn test_pass(inp: &str, exp: &str) {
+        let rt = run_from_string(inp).expect("Should succeed");
+        let res = rt.current_thread.operand_stack.last().clone();
+        // if stack empty at the end, empty string
+        let res_string = match res {
+            Some(v) => v.to_string(),
+            None => "".to_string(),
+        };
+
+        assert_eq!(res_string, exp);
+        // Invariant: op stack must have length == 1 when value produced. accumulating operands on op stack can cause bugs
+        if res.is_some() {
+            assert_eq!(rt.current_thread.operand_stack.len(), 1);
+        }
+    }
 }

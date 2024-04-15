@@ -587,5 +587,23 @@ mod test {
         assert_eq!(lexer.extras.0, 7);
 
         assert_eq!(lexer.next(), None);
+
+        // comment on same line
+        let t = r"
+        // ignored, but adds to line counter since next line is 2
+        2; // int
+        3 // int2
+        // more comments
+        // blah
+        // ignored
+        ";
+        let mut lexer = Token::lexer(t);
+        assert_eq!(lexer.next().unwrap().unwrap(), Token::Integer(2));
+        assert_eq!(lexer.next().unwrap().unwrap(), Token::Semi);
+        assert_eq!(lexer.extras.0, 2);
+
+        assert_eq!(lexer.next().unwrap().unwrap(), Token::Integer(3));
+        assert_eq!(lexer.extras.0, 3);
+        assert_eq!(lexer.next(), None);
     }
 }

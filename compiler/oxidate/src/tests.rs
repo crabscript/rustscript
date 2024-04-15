@@ -881,11 +881,149 @@ mod tests {
 
     #[test]
     fn test_compile_loop() {
+        // inf loop
         let t = r"
+        200;
         loop {
-
+            2;
         }
         ";
-        // test_comp(t, vec![]);
+        test_comp(
+            t,
+            vec![
+                LDC(Int(200)),
+                POP,
+                LDC(Int(2)),
+                POP,
+                LDC(Unit),
+                POP,
+                GOTO(2),
+                LDC(Unit),
+                POP,
+                DONE,
+            ],
+        );
+
+        // with break, no cond
+        let t = r"
+        200;
+
+        loop {
+            2;
+            break;
+        }
+
+        300;
+        ";
+        test_comp(
+            t,
+            vec![
+                LDC(Int(200)),
+                POP,
+                LDC(Int(2)),
+                POP,
+                GOTO(9),
+                POP,
+                LDC(Unit),
+                POP,
+                GOTO(2),
+                LDC(Unit),
+                POP,
+                LDC(Int(300)),
+                POP,
+                DONE,
+            ],
+        );
+
+        // with cond, no break
+
+        let t = r"
+        let x = 0;
+        loop x < 3 {
+            x = x + 1;
+        }
+        x
+        ";
+
+        test_comp(
+            t,
+            vec![
+                ENTERSCOPE(vec!["x".to_string()]),
+                LDC(Int(0)),
+                ByteCode::assign("x"),
+                LDC(Unit),
+                POP,
+                ByteCode::ld("x"), // 5 - loop cond (start)
+                LDC(Int(3)),
+                ByteCode::binop("<"),
+                JOF(18),
+                ByteCode::ld("x"),
+                LDC(Int(1)),
+                ByteCode::binop("+"),
+                ByteCode::assign("x"),
+                LDC(Unit),
+                POP,
+                LDC(Unit),
+                POP,
+                GOTO(5),
+                LDC(Unit), // 18 - loop end (load unit as value)
+                POP,
+                ByteCode::ld("x"),
+                EXITSCOPE,
+                DONE,
+            ],
+        );
+
+        // cond and break
+        let t = r"
+        let x = 0;
+        loop x < 3 {
+            x = x + 1;
+            
+            if x == 2 {
+                break;
+            }
+        }
+        x
+        ";
+
+        test_comp(
+            t,
+            vec![
+                ENTERSCOPE(vec!["x".to_string()]),
+                LDC(Int(0)),
+                ByteCode::assign("x"),
+                LDC(Unit),
+                POP,
+                LD("x".to_string()),
+                LDC(Int(3)),
+                ByteCode::binop("<"),
+                JOF(28),
+                LD("x".to_string()),
+                LDC(Int(1)),
+                ByteCode::binop("+"),
+                ByteCode::assign("x"),
+                LDC(Unit),
+                POP,
+                LD("x".to_string()),
+                LDC(Int(2)),
+                ByteCode::binop("=="),
+                JOF(23),
+                GOTO(28),
+                POP,
+                LDC(Unit),
+                GOTO(24),
+                LDC(Unit),
+                POP,
+                LDC(Unit),
+                POP,
+                GOTO(5),
+                LDC(Unit),
+                POP,
+                LD("x".to_string()),
+                EXITSCOPE,
+                DONE,
+            ],
+        );
     }
 }

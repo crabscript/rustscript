@@ -53,7 +53,6 @@ impl<'inp> Parser<'inp> {
 
         // save and restore prev is_loop e.g when coming from global
         let prev_is_loop = self.is_loop;
-        dbg!("prev is loop:", prev_is_loop);
         self.is_loop = true;
 
         let cond = self.parse_expr(0)?.to_expr()?;

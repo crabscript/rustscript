@@ -3,13 +3,13 @@ use std::{fmt::Display, rc::Rc, vec};
 use types::type_checker::TypeChecker;
 
 use bytecode::{BinOp, ByteCode, Value};
-use parser::structs::{BinOpType, BlockSeq, Decl, Expr, IfElseData, UnOpType};
+use parser::structs::{BinOpType, BlockSeq, Decl, Expr, IfElseData, LoopData, UnOpType};
 
 pub struct Compiler {
     program: BlockSeq,
     // Tracks idx in bytecode for any nested break stmts compiled for that loop. Stack of vecs since we can have nested loops
     // and break should only break the closest enclosing loop
-    // loop_stack: Vec<Vec<usize>>
+    loop_stack: Vec<Vec<usize>>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -35,7 +35,10 @@ impl std::error::Error for CompileError {}
 
 impl Compiler {
     pub fn new(program: BlockSeq) -> Compiler {
-        Compiler { program }
+        Compiler {
+            program,
+            loop_stack: vec![],
+        }
     }
 
     fn compile_unop(
@@ -255,8 +258,15 @@ impl Compiler {
                 self.compile_assign(&stmt.ident, &stmt.expr, arr)?;
             }
             Decl::IfOnlyStmt(if_else) => self.compile_if_else(if_else, arr)?,
-            Decl::LoopStmt(_) => todo!(),
-            Decl::BreakStmt => todo!(),
+            Decl::LoopStmt(lp) => self.compile_loop(lp, arr)?,
+            // push GOTO, push idx of this break in arr onto loop stack
+            Decl::BreakStmt => {
+                let break_idx = arr.len();
+                arr.push(ByteCode::GOTO(0));
+                if let Some(breaks) = self.loop_stack.last_mut() {
+                    breaks.push(break_idx);
+                }
+            }
         };
 
         Ok(())
@@ -299,14 +309,78 @@ impl Compiler {
         Ok(())
     }
 
-    // fn compile_loop_inner(loop_data: &LoopData, arr: &mut Vec<ByteCode>) -> Result<(), CompileError> {
-    //     Ok(())
-    // }
+    /*Assumptions:
+    1. Before entering a statement, op_stack length  is 0
+    2. Upon jump on false, op stack length is 0
+    */
+    // Returns index in pc of LDC unit for the loop
+    fn compile_loop_inner(
+        &mut self,
+        loop_data: &LoopData,
+        arr: &mut Vec<ByteCode>,
+    ) -> Result<usize, CompileError> {
+        // dbg!("compile loop, stack:", &self.loop_stack);
+        let loop_start = arr.len();
+        // only need to patch JOF if condition was present
 
-    // fn compile_loop(loop_data: &LoopData, arr: &mut Vec<ByteCode>) -> Result<(), CompileError> {
+        let mut jof_idx: Option<usize> = None;
+        if let Some(expr) = &loop_data.cond {
+            self.compile_expr(expr, arr)?;
+            jof_idx.replace(arr.len());
+            arr.push(ByteCode::JOF(0));
+        }
 
-    //     Ok(())
-    // }
+        // loop body
+        self.compile_block(&loop_data.body, arr)?;
+        arr.push(ByteCode::POP); // pop value produced by blk
+        arr.push(ByteCode::GOTO(loop_start)); // goto start of loop
+
+        let loop_end_idx = arr.len(); // JOF and break must jump to LDC Unit
+        arr.push(ByteCode::LDC(Value::Unit)); // loop produces Unit (popped by decl loop since stmt)
+
+        // patch JOF
+        if let Some(idx) = jof_idx {
+            if let Some(ByteCode::JOF(jmp_idx)) = arr.get_mut(idx) {
+                *jmp_idx = loop_end_idx;
+            }
+        }
+
+        Ok(loop_end_idx)
+    }
+
+    // To ensure loop stack is always popped / pushed whether err or not - like calling defer in Go
+    fn compile_loop(
+        &mut self,
+        loop_data: &LoopData,
+        arr: &mut Vec<ByteCode>,
+    ) -> Result<(), CompileError> {
+        self.loop_stack.push(vec![]);
+        let end_idx = self.compile_loop_inner(loop_data, arr);
+
+        let end_idx = end_idx?;
+
+        // patch all the break stmts
+        let breaks = self
+            .loop_stack
+            .last()
+            .expect("Loop stack should be present since pushed earlier");
+
+        // Later: can use this to detect infinite loops
+        // if breaks.len() == 0 && loop_data.cond.is_none() {
+        //     dbg!("[WARNING] Breaks was empty: loop has no break");
+        // }
+
+        for idx in breaks.iter() {
+            let idx = idx.to_owned();
+
+            if let Some(ByteCode::GOTO(break_idx)) = arr.get_mut(idx) {
+                *break_idx = end_idx;
+            }
+        }
+
+        self.loop_stack.pop();
+        Ok(())
+    }
 
     pub fn compile(mut self) -> anyhow::Result<Vec<ByteCode>, CompileError> {
         let mut bytecode: Vec<ByteCode> = vec![];

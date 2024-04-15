@@ -3,7 +3,7 @@ let sem = sem_create();
 
 fn increment(times: int) {
   let i = 0;
-  while i < times {
+  loop i < times {
     wait sem;
     count = count + 1; // critical section
     post sem;

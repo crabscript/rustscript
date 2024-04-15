@@ -9,9 +9,9 @@ loop x < 10 || x == 10 {
     
     
     loop {
-		    if !(j < x) {
-			      break;
-		    }
+        if !(j < x) {
+                break;
+        }
 		    
         count = count + 1;
         j = j + 1;

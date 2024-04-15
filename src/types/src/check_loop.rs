@@ -71,8 +71,20 @@ mod tests {
             let x = 0;
             loop x < 5 {
                 x = x + 1;
+                break;
             }
             y = y + 1;
+        }
+        ";
+        expect_pass(t, Type::Unit);
+
+        // if we break in the branch its ok because it will just jump past loop + ident was not loaded anyway
+        let t = r"
+        loop {
+            let y = if true {
+                break;
+                3
+            } else { 4 };
         }
         ";
         expect_pass(t, Type::Unit);

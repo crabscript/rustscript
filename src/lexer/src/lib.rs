@@ -1,8 +1,24 @@
-use logos::{Lexer, Logos};
+use logos::{Lexer, Logos, Skip};
+
+/// Update the line count and the char index.
+fn newline_callback(lex: &mut Lexer<Token>) -> Skip {
+    lex.extras.0 += 1;
+    lex.extras.1 = lex.span().end;
+    Skip
+}
+
+// Just skip comments
+fn comment_callback(_lex: &mut Lexer<Token>) -> Skip {
+    Skip
+}
 
 #[derive(Debug, Logos, PartialEq, Clone)]
-#[logos(skip r"[ \t\r\n\f]+")]
+#[logos(skip r"[ \t\r\f]+", extras=(usize, usize))]
+// #[logos(extras = (usize, usize))]
 pub enum Token {
+    #[regex(r"\n", newline_callback)]
+    Newline,
+
     #[token(";")]
     Semi,
 
@@ -105,6 +121,9 @@ pub enum Token {
     #[regex(r#"[a-zA-Z_][a-zA-Z0-9_]*"#, |lex| lex.slice().to_owned())]
     Ident(String),
 
+    #[regex(r#"//[^\n]*"#, comment_callback)]
+    Comment,
+
     #[token("loop")]
     Loop,
 
@@ -181,6 +200,8 @@ impl Token {
             Self::LogOr => "||".to_string(),
             Self::Loop => "loop".to_string(),
             Self::Break => "break".to_string(),
+            Self::Comment => "//".to_string(),
+            Self::Newline => "\n".to_string(),
         }
     }
 }
@@ -540,5 +561,31 @@ mod test {
         for e in exp {
             assert_eq!(e, lexer.next().unwrap().expect("Expected token"));
         }
+    }
+
+    #[test]
+    fn test_lex_comments() {
+        let t = r"
+        // comment
+        1
+        // comment2
+        2
+        // c3
+        // c4
+        3;
+        ";
+        let mut lexer = Token::lexer(t);
+        // skips comment but adds to newline
+        assert_eq!(lexer.next().unwrap().unwrap(), Token::Integer(1));
+        assert_eq!(lexer.extras.0, 2);
+
+        assert_eq!(lexer.next().unwrap().unwrap(), Token::Integer(2));
+        assert_eq!(lexer.extras.0, 4);
+
+        assert_eq!(lexer.next().unwrap().unwrap(), Token::Integer(3));
+        assert_eq!(lexer.next().unwrap().unwrap(), Token::Semi);
+        assert_eq!(lexer.extras.0, 7);
+
+        assert_eq!(lexer.next(), None);
     }
 }

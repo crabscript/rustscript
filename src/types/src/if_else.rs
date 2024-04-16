@@ -79,7 +79,7 @@ impl<'prog> TypeChecker<'prog> {
                     }
 
                     let e = format!(
-                        "if-else has type mismatch - consequent:{}, alt :{}",
+                        "if-else has type mismatch - consequent: {}, alt: {}",
                         if_ty.ty, else_ty.ty
                     );
                     ty_errs.add(&e);
@@ -276,7 +276,7 @@ mod tests {
          ";
         expect_err(
             t,
-            "if-else has type mismatch - consequent:int, alt :bool",
+            "if-else has type mismatch - consequent: int, alt: bool",
             true,
         );
 
@@ -290,7 +290,7 @@ mod tests {
          ";
         expect_err(
             t,
-            "if-else has type mismatch - consequent:int, alt :bool",
+            "if-else has type mismatch - consequent: int, alt: bool",
             true,
         );
 

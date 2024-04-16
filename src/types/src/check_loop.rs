@@ -189,7 +189,7 @@ mod tests {
         ";
         expect_err(
             t,
-            "if-else has type mismatch - consequent:(), alt :int",
+            "if-else has type mismatch - consequent: (), alt: int",
             true,
         );
     }

@@ -2,7 +2,8 @@ use anyhow::{Ok, Result};
 
 use crate::{Runtime, VmError, MAIN_THREAD_ID};
 
-/// Set the state of the current thread to done.
+/// Set the state of the runtime to done if the current thread is the main thread.
+/// Otherwise, set the current thread to zombie and yield to the next ready thread.
 ///
 /// # Arguments
 ///
@@ -10,7 +11,7 @@ use crate::{Runtime, VmError, MAIN_THREAD_ID};
 ///
 /// # Errors
 ///
-/// * If the current thread is not found in the thread state hashmap.
+/// * If the current thread is not the main thread and there are no threads in the ready queue.
 pub fn done(mut rt: Runtime) -> Result<Runtime> {
     // If the current thread is the main thread, then we are done
     if rt.current_thread.thread_id == MAIN_THREAD_ID {

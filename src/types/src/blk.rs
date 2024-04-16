@@ -1,8 +1,8 @@
-use crate::type_checker::{new_env_with_syms, TypeChecker, TypeErrors};
+use crate::type_checker::{new_env_with_syms, CheckResult, TypeChecker, TypeErrors};
 use parser::structs::{BlockSeq, Type};
 
 impl<'prog> TypeChecker<'prog> {
-    pub(crate) fn check_block(&mut self, program: &BlockSeq) -> Result<Type, TypeErrors> {
+    pub(crate) fn check_block(&mut self, program: &BlockSeq) -> Result<CheckResult, TypeErrors> {
         let mut errs = TypeErrors::new();
         // map bindings to types
         // let mut ty_env: HashMap<String, Type> = HashMap::new();
@@ -10,13 +10,34 @@ impl<'prog> TypeChecker<'prog> {
         let env = new_env_with_syms(program.symbols.clone());
         self.envs.push(env);
 
-        for decl in program.decls.iter() {
-            if let Err(mut decl_errs) = self.check_decl(decl) {
-                errs.append(&mut decl_errs);
+        // to check if the block has a decl that forces it to break or forces it to return
+        // must_break can be used to accept inf loop with no cond that has no nested break in a function
+        let mut must_break = false;
+        let mut must_return = false;
 
-                // if this err means we can't proceed, stop e.g let x = -true; let y = x + 3; - we don't know type of x since invalid
-                if !decl_errs.cont {
-                    break;
+        for decl in program.decls.iter() {
+            // if let Err(mut decl_errs) = self.check_decl(decl) {
+            //     errs.append(&mut decl_errs);
+
+            //     // if this err means we can't proceed, stop e.g let x = -true; let y = x + 3; - we don't know type of x since invalid
+            //     if !decl_errs.cont {
+            //         break;
+            //     }
+            // }
+
+            match self.check_decl(decl) {
+                Ok(check_res) => {
+                    // propagate must_break/must_return
+                    must_break = must_break || check_res.must_break;
+                    must_return = must_return || check_res.must_return;
+                }
+                Err(mut decl_errs) => {
+                    errs.append(&mut decl_errs);
+
+                    // if this err means we can't proceed, stop e.g let x = -true; let y = x + 3; - we don't know type of x since invalid
+                    if !decl_errs.cont {
+                        break;
+                    }
                 }
             }
         }
@@ -28,13 +49,27 @@ impl<'prog> TypeChecker<'prog> {
             return Err(errs);
         }
 
+        // whether expr last or not must_break / must_return are same
+        let blk_res = CheckResult {
+            ty: Type::Unit,
+            must_break,
+            must_return,
+        };
+
         // Return type of last expr if any. If errs, add to err list
         if let Some(last) = &program.last_expr {
             let res = self.check_expr(last);
             match res {
-                Ok(ty) => {
+                Ok(expr_res) => {
                     self.envs.pop();
-                    return Ok(ty);
+
+                    // propagate must_break/ret from above decls if there
+                    let res = CheckResult {
+                        must_break: blk_res.must_break || expr_res.must_break,
+                        must_return: blk_res.must_return || expr_res.must_return,
+                        ty: expr_res.ty,
+                    };
+                    return Ok(res);
                 }
                 Err(mut expr_errs) => errs.append(&mut expr_errs),
             };
@@ -42,8 +77,9 @@ impl<'prog> TypeChecker<'prog> {
 
         self.envs.pop();
 
+        // blk has no last_expr
         if errs.is_ok() {
-            Ok(Type::Unit)
+            Ok(blk_res)
         } else {
             Err(errs)
         }

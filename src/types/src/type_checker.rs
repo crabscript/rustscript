@@ -67,6 +67,14 @@ pub fn new_env_with_syms(syms: Vec<String>) -> Env {
     env
 }
 
+// type, must_break, must_return
+#[derive(Debug, Clone)]
+pub struct CheckResult {
+    pub ty: Type,
+    pub must_break: bool,
+    pub must_return: bool,
+}
+
 /// Struct to enable type checking by encapsulating type environment.
 pub struct TypeChecker<'prog> {
     program: &'prog BlockSeq,
@@ -117,25 +125,45 @@ impl<'prog> TypeChecker<'prog> {
         Ok(())
     }
 
-    pub(crate) fn check_unop(&mut self, op: &UnOpType, expr: &Expr) -> Result<Type, TypeErrors> {
+    pub(crate) fn check_unop(
+        &mut self,
+        op: &UnOpType,
+        expr: &Expr,
+    ) -> Result<CheckResult, TypeErrors> {
         match op {
             UnOpType::Negate => {
                 // Return err imm if operand itself is not well typed
-                let ty = self.check_expr(expr)?;
-                match ty {
-                    Type::Int | Type::Float => Ok(ty),
+                let check_res = self.check_expr(expr)?;
+                match check_res.ty {
+                    Type::Int | Type::Float => {
+                        let res = CheckResult {
+                            ty: check_res.ty,
+                            must_break: check_res.must_break,
+                            must_return: check_res.must_return,
+                        };
+
+                        Ok(res)
+                    }
                     _ => {
-                        let e = format!("Can't negate type {}", ty);
+                        let e = format!("Can't negate type {}", check_res.ty);
                         Err(TypeErrors::new_err(&e))
                     }
                 }
             }
             UnOpType::Not => {
-                let ty = self.check_expr(expr)?;
-                match ty {
-                    Type::Bool => Ok(ty),
+                let check_res = self.check_expr(expr)?;
+                match check_res.ty {
+                    Type::Bool => {
+                        let res = CheckResult {
+                            ty: check_res.ty,
+                            must_break: check_res.must_break,
+                            must_return: check_res.must_return,
+                        };
+
+                        Ok(res)
+                    }
                     _ => {
-                        let e = format!("Can't apply logical NOT to type {}", ty);
+                        let e = format!("Can't apply logical NOT to type {}", check_res.ty);
                         Err(TypeErrors::new_err(&e))
                     }
                 }
@@ -144,16 +172,36 @@ impl<'prog> TypeChecker<'prog> {
     }
 
     // Add, Sub, Mul, Div where allowed are (int, int) and (float, float)
-    fn check_math_ops(op: &BinOpType, left_ty: &Type, right_ty: &Type) -> Result<Type, TypeErrors> {
+    fn check_math_ops(
+        op: &BinOpType,
+        left_ty: &CheckResult,
+        right_ty: &CheckResult,
+    ) -> Result<CheckResult, TypeErrors> {
         match op {
             BinOpType::Add | BinOpType::Sub | BinOpType::Div | BinOpType::Mul => {
-                match (left_ty, right_ty) {
-                    (Type::Int, Type::Int) => Ok(Type::Int),
-                    (Type::Float, Type::Float) => Ok(Type::Float),
+                match (left_ty.ty, right_ty.ty) {
+                    (Type::Int, Type::Int) => {
+                        let res = CheckResult {
+                            ty: Type::Int,
+                            must_break: left_ty.must_break || right_ty.must_break,
+                            must_return: left_ty.must_return || right_ty.must_return,
+                        };
+
+                        Ok(res)
+                    }
+                    (Type::Float, Type::Float) => {
+                        let res = CheckResult {
+                            ty: Type::Float,
+                            must_break: left_ty.must_break || right_ty.must_break,
+                            must_return: left_ty.must_return || right_ty.must_return,
+                        };
+
+                        Ok(res)
+                    }
                     _ => {
                         let e = format!(
                             "Can't apply '{}' to types '{}' and '{}'",
-                            op, left_ty, right_ty
+                            op, left_ty.ty, right_ty.ty
                         );
                         Err(TypeErrors::new_err(&e))
                     }
@@ -168,7 +216,7 @@ impl<'prog> TypeChecker<'prog> {
         op: &BinOpType,
         lhs: &Expr,
         rhs: &Expr,
-    ) -> Result<Type, TypeErrors> {
+    ) -> Result<CheckResult, TypeErrors> {
         let mut ty_errs = TypeErrors::new();
         let mut l_type = self.check_expr(lhs);
         let mut r_type = self.check_expr(rhs);
@@ -192,10 +240,10 @@ impl<'prog> TypeChecker<'prog> {
 
         let err = format!(
             "Can't apply '{}' to types '{}' and '{}'",
-            op, l_type, r_type
+            op, l_type.ty, r_type.ty
         );
 
-        let err: Result<Type, TypeErrors> = Err(TypeErrors::new_err(&err));
+        let err: Result<_, TypeErrors> = Err(TypeErrors::new_err(&err));
 
         match op {
             BinOpType::Add | BinOpType::Sub | BinOpType::Div | BinOpType::Mul => {
@@ -204,26 +252,46 @@ impl<'prog> TypeChecker<'prog> {
             // (num, num) => bool
             BinOpType::Gt | BinOpType::Lt => {
                 if matches!(
-                    (l_type, r_type),
+                    (l_type.ty, r_type.ty),
                     (Type::Int, Type::Int) | (Type::Float, Type::Float)
                 ) {
-                    Ok(Type::Bool)
+                    // Ok(Type::Bool)
+                    let res = CheckResult {
+                        ty: Type::Bool,
+                        must_break: l_type.must_break || r_type.must_break,
+                        must_return: l_type.must_return || r_type.must_return,
+                    };
+
+                    Ok(res)
                 } else {
                     err
                 }
             }
             // (bool, bool) => bool
             BinOpType::LogicalOr | BinOpType::LogicalAnd => {
-                if matches!((l_type, r_type), (Type::Bool, Type::Bool)) {
-                    Ok(Type::Bool)
+                if matches!((l_type.ty, r_type.ty), (Type::Bool, Type::Bool)) {
+                    // Ok(Type::Bool)
+                    let res = CheckResult {
+                        ty: Type::Bool,
+                        must_break: l_type.must_break || r_type.must_break,
+                        must_return: l_type.must_return || r_type.must_return,
+                    };
+
+                    Ok(res)
                 } else {
                     err
                 }
             }
             // (t, t) => bool
             BinOpType::LogicalEq => {
-                if l_type.eq(&r_type) {
-                    Ok(Type::Bool)
+                if l_type.ty.eq(&r_type.ty) {
+                    let res = CheckResult {
+                        ty: Type::Bool,
+                        must_break: l_type.must_break || r_type.must_break,
+                        must_return: l_type.must_return || r_type.must_return,
+                    };
+
+                    Ok(res)
                 } else {
                     err
                 }
@@ -233,15 +301,33 @@ impl<'prog> TypeChecker<'prog> {
 
     /// Return the type errors out instead of using mutable ref
     // because for nested errors in the expr we want to propagate those
-    pub(crate) fn check_expr(&mut self, expr: &Expr) -> Result<Type, TypeErrors> {
+    pub(crate) fn check_expr(&mut self, expr: &Expr) -> Result<CheckResult, TypeErrors> {
         let local_errs = TypeErrors::new();
-        let ty = match expr {
-            Expr::Integer(_) => Type::Int,
-            Expr::Float(_) => Type::Float,
-            Expr::Bool(_) => Type::Bool,
+        let ty: CheckResult = match expr {
+            Expr::Integer(_) => CheckResult {
+                ty: Type::Int,
+                must_break: false,
+                must_return: false,
+            },
+            Expr::Float(_) => CheckResult {
+                ty: Type::Float,
+                must_break: false,
+                must_return: false,
+            },
+            Expr::Bool(_) => CheckResult {
+                ty: Type::Bool,
+                must_break: false,
+                must_return: false,
+            },
             Expr::Symbol(ident) => {
                 // self.ty_env.borrow().get(ident)?
-                self.get_type(ident)?
+                let sym_ty = self.get_type(ident)?;
+
+                CheckResult {
+                    ty: sym_ty,
+                    must_break: false,
+                    must_return: false,
+                }
             }
             Expr::UnOpExpr(op, expr) => {
                 return self.check_unop(op, expr);
@@ -249,8 +335,8 @@ impl<'prog> TypeChecker<'prog> {
             Expr::BinOpExpr(op, lhs, rhs) => {
                 return self.check_binop(op, lhs, rhs);
             }
-            Expr::BlockExpr(blk) => self.check_block(blk)?,
-            Expr::IfElseExpr(if_else) => self.check_if_else(if_else)?,
+            Expr::BlockExpr(blk) => return self.check_block(blk),
+            Expr::IfElseExpr(if_else) => return self.check_if_else(if_else),
         };
 
         if local_errs.is_ok() {
@@ -261,41 +347,51 @@ impl<'prog> TypeChecker<'prog> {
     }
 
     /// Type check declaration and add errors if any
-    pub(crate) fn check_decl(&mut self, decl: &Decl) -> Result<(), TypeErrors> {
+    pub(crate) fn check_decl(&mut self, decl: &Decl) -> Result<CheckResult, TypeErrors> {
         // dbg!("Type checking decl:", decl);
         match decl {
-            Decl::LetStmt(stmt) => {
-                self.check_let(stmt)?;
-            }
+            Decl::LetStmt(stmt) => self.check_let(stmt),
             // Type check the expr and return any errors
-            Decl::ExprStmt(expr) => {
-                self.check_expr(expr)?;
-            }
+            Decl::ExprStmt(expr) => self.check_expr(expr),
             // Check if sym is declared already. Then check expr matches type at decl
             Decl::AssignStmt(stmt) => {
                 let sym_ty = self.get_type_if_init(&stmt.ident.to_owned())?;
                 let exp_ty = self.check_expr(&stmt.expr)?;
 
-                if !sym_ty.eq(&exp_ty) {
+                if !sym_ty.eq(&exp_ty.ty) {
                     let e = format!(
                         "'{}' declared with type {} but assigned type {}",
-                        stmt.ident, sym_ty, exp_ty
+                        stmt.ident, sym_ty, exp_ty.ty
                     );
                     return Err(TypeErrors::new_err(&e));
                 }
+
+                let res = CheckResult {
+                    ty: Type::Unit,
+                    must_break: exp_ty.must_break,
+                    must_return: exp_ty.must_return,
+                };
+
+                Ok(res)
             }
-            Decl::IfOnlyStmt(if_else) => {
-                self.check_if_else(if_else)?;
+            Decl::IfOnlyStmt(if_else) => self.check_if_else(if_else),
+            Decl::LoopStmt(lp) => self.check_loop(lp),
+            Decl::BreakStmt => {
+                // must_break base case
+                Ok(CheckResult {
+                    ty: Type::Unit,
+                    must_break: true,
+                    must_return: false,
+                })
             }
-            Decl::LoopStmt(lp) => self.check_loop(lp)?,
-            Decl::BreakStmt => (),
         }
 
-        Ok(())
+        // Ok(())
     }
 
     pub fn type_check(mut self) -> Result<Type, TypeErrors> {
-        self.check_block(self.program)
+        let ty = self.check_block(self.program)?;
+        Ok(ty.ty)
     }
 }
 

@@ -1,10 +1,10 @@
-use crate::type_checker::{TypeChecker, TypeErrors};
+use crate::type_checker::{CheckResult, TypeChecker, TypeErrors};
 use parser::structs::{LoopData, Type};
 
 impl<'prog> TypeChecker<'prog> {
     // if loop cond present, must be bool. else just check blks.
     // break in a blk is a stmt, is unit type.
-    pub(crate) fn check_loop(&mut self, loop_data: &LoopData) -> Result<(), TypeErrors> {
+    pub(crate) fn check_loop(&mut self, loop_data: &LoopData) -> Result<CheckResult, TypeErrors> {
         let mut ty_errs = TypeErrors::new();
 
         // if condition: check has type bool. add errs if any
@@ -12,12 +12,16 @@ impl<'prog> TypeChecker<'prog> {
             let check_cond = self.check_expr(expr);
 
             match check_cond {
-                Ok(Type::Bool) => (),
+                Ok(CheckResult {
+                    ty: Type::Bool,
+                    must_break: _,
+                    must_return: _,
+                }) => (),
                 Ok(ty) => {
                     let e = format!(
                         "Expected type '{}' for loop predicate but got '{}'",
                         Type::Bool,
-                        ty
+                        ty.ty
                     );
                     ty_errs.add(&e);
                 }
@@ -30,8 +34,13 @@ impl<'prog> TypeChecker<'prog> {
             ty_errs.append(errs);
         }
 
+        // TODO: a loop with no cond and no must_break in its block has must_return = true
         if ty_errs.is_ok() {
-            Ok(())
+            Ok(CheckResult {
+                ty: Type::Unit,
+                must_break: false, // loop never contributes to must_break of outer
+                must_return: false,
+            })
         } else {
             Err(ty_errs)
         }
@@ -127,5 +136,18 @@ mod tests {
         }
         ";
         expect_err(t,  "[TypeError]: Expected type 'bool' for loop predicate but got 'float'\n[TypeError]: Can't apply '+' to types 'int' and 'bool'", false);
+    }
+
+    #[test]
+    fn test_type_check_loop_edges() {
+        // when in loop, break in if else is accepted and the type of the other branch is taken as overall type
+        let t = "loop {
+            let x : int = if true {
+               break;
+            } else {
+               3
+            };
+       }";
+        //    expect_pass(t, Type::Int);
     }
 }

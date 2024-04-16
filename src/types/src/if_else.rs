@@ -1,4 +1,4 @@
-use crate::type_checker::{TypeChecker, TypeErrors};
+use crate::type_checker::{CheckResult, TypeChecker, TypeErrors};
 use parser::structs::{IfElseData, Type};
 
 impl<'prog> TypeChecker<'prog> {
@@ -8,7 +8,10 @@ impl<'prog> TypeChecker<'prog> {
     2. No errs: check type. Types must be equal
     3. IfOnly: just check if_blk. If everything ok, always return Unit because all ifs are decl even if last
     */
-    pub(crate) fn check_if_else(&mut self, if_else: &IfElseData) -> Result<Type, TypeErrors> {
+    pub(crate) fn check_if_else(
+        &mut self,
+        if_else: &IfElseData,
+    ) -> Result<CheckResult, TypeErrors> {
         let mut ty_errs = TypeErrors::new();
         let check_cond = self.check_expr(&if_else.cond);
 
@@ -17,12 +20,12 @@ impl<'prog> TypeChecker<'prog> {
             ty_errs.append(&mut errs);
         } else {
             let check_cond = check_cond.unwrap();
-            if !check_cond.eq(&Type::Bool) {
+            if !check_cond.ty.eq(&Type::Bool) {
                 // add cond is not bool err
                 let e = format!(
                     "Expected type '{}' for if condition, got '{}'",
                     Type::Bool,
-                    check_cond
+                    check_cond.ty
                 );
                 ty_errs.add(&e);
             }
@@ -35,9 +38,15 @@ impl<'prog> TypeChecker<'prog> {
         }
 
         // no else: stop here and return
+        // condition may not run, so doesn't matter
         if if_else.else_blk.is_none() {
             return if ty_errs.is_ok() {
-                Ok(Type::Unit)
+                // Ok(Type::Unit)
+                Ok(CheckResult {
+                    ty: Type::Unit,
+                    must_break: false,
+                    must_return: false,
+                })
             } else {
                 Err(ty_errs)
             };
@@ -52,7 +61,7 @@ impl<'prog> TypeChecker<'prog> {
         }
 
         if let (Ok(if_ty), Ok(else_ty)) = (check_if, check_else) {
-            if if_ty.eq(&else_ty) {
+            if if_ty.ty.eq(&else_ty.ty) {
                 if ty_errs.is_ok() {
                     return Ok(if_ty);
                 } else {
@@ -62,7 +71,7 @@ impl<'prog> TypeChecker<'prog> {
 
             let e = format!(
                 "if-else has type mismatch - consequent:{}, alt :{}",
-                if_ty, else_ty
+                if_ty.ty, else_ty.ty
             );
             ty_errs.add(&e);
         }

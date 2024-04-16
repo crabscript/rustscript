@@ -18,15 +18,19 @@ pub fn ld(mut rt: Runtime, sym: Symbol) -> Result<Runtime> {
     let val = rt
         .current_thread
         .env
+        .upgrade()
+        .ok_or(VmError::EnvironmentDroppedError)?
         .borrow()
-        .get(&sym)
-        .ok_or_else(|| VmError::UnboundedName(sym.clone()))?;
+        .get(&sym)?;
+
     rt.current_thread.operand_stack.push(val);
     Ok(rt)
 }
 
 #[cfg(test)]
 mod tests {
+    use std::rc::Rc;
+
     use bytecode::{Environment, Value};
 
     use super::*;
@@ -34,7 +38,12 @@ mod tests {
     #[test]
     fn test_ld() {
         let mut rt = Runtime::new(vec![]);
-        rt.current_thread.env.borrow_mut().set("x".to_string(), 42);
+        rt.current_thread
+            .env
+            .upgrade()
+            .unwrap()
+            .borrow_mut()
+            .set("x".to_string(), 42);
         rt = ld(rt, "x".to_string()).unwrap();
         assert_eq!(rt.current_thread.operand_stack.pop(), Some(Value::Int(42)));
     }
@@ -42,11 +51,13 @@ mod tests {
     #[test]
     fn test_ld_with_parent() {
         let parent = Environment::new_wrapped();
+        let parent_weak = Rc::downgrade(&parent);
         parent.borrow_mut().set("x", 42);
         let mut rt = Runtime::new(vec![]);
-        let frame = Environment::new_wrapped();
-        frame.borrow_mut().set_parent(parent);
-        rt.current_thread.env = frame;
+        let env = Environment::new_wrapped();
+        let env_weak = Rc::downgrade(&env);
+        env.borrow_mut().set_parent(parent_weak);
+        rt.current_thread.env = env_weak;
         rt = ld(rt, "x".to_string()).unwrap();
         assert_eq!(rt.current_thread.operand_stack.pop(), Some(Value::Int(42)));
     }

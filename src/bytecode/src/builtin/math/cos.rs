@@ -1,18 +1,18 @@
-use std::{cell::RefCell, rc::Rc};
+use std::rc::Weak;
 
 use anyhow::Result;
 
-use crate::{Environment, FnType, Value};
+use crate::{FnType, Value, W};
 
 pub const COS_SYM: &str = "cos";
 
-pub fn cos(global_env: Rc<RefCell<Environment>>) -> Value {
+pub fn cos() -> Value {
     Value::Closure {
         fn_type: FnType::Builtin,
         sym: COS_SYM.into(),
         prms: vec!["x".into()],
         addr: 0,
-        env: global_env,
+        env: W(Weak::new()),
     }
 }
 

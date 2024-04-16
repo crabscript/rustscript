@@ -1,18 +1,18 @@
-use std::{cell::RefCell, rc::Rc};
+use std::rc::Weak;
 
 use anyhow::Result;
 
-use crate::{Environment, FnType, Value};
+use crate::{FnType, Value, W};
 
 pub const MAX_SYM: &str = "max";
 
-pub fn max(global_env: Rc<RefCell<Environment>>) -> Value {
+pub fn max() -> Value {
     Value::Closure {
         fn_type: FnType::Builtin,
         sym: MAX_SYM.into(),
         prms: vec!["v1".into(), "v2".into()],
         addr: 0,
-        env: global_env,
+        env: W(Weak::new()),
     }
 }
 

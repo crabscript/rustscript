@@ -2,17 +2,23 @@ use std::{
     cell::RefCell,
     collections::{hash_map::Entry, HashMap},
     fmt::Debug,
-    rc::Rc,
+    rc::{Rc, Weak},
 };
 
 use anyhow::Result;
 
 use crate::{builtin, ByteCodeError, Symbol, Value};
 
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Default)]
 pub struct Environment {
-    pub parent: Option<Rc<RefCell<Environment>>>,
+    pub parent: Option<Weak<RefCell<Environment>>>,
     pub env: HashMap<Symbol, Value>,
+}
+
+impl PartialEq for Environment {
+    fn eq(&self, other: &Self) -> bool {
+        self.env == other.env
+    }
 }
 
 impl Environment {
@@ -40,7 +46,7 @@ impl Environment {
     /// # Returns
     ///
     /// A wrapped reference to the global environment.
-    pub fn new_global() -> Rc<RefCell<Self>> {
+    pub fn new_global_wrapped() -> Rc<RefCell<Self>> {
         let env = Environment::new_wrapped();
 
         // Global constants
@@ -62,60 +68,40 @@ impl Environment {
 
         // Built in functions
         // Math functions
-        env.borrow_mut()
-            .set(builtin::ABS_SYM, builtin::abs(Rc::clone(&env)));
-        env.borrow_mut()
-            .set(builtin::COS_SYM, builtin::cos(Rc::clone(&env)));
-        env.borrow_mut()
-            .set(builtin::SIN_SYM, builtin::sin(Rc::clone(&env)));
-        env.borrow_mut()
-            .set(builtin::TAN_SYM, builtin::tan(Rc::clone(&env)));
-        env.borrow_mut()
-            .set(builtin::LOG_SYM, builtin::log(Rc::clone(&env)));
-        env.borrow_mut()
-            .set(builtin::POW_SYM, builtin::pow(Rc::clone(&env)));
-        env.borrow_mut()
-            .set(builtin::SQRT_SYM, builtin::sqrt(Rc::clone(&env)));
-        env.borrow_mut()
-            .set(builtin::MAX_SYM, builtin::max(Rc::clone(&env)));
-        env.borrow_mut()
-            .set(builtin::MIN_SYM, builtin::min(Rc::clone(&env)));
+        env.borrow_mut().set(builtin::ABS_SYM, builtin::abs());
+        env.borrow_mut().set(builtin::COS_SYM, builtin::cos());
+        env.borrow_mut().set(builtin::SIN_SYM, builtin::sin());
+        env.borrow_mut().set(builtin::TAN_SYM, builtin::tan());
+        env.borrow_mut().set(builtin::LOG_SYM, builtin::log());
+        env.borrow_mut().set(builtin::POW_SYM, builtin::pow());
+        env.borrow_mut().set(builtin::SQRT_SYM, builtin::sqrt());
+        env.borrow_mut().set(builtin::MAX_SYM, builtin::max());
+        env.borrow_mut().set(builtin::MIN_SYM, builtin::min());
 
         // String functions
-        env.borrow_mut().set(
-            builtin::STRING_LEN_SYM,
-            builtin::string_len(Rc::clone(&env)),
-        );
+        env.borrow_mut()
+            .set(builtin::STRING_LEN_SYM, builtin::string_len());
 
         // Type conversion functions
-        env.borrow_mut().set(
-            builtin::INT_TO_FLOAT_SYM,
-            builtin::int_to_float(Rc::clone(&env)),
-        );
-        env.borrow_mut().set(
-            builtin::FLOAT_TO_INT_SYM,
-            builtin::float_to_int(Rc::clone(&env)),
-        );
         env.borrow_mut()
-            .set(builtin::ATOI_SYM, builtin::atoi(Rc::clone(&env)));
+            .set(builtin::INT_TO_FLOAT_SYM, builtin::int_to_float());
         env.borrow_mut()
-            .set(builtin::ITOA_SYM, builtin::itoa(Rc::clone(&env)));
+            .set(builtin::FLOAT_TO_INT_SYM, builtin::float_to_int());
+        env.borrow_mut().set(builtin::ATOI_SYM, builtin::atoi());
+        env.borrow_mut().set(builtin::ITOA_SYM, builtin::itoa());
 
         // stdin, stdout
         env.borrow_mut()
-            .set(builtin::READ_LINE_SYM, builtin::read_line(Rc::clone(&env)));
+            .set(builtin::READ_LINE_SYM, builtin::read_line());
+        env.borrow_mut().set(builtin::PRINT_SYM, builtin::print());
         env.borrow_mut()
-            .set(builtin::PRINT_SYM, builtin::print(Rc::clone(&env)));
-        env.borrow_mut()
-            .set(builtin::PRINTLN_SYM, builtin::println(Rc::clone(&env)));
+            .set(builtin::PRINTLN_SYM, builtin::println());
 
         // Semaphore functions
-        env.borrow_mut().set(
-            builtin::SEM_CREATE_SYM,
-            builtin::sem_create(Rc::clone(&env)),
-        );
         env.borrow_mut()
-            .set(builtin::SEM_SET_SYM, builtin::sem_set(Rc::clone(&env)));
+            .set(builtin::SEM_CREATE_SYM, builtin::sem_create());
+        env.borrow_mut()
+            .set(builtin::SEM_SET_SYM, builtin::sem_set());
 
         env
     }
@@ -124,23 +110,35 @@ impl Environment {
     pub fn new_wrapped() -> Rc<RefCell<Self>> {
         Rc::new(RefCell::new(Environment::new()))
     }
-
-    /// Set the parent of the frame.
-    pub fn set_parent(&mut self, parent: Rc<RefCell<Environment>>) {
-        self.parent = Some(parent);
-    }
 }
 
 impl Environment {
+    /// Set the parent of the frame.
+    pub fn set_parent(&mut self, parent: Weak<RefCell<Environment>>) {
+        self.parent = Some(parent);
+    }
+
     /// Get a snapshot of the value of a symbol in the frame at the time of the call.
-    pub fn get(&self, sym: &Symbol) -> Option<Value> {
+    pub fn get(&self, sym: &Symbol) -> Result<Value> {
+        // If the symbol is found in the current environment, return the value.
         if let Some(val) = self.env.get(sym) {
-            Some(val.clone())
-        } else if let Some(parent) = &self.parent {
-            parent.borrow().get(sym)
-        } else {
-            None
+            return Ok(val.clone());
         }
+
+        // If the symbol is not found in the current environment, search the parent environment.
+        let Some(parent) = &self.parent else {
+            // If the parent environment is not found, return an error.
+            return Err(ByteCodeError::UnboundedName { name: sym.clone() }.into());
+        };
+
+        // If the parent environment is found, search the parent environment.
+        let Some(parent) = parent.upgrade() else {
+            // If the parent environment is dropped prematurely, return an error.
+            return Err(ByteCodeError::EnvironmentDroppedError.into());
+        };
+
+        let parent_ref = parent.borrow();
+        parent_ref.get(sym)
     }
 
     /// Set the value of a symbol in the current environment.
@@ -172,15 +170,32 @@ impl Environment {
     pub fn update(&mut self, sym: impl Into<Symbol>, val: impl Into<Value>) -> Result<()> {
         let sym = sym.into();
 
+        // If the symbol is found in the current environment, update the value.
         if let Entry::Occupied(mut entry) = self.env.entry(sym.clone()) {
             entry.insert(val.into());
-            Ok(())
-        } else if let Some(parent) = &self.parent {
-            parent.borrow_mut().update(sym, val)
-        } else {
-            Err(ByteCodeError::UnboundedName { name: sym }.into())
+            return Ok(());
         }
+
+        // If the symbol is not found in the current environment, search the parent environment.
+        let Some(parent) = &self.parent else {
+            // If the parent environment is not found, return an error.
+            return Err(ByteCodeError::UnboundedName { name: sym }.into());
+        };
+
+        // If the parent environment is found, search the parent environment.
+        let Some(parent) = parent.upgrade() else {
+            // If the parent environment is dropped prematurely, return an error.
+            return Err(ByteCodeError::EnvironmentDroppedError.into());
+        };
+
+        let mut parent_ref = parent.borrow_mut();
+        parent_ref.update(sym, val)
     }
+}
+
+pub fn weak_clone(env: &Rc<RefCell<Environment>>) -> Weak<RefCell<Environment>> {
+    let env = Rc::clone(env);
+    Rc::downgrade(&env)
 }
 
 #[cfg(test)]
@@ -191,25 +206,26 @@ mod tests {
     fn test_environment() {
         let env = Environment::new_wrapped();
         env.borrow_mut().set("x", 42);
-        assert_eq!(env.borrow().get(&"x".to_string()), Some(Value::Int(42)));
+        assert_eq!(env.borrow().get(&"x".to_string()).unwrap(), Value::Int(42));
     }
 
     #[test]
     fn test_set_environment() {
         let parent_env = Environment::new_wrapped();
         parent_env.borrow_mut().set("x", 42);
+        let parent_env_weak = weak_clone(&parent_env);
 
         let child_env = Environment::new_wrapped();
-        child_env.borrow_mut().set_parent(parent_env);
+        child_env.borrow_mut().set_parent(parent_env_weak);
         child_env.borrow_mut().set("y", 43);
 
         assert_eq!(
-            child_env.borrow().get(&"x".to_string()),
-            Some(Value::Int(42))
+            child_env.borrow().get(&"x".to_string()).unwrap(),
+            Value::Int(42)
         );
         assert_eq!(
-            child_env.borrow().get(&"y".to_string()),
-            Some(Value::Int(43))
+            child_env.borrow().get(&"y".to_string()).unwrap(),
+            Value::Int(43)
         );
     }
 
@@ -217,19 +233,20 @@ mod tests {
     fn test_update_environment() {
         let parent_env = Environment::new_wrapped();
         parent_env.borrow_mut().set("x", 42);
+        let parent_env_weak = weak_clone(&parent_env);
 
         let child_env = Environment::new_wrapped();
-        child_env.borrow_mut().set_parent(parent_env);
+        child_env.borrow_mut().set_parent(parent_env_weak);
         child_env.borrow_mut().set("y", 43);
         child_env.borrow_mut().update("x", 44).unwrap();
 
         assert_eq!(
-            child_env.borrow().get(&"x".to_string()),
-            Some(Value::Int(44))
+            child_env.borrow().get(&"x".to_string()).unwrap(),
+            Value::Int(44)
         );
         assert_eq!(
-            child_env.borrow().get(&"y".to_string()),
-            Some(Value::Int(43))
+            child_env.borrow().get(&"y".to_string()).unwrap(),
+            Value::Int(43)
         );
         assert!(!child_env.borrow().env.contains_key(&"x".to_string()));
     }

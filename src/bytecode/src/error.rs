@@ -10,4 +10,7 @@ pub enum ByteCodeError {
 
     #[error("Unbounded name: {name}")]
     UnboundedName { name: String },
+
+    #[error("Environment access after drop")]
+    EnvironmentDroppedError,
 }

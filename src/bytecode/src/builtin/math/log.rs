@@ -1,18 +1,18 @@
-use std::{cell::RefCell, rc::Rc};
+use std::rc::Weak;
 
 use anyhow::Result;
 
-use crate::{Environment, FnType, Value};
+use crate::{FnType, Value, W};
 
 pub const LOG_SYM: &str = "log";
 
-pub fn log(global_env: Rc<RefCell<Environment>>) -> Value {
+pub fn log() -> Value {
     Value::Closure {
         fn_type: FnType::Builtin,
         sym: LOG_SYM.into(),
         prms: vec!["x".into()],
         addr: 0,
-        env: global_env,
+        env: W(Weak::new()),
     }
 }
 

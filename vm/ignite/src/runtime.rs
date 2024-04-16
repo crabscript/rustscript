@@ -1,10 +1,11 @@
 use std::{
     collections::{HashMap, VecDeque},
+    rc::Rc,
     time::{Duration, Instant},
 };
 
 use anyhow::Result;
-use bytecode::{ByteCode, Semaphore, ThreadID};
+use bytecode::{ByteCode, EnvStrong, Environment, Semaphore, ThreadID, W};
 
 use crate::{micro_code, Thread, VmError};
 
@@ -23,6 +24,7 @@ pub struct Runtime {
     pub time: Instant,
     pub time_quantum: Duration,
     pub instrs: Vec<ByteCode>,
+    pub env_registry: HashMap<EnvStrong, bool>,
     pub thread_count: i64,
     pub current_thread: Thread,
     pub ready_queue: VecDeque<Thread>,
@@ -32,14 +34,20 @@ pub struct Runtime {
 
 impl Runtime {
     pub fn new(instrs: Vec<ByteCode>) -> Self {
+        let global_env = Environment::new_global_wrapped();
+        let global_env_weak = Rc::downgrade(&global_env);
+        let mut envs = HashMap::new();
+        envs.insert(W(global_env), false);
+
         Runtime {
+            debug: false,
+            done: false,
             time: Instant::now(),
             time_quantum: DEFAULT_TIME_QUANTUM,
             instrs,
-            debug: false,
-            done: false,
+            env_registry: envs,
             thread_count: 1,
-            current_thread: Thread::new(MAIN_THREAD_ID),
+            current_thread: Thread::new(MAIN_THREAD_ID, global_env_weak),
             ready_queue: VecDeque::new(),
             blocked_queue: VecDeque::new(),
             zombie_threads: HashMap::new(),
@@ -85,14 +93,11 @@ pub fn run(mut rt: Runtime) -> Result<Runtime> {
             continue;
         }
 
-        let instr = rt.fetch_instr()?;
-
         if rt.debug {
-            let thread_id = rt.current_thread.thread_id;
-            let pc = rt.current_thread.pc - 1;
-            let instruction = instr.clone();
-            println!("Thread: {}, PC: {}, {:?}", thread_id, pc, instruction);
+            rt.debug_print();
         }
+
+        let instr = rt.fetch_instr()?;
 
         rt = execute(rt, instr)?;
     }
@@ -169,6 +174,13 @@ impl Runtime {
     /// The program is done if the current thread is the main thread and the current thread is done.
     pub fn is_done(&self) -> bool {
         self.done
+    }
+
+    pub fn debug_print(&self) {
+        let thread_id = self.current_thread.thread_id;
+        let pc = self.current_thread.pc;
+        let instruction = self.instrs.get(pc).expect("PC out of bounds");
+        println!("Thread: {}, PC: {}, {:?}", thread_id, pc, instruction);
     }
 }
 
@@ -261,7 +273,7 @@ mod tests {
     }
 
     #[test]
-    fn test_assignment() {
+    fn test_assignment() -> Result<()> {
         let instrs = vec![
             ByteCode::ldc(42),
             ByteCode::assign("x"),
@@ -275,22 +287,38 @@ mod tests {
         let rt = Runtime::new(instrs);
         rt.current_thread
             .env
+            .upgrade()
+            .unwrap()
             .borrow_mut()
             .set("x", Value::Unitialized);
         rt.current_thread
             .env
+            .upgrade()
+            .unwrap()
             .borrow_mut()
             .set("y", Value::Unitialized);
 
         let rt = run(rt).unwrap();
         assert_eq!(
-            rt.current_thread.env.borrow().get(&"x".to_string()),
-            Some(Value::Int(44))
+            rt.current_thread
+                .env
+                .upgrade()
+                .unwrap()
+                .borrow()
+                .get(&"x".to_string())?,
+            Value::Int(44)
         );
         assert_eq!(
-            rt.current_thread.env.borrow().get(&"y".to_string()),
-            Some(Value::Int(43))
+            rt.current_thread
+                .env
+                .upgrade()
+                .unwrap()
+                .borrow()
+                .get(&"y".to_string())?,
+            Value::Int(43)
         );
+
+        Ok(())
     }
 
     #[test]
@@ -481,6 +509,8 @@ mod tests {
         let final_count: i64 = rt
             .current_thread
             .env
+            .upgrade()
+            .unwrap()
             .borrow()
             .get(&"count".to_string())
             .expect("Count not in environment")
@@ -632,6 +662,8 @@ mod tests {
         let final_count: i64 = rt
             .current_thread
             .env
+            .upgrade()
+            .unwrap()
             .borrow()
             .get(&"count".to_string())
             .expect("Count not in environment")
@@ -801,6 +833,8 @@ mod tests {
         let final_count: i64 = rt
             .current_thread
             .env
+            .upgrade()
+            .unwrap()
             .borrow()
             .get(&"count".to_string())
             .expect("Count not in environment")
@@ -819,6 +853,8 @@ mod tests {
         let final_count: i64 = rt
             .current_thread
             .env
+            .upgrade()
+            .unwrap()
             .borrow()
             .get(&"count".to_string())
             .expect("Count not in environment")

@@ -1,8 +1,8 @@
-use std::{cell::RefCell, fmt::Display, rc::Rc};
+use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{ByteCodeError, Environment, Semaphore, Symbol};
+use crate::{ByteCodeError, EnvWeak, Semaphore, Symbol};
 
 /// The values that can be stored on the operant stack.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -21,7 +21,7 @@ pub enum Value {
         sym: Symbol,
         prms: Vec<Symbol>,
         addr: usize,
-        env: Rc<RefCell<Environment>>,
+        env: EnvWeak,
     },
 }
 

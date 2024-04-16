@@ -1,9 +1,7 @@
-use std::rc::Rc;
-
 use anyhow::Result;
-use bytecode::{FrameType, StackFrame, Symbol, Value};
+use bytecode::{FrameType, StackFrame, Symbol, Value, W};
 
-use crate::Runtime;
+use crate::{extend_environment, Runtime};
 
 /// Create a new scope in the current environment. The new environment will be a child of the current
 /// environment. All symbols in the new scope will be initialized to `Value::Unitialized`.
@@ -18,10 +16,10 @@ use crate::Runtime;
 ///
 /// Infallible.
 pub fn enter_scope(mut rt: Runtime, syms: Vec<Symbol>) -> Result<Runtime> {
-    let current_env = Rc::clone(&rt.current_thread.env);
+    let current_env = rt.current_thread.env.clone();
 
     // Preserve the current environment in a stack frame
-    let frame = StackFrame::new(FrameType::BlockFrame, Rc::clone(&current_env));
+    let frame = StackFrame::new(FrameType::BlockFrame, W(current_env));
 
     // Push the stack frame onto the runtime stack
     rt.current_thread.runtime_stack.push(frame);
@@ -31,7 +29,7 @@ pub fn enter_scope(mut rt: Runtime, syms: Vec<Symbol>) -> Result<Runtime> {
         .map(|_| Value::Unitialized)
         .collect::<Vec<Value>>();
 
-    rt.current_thread.extend_environment(syms, uninitialized)?;
+    rt = extend_environment(rt, syms, uninitialized)?;
 
     Ok(rt)
 }
@@ -43,44 +41,70 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_enter_scope() {
+    fn test_enter_scope() -> Result<()> {
         let mut rt = Runtime::new(vec![]);
-        let env = Rc::clone(&rt.current_thread.env);
 
-        rt.current_thread.env.borrow_mut().set("a", 42);
-        rt.current_thread.env.borrow_mut().set("b", 123);
+        rt.current_thread
+            .env
+            .upgrade()
+            .unwrap()
+            .borrow_mut()
+            .set("a", 42);
+        rt.current_thread
+            .env
+            .upgrade()
+            .unwrap()
+            .borrow_mut()
+            .set("b", 123);
 
         rt = enter_scope(rt, vec!["c".to_string(), "d".to_string()]).unwrap();
 
         assert_eq!(rt.current_thread.runtime_stack.len(), 1);
+        assert!(rt
+            .current_thread
+            .env
+            .upgrade()
+            .unwrap()
+            .borrow()
+            .parent
+            .is_some());
         assert_eq!(
-            rt.current_thread.env.borrow().get(&"a".to_string()),
-            Some(Value::Int(42))
+            rt.current_thread
+                .env
+                .upgrade()
+                .unwrap()
+                .borrow()
+                .get(&"a".to_string())?,
+            Value::Int(42)
         );
         assert_eq!(
-            rt.current_thread.env.borrow().get(&"b".to_string()),
-            Some(Value::Int(123))
+            rt.current_thread
+                .env
+                .upgrade()
+                .unwrap()
+                .borrow()
+                .get(&"b".to_string())?,
+            Value::Int(123)
         );
         assert_eq!(
-            rt.current_thread.env.borrow().get(&"c".to_string()),
-            Some(Value::Unitialized)
+            rt.current_thread
+                .env
+                .upgrade()
+                .unwrap()
+                .borrow()
+                .get(&"c".to_string())?,
+            Value::Unitialized
         );
         assert_eq!(
-            rt.current_thread.env.borrow().get(&"d".to_string()),
-            Some(Value::Unitialized)
+            rt.current_thread
+                .env
+                .upgrade()
+                .unwrap()
+                .borrow()
+                .get(&"d".to_string())?,
+            Value::Unitialized
         );
 
-        rt.current_thread.env = env;
-
-        assert_eq!(
-            rt.current_thread.env.borrow().get(&"a".to_string()),
-            Some(Value::Int(42))
-        );
-        assert_eq!(
-            rt.current_thread.env.borrow().get(&"b".to_string()),
-            Some(Value::Int(123))
-        );
-        assert_eq!(rt.current_thread.env.borrow().get(&"c".to_string()), None);
-        assert_eq!(rt.current_thread.env.borrow().get(&"d".to_string()), None);
+        Ok(())
     }
 }

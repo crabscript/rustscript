@@ -28,7 +28,7 @@ impl<'inp> Parser<'inp> {
             } else if tok.eq(&Token::OpenParen) {
                 // Fn call
                 self.consume_token_type(Token::OpenParen, "Expected '('")?;
-                dbg!("tok after:", &self.lexer.peek());
+                // dbg!("tok after:", &self.lexer.peek());
 
                 let mut args: Vec<Expr> = vec![];
 
@@ -82,11 +82,64 @@ mod tests {
 
         let t = "print(2);";
         test_parse(t, "print(2);");
+
+        let t = "print(2,3)";
+        test_parse(t, "print(2,3)");
+
+        let t = "print(2,3);";
+        test_parse(t, "print(2,3);");
+
+        let t = "print(2, 3, 4);";
+        test_parse(t, "print(2,3,4);");
+
+        let t = "print(2,3,); 2";
+        test_parse(t, "print(2,3);2");
+    }
+
+    #[test]
+    fn test_parse_fn_call_mixed() {
+        // in stmts
+        let t = "let x = f(2,3);";
+        test_parse(t, "let x = f(2,3);");
+
+        let t = "x = f(2,3);";
+        test_parse(t, "x = f(2,3);");
+
+        let t = r"
+        if true {
+            f(2,3,);
+        } else {
+            g(5,6)
+        }
+        ";
+        test_parse(t, "if true { f(2,3); } else { g(5,6) }");
+
+        let t = r"
+        loop {
+            print(2);
+            f(g,3);
+            foo() + bar(6)
+        }
+        ";
+        test_parse(t, "loop  { print(2);f(g,3);(foo()+bar(6)) };");
+
+        let t = r"
+        let x : int = {
+            let y = 2;
+            // 3 arguments
+            foo(g(2) + f(6), (bar(7,3) * y) + func(7), func(8))
+        };
+        ";
+        test_parse(
+            t,
+            "let x : int = { let y = 2;foo((g(2)+f(6)),((bar(7,3)*y)+func(7)),func(8)) };",
+        );
     }
 
     #[test]
     fn test_parse_fn_call_err() {
         test_parse_err("print(", "Expected ')'", true);
         test_parse_err("print(}", "Unexpected token - not an expression", true);
+        test_parse_err("print(,)", "Unexpected token - not an expression", true);
     }
 }

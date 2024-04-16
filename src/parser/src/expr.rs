@@ -57,8 +57,10 @@ impl<'inp> Parser<'inp> {
                 || self.is_peek_token_type(Token::Semi)
                 || self.is_peek_token_type(Token::CloseBrace)
                 || self.is_peek_token_type(Token::CloseParen)
-                // to deal with if and bracket
+                // to deal with if and bracket e.g if { .. } else { .. } when it reaches last bracket
                 || self.is_peek_token_type(Token::OpenBrace)
+                // to deal with comma in func call e.g print(2,3);
+                || self.is_peek_token_type(Token::Comma)
             {
                 break;
             }

@@ -1026,4 +1026,43 @@ mod tests {
             ],
         );
     }
+
+    #[test]
+    fn test_compile_fn_call() {
+        let t = "print(2, 3)";
+        test_comp(
+            t,
+            vec![
+                ByteCode::ld("print"),
+                LDC(Int(2)),
+                LDC(Int(3)),
+                CALL(2),
+                LDC(Unit),
+                DONE,
+            ],
+        );
+
+        let t = "print(2, 3);";
+        // test_comp(t, vec![
+        //     ByteCode::ld(
+        //         "print",
+        //     ),
+        //     LDC(
+        //         Int(
+        //             2,
+        //         ),
+        //     ),
+        //     LDC(
+        //         Int(
+        //             3,
+        //         ),
+        //     ),
+        //     CALL(
+        //         2,
+        //     ),
+        //     LDC(Unit),
+        //     POP,
+        //     DONE,
+        // ]);
+    }
 }

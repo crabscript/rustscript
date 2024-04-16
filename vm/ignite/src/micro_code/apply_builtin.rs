@@ -112,6 +112,7 @@ pub fn apply_builtin(mut rt: Runtime, sym: &str, args: Vec<Value>) -> Result<Run
             rt.current_thread.operand_stack.push(log);
         }
         builtin::POW_SYM => {
+            dbg!(&args);
             let x = args.first().ok_or(VmError::InsufficientArguments {
                 expected: 2,
                 got: args.len(),

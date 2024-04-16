@@ -3,7 +3,9 @@ use std::{fmt::Display, rc::Rc, vec};
 use types::type_checker::TypeChecker;
 
 use bytecode::{BinOp, ByteCode, Value};
-use parser::structs::{BinOpType, BlockSeq, Decl, Expr, IfElseData, LoopData, UnOpType};
+use parser::structs::{
+    BinOpType, BlockSeq, Decl, Expr, FnCallData, IfElseData, LoopData, UnOpType,
+};
 
 pub struct Compiler {
     program: BlockSeq,
@@ -32,6 +34,11 @@ impl Display for CompileError {
 }
 
 impl std::error::Error for CompileError {}
+
+// Workaround to ensure builtins that dont pop produce Unit when compiling fn call
+// Because user functions even if empty will produce unit (everything is value producing), so
+// this issue only applies to builtins with no value pushed
+const BUILTINS_WITH_NO_VAL: [&str; 3] = ["println", "print", "sem_set"];
 
 impl Compiler {
     pub fn new(program: BlockSeq) -> Compiler {
@@ -170,7 +177,7 @@ impl Compiler {
                 self.compile_block(blk, arr)?;
             }
             Expr::IfElseExpr(if_else) => self.compile_if_else(if_else, arr)?,
-            Expr::FnCallExpr(_) => todo!(),
+            Expr::FnCallExpr(fn_call) => self.compile_fn_call(fn_call, arr)?,
         }
 
         Ok(())
@@ -269,6 +276,30 @@ impl Compiler {
                 }
             }
         };
+
+        Ok(())
+    }
+
+    /// Function call expression e.g println(2,3)
+    fn compile_fn_call(
+        &mut self,
+        fn_call: &FnCallData,
+        arr: &mut Vec<ByteCode>,
+    ) -> Result<(), CompileError> {
+        dbg!("Got to compile fn call:", fn_call);
+        // TODO: change to accept arbitary expr for fn
+        self.compile_expr(&Expr::Symbol(fn_call.name.clone()), arr)?;
+
+        for arg in fn_call.args.iter() {
+            self.compile_expr(arg, arr)?;
+        }
+
+        arr.push(ByteCode::CALL(fn_call.args.len()));
+
+        // push unit for builtin that produces no value
+        if BUILTINS_WITH_NO_VAL.contains(&fn_call.name.as_str()) {
+            arr.push(ByteCode::ldc(Value::Unit));
+        }
 
         Ok(())
     }

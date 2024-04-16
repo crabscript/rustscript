@@ -38,6 +38,8 @@ pub fn call(mut rt: Runtime, arity: usize) -> Result<Runtime> {
         );
     }
 
+    dbg!("ARGS IN CALL:", &args);
+
     let value = rt
         .current_thread
         .operand_stack

@@ -56,6 +56,8 @@ impl<'prog> TypeChecker<'prog> {
             must_return,
         };
 
+        // dbg!(&blk_res);
+
         // Return type of last expr if any. If errs, add to err list
         if let Some(last) = &program.last_expr {
             let res = self.check_expr(last);

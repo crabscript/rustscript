@@ -141,13 +141,56 @@ mod tests {
     #[test]
     fn test_type_check_loop_edges() {
         // when in loop, break in if else is accepted and the type of the other branch is taken as overall type
-        let t = "loop {
+        let t = "
+        loop {
             let x : int = if true {
-               break;
+                break;
+            } else {
+                3
+            };
+        }
+       ";
+        expect_pass(t, Type::Unit);
+
+        // else break
+        let t = "
+        loop {
+            let x : int = if true {
+                3
+            } else {
+                break;
+            };
+        }
+       ";
+        expect_pass(t, Type::Unit);
+
+        // both break
+        let t = "
+        loop {
+            let x : () = if true {
+                break;
+            } else {
+                break;
+            };
+        }
+       ";
+        expect_pass(t, Type::Unit);
+
+        // loop stmt doesn't contribute to must_break, so this is checked for mismatch across branches
+        let t = r"
+        loop {
+            let x : int = if true {
+               loop { break; }
+               
             } else {
                3
             };
-       }";
-        //    expect_pass(t, Type::Int);
+       }
+        ";
+        expect_err(
+            t,
+            "if-else has type mismatch - consequent:(), alt :int",
+            true,
+        );
     }
 }

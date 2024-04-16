@@ -61,19 +61,59 @@ impl<'prog> TypeChecker<'prog> {
         }
 
         if let (Ok(if_ty), Ok(else_ty)) = (check_if, check_else) {
-            if if_ty.ty.eq(&else_ty.ty) {
-                if ty_errs.is_ok() {
-                    return Ok(if_ty);
-                } else {
+            // dbg!(&if_ty, &else_ty);
+            // if one block has must_return or must_break, take the type of the other block. if both blks must_return || must_break,
+            // overall type is Unit
+            let if_terms = if_ty.must_break || if_ty.must_return;
+            let else_terms = else_ty.must_break || else_ty.must_return;
+
+            let overall_ty = match (if_terms, else_terms) {
+                // no terminate: return out
+                (false, false) => {
+                    if if_ty.ty.eq(&else_ty.ty) {
+                        if ty_errs.is_ok() {
+                            return Ok(if_ty);
+                        } else {
+                            return Err(ty_errs);
+                        }
+                    }
+
+                    let e = format!(
+                        "if-else has type mismatch - consequent:{}, alt :{}",
+                        if_ty.ty, else_ty.ty
+                    );
+                    ty_errs.add(&e);
+                    // this would be the last error so we can return
                     return Err(ty_errs);
                 }
-            }
+                // if terms: take else type
+                (true, false) => else_ty.ty,
+                // else terms: take if type
+                (false, true) => if_ty.ty,
+                // both term: unit type
+                (true, true) => Type::Unit,
+            };
 
-            let e = format!(
-                "if-else has type mismatch - consequent:{}, alt :{}",
-                if_ty.ty, else_ty.ty
-            );
-            ty_errs.add(&e);
+            // if-else: both branches must terminate for this to terminate as well
+            return Ok(CheckResult {
+                ty: overall_ty,
+                must_break: if_ty.must_break && else_ty.must_break,
+                must_return: if_ty.must_return && else_ty.must_return,
+            });
+
+            // if if_ty.ty.eq(&else_ty.ty) {
+            //     if ty_errs.is_ok() {
+            //         return Ok(if_ty);
+            //     } else {
+            //         return Err(ty_errs);
+            //     }
+            // }
+
+            // let e = format!(
+            //     "if-else has type mismatch - consequent:{}, alt :{}",
+            //     if_ty.ty, else_ty.ty
+            // );
+            // ty_errs.add(&e);
         }
 
         Err(ty_errs)

@@ -391,6 +391,7 @@ impl<'prog> TypeChecker<'prog> {
 
     pub fn type_check(mut self) -> Result<Type, TypeErrors> {
         let ty = self.check_block(self.program)?;
+        // dbg!(&ty);
         Ok(ty.ty)
     }
 }

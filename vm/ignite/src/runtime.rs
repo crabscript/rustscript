@@ -12,17 +12,17 @@ pub const DEFAULT_TIME_QUANTUM: Duration = Duration::from_millis(100);
 pub const MAIN_THREAD_ID: i64 = 1;
 
 /// The runtime of the virtual machine.
-/// It contains the instructions to execute, the current thread, and the ready and suspended threads.
+/// It contains the instructions to execute, the current thread, and the ready and blocked threads.
 /// The instructions are the bytecode instructions to execute.
 /// The ready queue is a queue of threads that are ready to run.
-/// The suspended queue is a queue of threads that are waiting for some event to occur.
-/// The running thread is the thread that is currently executing.
+/// The blocked queue is a queue of threads that are waiting for some event to occur.
+/// The zombie threads are threads that have finished executing and are waiting to be joined.
 pub struct Runtime {
+    pub done: bool,
+    pub debug: bool,
     pub time: Instant,
     pub time_quantum: Duration,
     pub instrs: Vec<ByteCode>,
-    pub debug: bool,
-    pub done: bool,
     pub thread_count: i64,
     pub current_thread: Thread,
     pub ready_queue: VecDeque<Thread>,
@@ -86,13 +86,21 @@ pub fn run(mut rt: Runtime) -> Result<Runtime> {
         }
 
         let instr = rt.fetch_instr()?;
+
+        if rt.debug {
+            let thread_id = rt.current_thread.thread_id;
+            let pc = rt.current_thread.pc - 1;
+            let instruction = instr.clone();
+            println!("Thread: {}, PC: {}, {:?}", thread_id, pc, instruction);
+        }
+
         rt = execute(rt, instr)?;
     }
 
     Ok(rt)
 }
 
-/// Execute a single instruction, returning whether the program is done.
+/// Execute a single instruction, mutating the runtime.
 ///
 /// # Arguments
 ///
@@ -102,21 +110,13 @@ pub fn run(mut rt: Runtime) -> Result<Runtime> {
 ///
 /// # Returns
 ///
-/// Whether the program is done executing.
+/// The runtime after the instruction has been executed.
 ///
 /// # Errors
 ///
 /// If an error occurs during execution.
 pub fn execute(rt: Runtime, instr: ByteCode) -> Result<Runtime> {
-    let thread_id = rt.current_thread.thread_id;
-    let pc = rt.current_thread.pc - 1;
-    let instruction = instr.clone();
-
-    if rt.debug {
-        println!("Thread: {}, PC: {}, {:?}", thread_id, pc, instr);
-    }
-
-    let result = match instruction {
+    match instr {
         ByteCode::DONE => micro_code::done(rt),
         ByteCode::ASSIGN(sym) => micro_code::assign(rt, sym),
         ByteCode::LD(sym) => micro_code::ld(rt, sym),
@@ -137,14 +137,6 @@ pub fn execute(rt: Runtime, instr: ByteCode) -> Result<Runtime> {
         ByteCode::SEMCREATE => micro_code::sem_create(rt),
         ByteCode::WAIT => micro_code::wait(rt),
         ByteCode::POST => micro_code::post(rt),
-    };
-
-    match result {
-        Ok(rt) => Ok(rt),
-        Err(e) => {
-            eprintln!("Thread: {}, PC: {}, {:?}", thread_id, pc, instr);
-            Err(e)
-        }
     }
 }
 
@@ -504,7 +496,7 @@ mod tests {
         //
         // fn increment(times: int) {
         //   let i = 0;
-        //   while i < times {
+        //   loop i < times {
         //     count = count + 1;
         //     i = i + 1;
         //   }
@@ -658,7 +650,7 @@ mod tests {
         //
         // fn increment(times: int) {
         //   let i = 0;
-        //   while i < times {
+        //   loop i < times {
         //     wait sem;
         //     count = count + 1; // Critical section
         //     post sem;

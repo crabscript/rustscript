@@ -4,7 +4,6 @@ use std::time::Duration;
 use anyhow::{Error, Result};
 use bytecode::{builtin, read_bytecode};
 use clap::Parser;
-use compiler::compiler::compile_from_string;
 use repl::ignite_repl;
 use runtime::*;
 
@@ -91,11 +90,4 @@ fn main() -> Result<()> {
     }
 
     Ok(())
-}
-
-pub fn run_from_string(inp: &str) -> Result<Runtime> {
-    let comp = compile_from_string(inp, true)?;
-    let rt = Runtime::new(comp);
-    let rt = run(rt)?;
-    Ok(rt)
 }

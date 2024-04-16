@@ -8,6 +8,38 @@ The RustScript project is not just an academic exercise but a practical explorat
 
 Our journey is partly inspired by ["Writing An Interpreter In Go,"](https://interpreterbook.com/) which offers insights into language design and interpretation. However, RustScript is our own creation, focusing on the syntax inspired by Rust and TypeScript while forging its own path in programming language design.
 
+## Installation
+
+1. Install Rust on your system: https://www.rust-lang.org/tools/install
+
+```bash
+# Run this command to verify installation
+cargo --version
+```
+
+2. Clone the source code:
+
+```bash
+git clone https://github.com/crabscript/rustscript.git
+```
+
+3. Build the compiler and virtual machine
+
+```bash
+cd rustscript
+./build.sh
+```
+
+4. The compiler binary is oxidate and the virtual machine is ignite. Both executables are located inside bin directory
+5. Run `./bin/oxidate --help` or `./bin/ignite --help` to see the available options
+6. You can compile any .rst rustscript code into .o2 bytecode and run it with the ignite virtual machine
+
+```bash
+# Assuming you are in the rustscript directory
+./bin/oxidate example/hello-world.rst # Should generate example.o2
+./bin/ignite hello-world.o2
+```
+
 ## Project Deliverables
 
 - **Syntax**: RustScript's syntax is a harmonious blend of Rust and TypeScript, offering a familiar yet unique coding experience.
@@ -18,7 +50,6 @@ Our journey is partly inspired by ["Writing An Interpreter In Go,"](https://inte
 - **Static Typing**: A robust type checking phase to eliminate non well-typed programs before execution, reinforcing code reliability and performance.
 - **Data Types**:
   - Primitive types: `int`, `float`, `string`, `bool`, `unit` (void).
-  - Advanced types: Arrays (e.g., `T[]`), tuples, and functions, including support for generics in arrays like `int[]`, `float[]`, etc.
 - **Functional Features**:
   - Support for higher-order functions, allowing functions to be passed as arguments or assigned to variables.
   - Lambda expressions for concise and flexible function definition.
@@ -27,6 +58,7 @@ Our journey is partly inspired by ["Writing An Interpreter In Go,"](https://inte
 ## Reach Goals
 
 - Extend the standard library with a comprehensive set of utilities and functions.
+- Advanced types: Arrays (e.g., `T[]`), tuples, and functions, including support for generics in arrays like `int[]`, `float[]`, etc.
 - Integrate an interactive RustScript REPL for immediate code evaluation and experimentation.
 - Develop a robust ecosystem around RustScript, including package management, tooling, and extensive documentation to foster a community of users and contributors.
 - Explore the integration of RustScript in web and network programming, potentially expanding its applicability to broader domains.

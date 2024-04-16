@@ -75,6 +75,18 @@ pub struct CheckResult {
     pub must_return: bool,
 }
 
+impl CheckResult {
+    /// Combines two CheckResults into one CheckResult with or on the must values.
+    /// Resulting has Type::Unit
+    pub fn combine(res1: &CheckResult, res2: &CheckResult) -> CheckResult {
+        CheckResult {
+            ty: Type::Unit,
+            must_break: res1.must_break || res2.must_break,
+            must_return: res1.must_return || res2.must_return,
+        }
+    }
+}
+
 /// Struct to enable type checking by encapsulating type environment.
 pub struct TypeChecker<'prog> {
     program: &'prog BlockSeq,
@@ -91,6 +103,10 @@ impl<'prog> TypeChecker<'prog> {
 
     /// Return type of identifier by looking up nested scopes, or error if not there.
     pub(crate) fn get_type(&self, ident: &str) -> Result<Type, TypeErrors> {
+        if TypeChecker::is_builtin_fn(ident) {
+            return Ok(Type::BuiltInFn);
+        }
+
         for env in self.envs.iter().rev() {
             let ty = env.get(ident);
             if let Some(ty) = ty {
@@ -337,7 +353,7 @@ impl<'prog> TypeChecker<'prog> {
             }
             Expr::BlockExpr(blk) => return self.check_block(blk),
             Expr::IfElseExpr(if_else) => return self.check_if_else(if_else),
-            Expr::FnCallExpr(_) => todo!(),
+            Expr::FnCallExpr(fn_call) => return self.check_fn_call(fn_call),
         };
 
         if local_errs.is_ok() {

@@ -312,6 +312,8 @@ pub enum Type {
     Int,
     Float,
     Bool,
+    String,
+    BuiltInFn,   // type checking done separately since it can be polymorphic unlike user fn
     Unit,        // void type like Rust
     Unitialised, // Type for variables that exist in a block but not yet declared - only used for TyEnv
 }
@@ -339,6 +341,8 @@ impl Display for Type {
             Self::Float => "float",
             Self::Unit => "()",
             Self::Unitialised => "uninit",
+            Self::BuiltInFn => "builtin_fn",
+            Self::String => "string",
         };
 
         write!(f, "{}", string)

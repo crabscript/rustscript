@@ -1043,26 +1043,17 @@ mod tests {
         );
 
         let t = "print(2, 3);";
-        // test_comp(t, vec![
-        //     ByteCode::ld(
-        //         "print",
-        //     ),
-        //     LDC(
-        //         Int(
-        //             2,
-        //         ),
-        //     ),
-        //     LDC(
-        //         Int(
-        //             3,
-        //         ),
-        //     ),
-        //     CALL(
-        //         2,
-        //     ),
-        //     LDC(Unit),
-        //     POP,
-        //     DONE,
-        // ]);
+        test_comp(
+            t,
+            vec![
+                ByteCode::ld("print"),
+                LDC(Int(2)),
+                LDC(Int(3)),
+                CALL(2),
+                LDC(Unit),
+                POP,
+                DONE,
+            ],
+        );
     }
 }

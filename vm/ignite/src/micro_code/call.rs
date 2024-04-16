@@ -38,7 +38,8 @@ pub fn call(mut rt: Runtime, arity: usize) -> Result<Runtime> {
         );
     }
 
-    dbg!("ARGS IN CALL:", &args);
+    // dbg!("ARGS IN CALL:", &args);
+    let args = args.into_iter().rev().collect();
 
     let value = rt
         .current_thread

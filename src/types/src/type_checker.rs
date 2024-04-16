@@ -337,6 +337,7 @@ impl<'prog> TypeChecker<'prog> {
             }
             Expr::BlockExpr(blk) => return self.check_block(blk),
             Expr::IfElseExpr(if_else) => return self.check_if_else(if_else),
+            Expr::FnCallExpr(_) => todo!(),
         };
 
         if local_errs.is_ok() {

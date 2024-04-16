@@ -5,6 +5,7 @@ use structs::*;
 
 pub mod blk;
 pub mod expr;
+pub mod ident;
 pub mod if_else;
 pub mod let_stmt;
 pub mod parse_loop;
@@ -40,7 +41,6 @@ pub struct Parser<'inp> {
     pub is_loop: bool,
 }
 
-use Decl::*;
 impl<'inp> Parser<'inp> {
     pub fn new(lexer: Lexer<'_, Token>) -> Parser<'_> {
         Parser {
@@ -203,26 +203,35 @@ impl<'inp> Parser<'inp> {
         }
     }
 
-    fn parse_ident(&mut self, ident: String, min_bp: u8) -> Result<Decl, ParseError> {
-        let sym = Expr::Symbol(ident.to_string());
+    // fn parse_ident(&mut self, ident: String, min_bp: u8) -> Result<Decl, ParseError> {
+    //     let sym = Expr::Symbol(ident.to_string());
 
-        // Handle assignment
-        if let Some(tok) = self.lexer.peek() {
-            let tok = tok.as_ref().expect("Lexer should not fail");
-            if tok.eq(&Token::Eq) {
-                self.consume_token_type(Token::Eq, "Expected '='")?;
-                self.advance();
+    //     // Handle assignment, fn call
+    //     if let Some(tok) = self.lexer.peek() {
+    //         let tok = tok.as_ref().expect("Lexer should not fail");
 
-                // now prev_tok has the start of the expr
-                let expr = self.parse_expr(min_bp)?.to_expr()?;
+    //         // Assignment x = 2
+    //         if tok.eq(&Token::Eq) {
+    //             self.consume_token_type(Token::Eq, "Expected '='")?;
+    //             self.advance();
 
-                let assign = AssignStmtData { ident, expr };
+    //             // now prev_tok has the start of the expr
+    //             let expr = self.parse_expr(min_bp)?.to_expr()?;
 
-                return Ok(AssignStmt(assign));
-            }
-        }
-        Ok(ExprStmt(sym))
-    }
+    //             let assign = AssignStmtData { ident, expr };
+
+    //             return Ok(AssignStmt(assign));
+    //         } else if tok.eq(&Token::OpenParen) {
+    //             // Fn call
+    //             self.consume_token_type(Token::OpenParen, "Expected '('")?;
+    //             dbg!("tok after:", &self.lexer.peek());
+
+    //             // self.advance(); // put first token of param list
+    //         }
+    //     }
+
+    //     Ok(ExprStmt(sym))
+    // }
 
     // Parses and returns a declaration. At this stage "declaration" includes values, let assignments, fn declarations, etc
     // Because treatment of something as an expression can vary based on whether it is last value or not, whether semicolon comes after, etc.

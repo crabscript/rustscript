@@ -170,6 +170,7 @@ impl Compiler {
                 self.compile_block(blk, arr)?;
             }
             Expr::IfElseExpr(if_else) => self.compile_if_else(if_else, arr)?,
+            Expr::FnCallExpr(_) => todo!(),
         }
 
         Ok(())

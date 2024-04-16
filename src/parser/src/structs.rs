@@ -70,6 +70,24 @@ impl Display for UnOpType {
     }
 }
 
+// Function call
+#[derive(Debug, Clone)]
+pub struct FnCallData {
+    pub name: String,
+    pub args: Vec<Expr>,
+}
+
+impl Display for FnCallData {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let args: Vec<String> = self.args.iter().map(|x| x.to_string()).collect();
+        let args = args.join(",");
+
+        let s = format!("{}({})", self.name, args);
+
+        write!(f, "{}", s)
+    }
+}
+
 // Different from bytecode Value because values on op stack might be different (e.g fn call)
 #[derive(Debug, Clone)]
 pub enum Expr {
@@ -81,6 +99,7 @@ pub enum Expr {
     BinOpExpr(BinOpType, Box<Expr>, Box<Expr>),
     BlockExpr(BlockSeq), // expr can be a block
     IfElseExpr(Box<IfElseData>),
+    FnCallExpr(FnCallData),
 }
 
 impl Display for Expr {
@@ -99,6 +118,7 @@ impl Display for Expr {
             Expr::BlockExpr(seq) => format!("{{ {} }}", seq),
             // Expr::BlockExpr(seq) => seq.to_string(),
             Expr::IfElseExpr(expr) => expr.to_string(),
+            Expr::FnCallExpr(expr) => expr.to_string(),
         };
 
         write!(f, "{}", string)

@@ -33,9 +33,7 @@ pub fn assign(mut rt: Runtime, sym: Symbol) -> Result<Runtime> {
 
 #[cfg(test)]
 mod tests {
-    use std::rc::Rc;
-
-    use bytecode::{Environment, Value};
+    use bytecode::{weak_clone, Environment, Value};
 
     use super::*;
 
@@ -79,13 +77,13 @@ mod tests {
         let mut rt = Runtime::new(vec![]);
 
         let parent_env = Environment::new_wrapped();
-        let parent_weak = Rc::downgrade(&parent_env);
+        let parent_weak = weak_clone(&parent_env);
         parent_env.borrow_mut().set("x", 42);
 
         let child_env = Environment::new_wrapped();
         child_env.borrow_mut().set_parent(parent_weak);
         child_env.borrow_mut().set("y", Value::Unitialized);
-        let child_weak = Rc::downgrade(&child_env);
+        let child_weak = weak_clone(&child_env);
 
         rt.current_thread.env = child_weak;
         rt.current_thread.operand_stack.push(Value::Int(123));

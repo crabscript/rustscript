@@ -1,10 +1,7 @@
-use std::{
-    cell::RefCell,
-    rc::{Rc, Weak},
-};
+use std::{cell::RefCell, rc::Weak};
 
 use anyhow::Result;
-use bytecode::{Environment, StackFrame, Symbol, ThreadID, Value, W};
+use bytecode::{weak_clone, Environment, StackFrame, Symbol, ThreadID, Value, W};
 
 use crate::{Runtime, VmError};
 
@@ -61,13 +58,13 @@ where
         .upgrade()
         .ok_or(VmError::EnvironmentDroppedError)?;
     let new_env = Environment::new_wrapped();
-    new_env.borrow_mut().set_parent(Rc::downgrade(current_env));
+    new_env.borrow_mut().set_parent(weak_clone(current_env));
 
     for (sym, val) in syms.into_iter().zip(vals.into_iter()) {
         new_env.borrow_mut().set(sym, val);
     }
 
-    rt.current_thread.env = Rc::downgrade(&new_env);
+    rt.current_thread.env = weak_clone(&new_env);
     rt.env_registry.insert(W(new_env), false);
 
     Ok(rt)
@@ -82,7 +79,7 @@ mod tests {
     fn test_extend_environment_err() -> Result<()> {
         let mut rt = Runtime::default();
         let env = Environment::new_wrapped();
-        rt.current_thread.env = Rc::downgrade(&env);
+        rt.current_thread.env = weak_clone(&env);
 
         rt.current_thread
             .env
@@ -108,7 +105,7 @@ mod tests {
     fn test_extend_environment() -> Result<()> {
         let mut rt = Runtime::default();
         let env = Environment::new_wrapped();
-        rt.current_thread.env = Rc::downgrade(&env);
+        rt.current_thread.env = weak_clone(&env);
 
         rt.current_thread
             .env

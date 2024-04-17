@@ -39,10 +39,8 @@ pub fn reset(mut rt: Runtime, ft: FrameType) -> Result<Runtime> {
 
 #[cfg(test)]
 mod tests {
-    use std::rc::Rc;
-
     use super::*;
-    use bytecode::{ByteCode, Environment, FrameType, StackFrame, Value, W};
+    use bytecode::{weak_clone, ByteCode, Environment, FrameType, StackFrame, Value, W};
 
     #[test]
     fn test_reset_restore_env() -> Result<()> {
@@ -51,9 +49,9 @@ mod tests {
         let env_a = Environment::new_wrapped();
         let env_b = Environment::new_wrapped();
         let env_c = Environment::new_wrapped();
-        let env_a_weak = W(Rc::downgrade(&env_a));
-        let env_b_weak = W(Rc::downgrade(&env_c));
-        let env_c_weak = W(Rc::downgrade(&env_b));
+        let env_a_weak = W(weak_clone(&env_a));
+        let env_b_weak = W(weak_clone(&env_c));
+        let env_c_weak = W(weak_clone(&env_b));
         env_c.borrow_mut().set("a", 42);
 
         let some_frame = StackFrame::new(FrameType::CallFrame, env_a_weak);
@@ -89,9 +87,9 @@ mod tests {
         let env_a = Environment::new_wrapped();
         let env_b = Environment::new_wrapped();
         let env_c = Environment::new_wrapped();
-        let env_a_weak = W(Rc::downgrade(&env_a));
-        let env_b_weak = W(Rc::downgrade(&env_c));
-        let env_c_weak = W(Rc::downgrade(&env_b));
+        let env_a_weak = W(weak_clone(&env_a));
+        let env_b_weak = W(weak_clone(&env_c));
+        let env_c_weak = W(weak_clone(&env_b));
         env_c.borrow_mut().set("a", 42);
 
         let some_frame = StackFrame::new(FrameType::CallFrame, env_a_weak);

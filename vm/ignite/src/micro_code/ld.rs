@@ -29,9 +29,7 @@ pub fn ld(mut rt: Runtime, sym: Symbol) -> Result<Runtime> {
 
 #[cfg(test)]
 mod tests {
-    use std::rc::Rc;
-
-    use bytecode::{Environment, Value};
+    use bytecode::{weak_clone, Environment, Value};
 
     use super::*;
 
@@ -51,11 +49,11 @@ mod tests {
     #[test]
     fn test_ld_with_parent() {
         let parent = Environment::new_wrapped();
-        let parent_weak = Rc::downgrade(&parent);
+        let parent_weak = weak_clone(&parent);
         parent.borrow_mut().set("x", 42);
         let mut rt = Runtime::new(vec![]);
         let env = Environment::new_wrapped();
-        let env_weak = Rc::downgrade(&env);
+        let env_weak = weak_clone(&env);
         env.borrow_mut().set_parent(parent_weak);
         rt.current_thread.env = env_weak;
         rt = ld(rt, "x".to_string()).unwrap();

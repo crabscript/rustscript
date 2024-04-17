@@ -24,9 +24,7 @@ pub fn exit_scope(mut rt: Runtime) -> Result<Runtime> {
 
 #[cfg(test)]
 mod tests {
-    use std::rc::Rc;
-
-    use bytecode::{Environment, FrameType, StackFrame, Value, W};
+    use bytecode::{weak_clone, Environment, FrameType, StackFrame, Value, W};
 
     use super::*;
 
@@ -35,11 +33,11 @@ mod tests {
         let mut rt = Runtime::new(vec![]);
         let env_a = Environment::new_wrapped();
         env_a.borrow_mut().set("a", 42);
-        let env_a_weak = Rc::downgrade(&env_a);
+        let env_a_weak = weak_clone(&env_a);
 
         let env_b = Environment::new_wrapped();
         env_b.borrow_mut().set("a", 123);
-        let env_b_weak = Rc::downgrade(&env_b);
+        let env_b_weak = weak_clone(&env_b);
 
         rt.current_thread
             .runtime_stack

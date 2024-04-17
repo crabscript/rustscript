@@ -1,15 +1,15 @@
 use std::{
     collections::{HashMap, VecDeque},
-    rc::Rc,
     time::{Duration, Instant},
 };
 
 use anyhow::Result;
-use bytecode::{ByteCode, EnvStrong, Environment, Semaphore, ThreadID, W};
+use bytecode::{weak_clone, ByteCode, EnvStrong, Environment, Semaphore, ThreadID, W};
 
 use crate::{micro_code, Thread, VmError};
 
 pub const DEFAULT_TIME_QUANTUM: Duration = Duration::from_millis(100);
+pub const DEFAULT_GC_INTERVAL: Duration = Duration::from_secs(1);
 pub const MAIN_THREAD_ID: i64 = 1;
 
 /// The runtime of the virtual machine.
@@ -27,6 +27,8 @@ pub struct Runtime {
     pub time: Instant,
     /// The maximum amount of time a thread can run before it is preempted.
     pub time_quantum: Duration,
+    /// The interval at which to run the mark and sweep garbage collector.
+    pub gc_interval: Duration,
     /// The instructions to execute.
     pub instrs: Vec<ByteCode>,
     /// The environment registry, holds strong references to environments.
@@ -47,7 +49,7 @@ pub struct Runtime {
 impl Runtime {
     pub fn new(instrs: Vec<ByteCode>) -> Self {
         let global_env = Environment::new_global_wrapped();
-        let global_env_weak = Rc::downgrade(&global_env);
+        let global_env_weak = weak_clone(&global_env);
         let mut envs = HashMap::new();
         envs.insert(W(global_env), false);
 
@@ -56,6 +58,7 @@ impl Runtime {
             done: false,
             time: Instant::now(),
             time_quantum: DEFAULT_TIME_QUANTUM,
+            gc_interval: DEFAULT_GC_INTERVAL,
             instrs,
             env_registry: envs,
             thread_count: 1,
@@ -77,6 +80,10 @@ impl Default for Runtime {
 impl Runtime {
     pub fn set_time_quantum(&mut self, time_quantum: Duration) {
         self.time_quantum = time_quantum;
+    }
+
+    pub fn set_gc_interval(&mut self, gc_interval: Duration) {
+        self.gc_interval = gc_interval;
     }
 
     pub fn set_debug_mode(&mut self) {
@@ -121,6 +128,13 @@ impl Runtime {
         let pc = self.current_thread.pc;
         let instruction = self.instrs.get(pc).expect("PC out of bounds");
         println!("Thread: {}, PC: {}, {:?}", thread_id, pc, instruction);
+    }
+
+    /// Mark and sweep the environment registry.
+    /// This will remove all environments that are no longer referenced.
+    ///
+    pub fn mark_and_weep(mut self) -> Self {
+        self
     }
 }
 
@@ -202,8 +216,6 @@ pub fn execute(rt: Runtime, instr: ByteCode) -> Result<Runtime> {
 
 #[cfg(test)]
 mod tests {
-    use std::vec;
-
     use super::*;
     use anyhow::{Ok, Result};
     use bytecode::{builtin, BinOp, ByteCode, FrameType, Symbol, UnOp, Value};

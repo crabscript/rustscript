@@ -193,6 +193,40 @@ impl Display for LoopData {
     }
 }
 
+#[derive(Debug, Clone)]
+// function parameter
+pub struct FnParam {
+    pub name: String,
+    pub ty: Type,
+    pub type_ann: Option<Type>,
+}
+
+impl Display for FnParam {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = format!("{}:{}", self.name, self.ty);
+        write!(f, "{}", s)
+    }
+}
+
+// Fn Decl
+#[derive(Debug, Clone)]
+pub struct FnDeclData {
+    pub name: String,
+    pub params: Vec<FnParam>,
+    pub ret_type: Option<Type>,
+    pub body: BlockSeq,
+}
+
+impl Display for FnDeclData {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let params: Vec<String> = self.params.iter().map(|x| x.to_string()).collect();
+        let params = params.join(", ");
+
+        let s = format!("fn {} ({}) {{ {} }}", self.name, params, self.body);
+        write!(f, "{}", s)
+    }
+}
+
 // Later: LetStmt, IfStmt, FnDef, etc.
 #[derive(Debug, Clone)]
 pub enum Decl {
@@ -203,6 +237,7 @@ pub enum Decl {
     IfOnlyStmt(IfElseData),
     // loop is always a stmt (for now)
     LoopStmt(LoopData),
+    FnDeclStmt(FnDeclData),
     // only inside loop
     BreakStmt,
 }
@@ -211,6 +246,7 @@ impl Decl {
     // Need to clone so we can re-use in pratt parser loop
     // Reasoning: parsing won't take most of the runtime
     pub fn to_expr(&self) -> Result<Expr, ParseError> {
+        // Decls that return parse error will always be treated as statements
         match self {
             Self::LetStmt(ref stmt) => {
                 Err(ParseError::new(&format!("'{}' is not an expression", stmt)))
@@ -221,9 +257,12 @@ impl Decl {
             Self::IfOnlyStmt(_) => Err(ParseError::new(
                 "if without else branch is not an expression",
             )),
-            Self::ExprStmt(expr) => Ok(expr.clone()),
+            Self::FnDeclStmt(_) => {
+                Err(ParseError::new("Function declaration is not an expression"))
+            }
             Self::LoopStmt(_) => Err(ParseError::new("loop is not an expression")),
             Self::BreakStmt => Err(ParseError::new("break is not an expression")),
+            Self::ExprStmt(expr) => Ok(expr.clone()),
         }
     }
 
@@ -252,6 +291,7 @@ impl Display for Decl {
             Decl::IfOnlyStmt(expr) => expr.to_string(),
             Decl::LoopStmt(lp) => lp.to_string(),
             Decl::BreakStmt => Token::Break.to_string(),
+            Decl::FnDeclStmt(fn_decl) => fn_decl.to_string(),
         };
 
         write!(f, "{}", string)

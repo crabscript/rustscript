@@ -401,6 +401,7 @@ impl<'prog> TypeChecker<'prog> {
                     must_return: false,
                 })
             }
+            Decl::FnDeclStmt(_) => todo!(),
         }
 
         // Ok(())

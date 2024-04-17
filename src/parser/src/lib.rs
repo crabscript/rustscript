@@ -5,6 +5,7 @@ use structs::*;
 
 pub mod blk;
 pub mod expr;
+pub mod fn_decl;
 pub mod ident;
 pub mod if_else;
 pub mod let_stmt;
@@ -39,6 +40,7 @@ pub struct Parser<'inp> {
     prev_tok: Option<Token>,
     lexer: Peekable<Lexer<'inp, Token>>,
     pub is_loop: bool,
+    pub is_fn: bool,
 }
 
 impl<'inp> Parser<'inp> {
@@ -47,6 +49,7 @@ impl<'inp> Parser<'inp> {
             prev_tok: None,
             lexer: lexer.peekable(),
             is_loop: false,
+            is_fn: false,
         }
     }
 
@@ -55,6 +58,7 @@ impl<'inp> Parser<'inp> {
             prev_tok: None,
             lexer: lex(inp).peekable(),
             is_loop: false,
+            is_fn: false,
         }
     }
 
@@ -120,7 +124,7 @@ impl<'inp> Parser<'inp> {
     }
 
     // Pass in self.lexer.peek() => get String out for Ident, String in quotes
-    fn string_from_ident(token: Option<&Result<Token, ()>>) -> String {
+    pub(crate) fn string_from_ident(token: Option<&Result<Token, ()>>) -> String {
         // dbg!("string from ident token:", &token);
         let tok = token.unwrap();
         let tok = tok.clone().unwrap();
@@ -149,7 +153,7 @@ impl<'inp> Parser<'inp> {
 
     /// Parse and return type annotation. Expect lexer.peek() to be at Colon before call
     fn parse_type_annotation(&mut self) -> Result<Type, ParseError> {
-        self.consume_token_type(Token::Colon, "Expected a colon")?;
+        // self.consume_token_type(Token::Colon, "Expected a colon")?;
         // expect_token_body!(self.lexer.peek(), Ident, "identifier")?;
         Parser::expect_token_for_type_ann(self.lexer.peek())?;
 
@@ -203,36 +207,6 @@ impl<'inp> Parser<'inp> {
         }
     }
 
-    // fn parse_ident(&mut self, ident: String, min_bp: u8) -> Result<Decl, ParseError> {
-    //     let sym = Expr::Symbol(ident.to_string());
-
-    //     // Handle assignment, fn call
-    //     if let Some(tok) = self.lexer.peek() {
-    //         let tok = tok.as_ref().expect("Lexer should not fail");
-
-    //         // Assignment x = 2
-    //         if tok.eq(&Token::Eq) {
-    //             self.consume_token_type(Token::Eq, "Expected '='")?;
-    //             self.advance();
-
-    //             // now prev_tok has the start of the expr
-    //             let expr = self.parse_expr(min_bp)?.to_expr()?;
-
-    //             let assign = AssignStmtData { ident, expr };
-
-    //             return Ok(AssignStmt(assign));
-    //         } else if tok.eq(&Token::OpenParen) {
-    //             // Fn call
-    //             self.consume_token_type(Token::OpenParen, "Expected '('")?;
-    //             dbg!("tok after:", &self.lexer.peek());
-
-    //             // self.advance(); // put first token of param list
-    //         }
-    //     }
-
-    //     Ok(ExprStmt(sym))
-    // }
-
     // Parses and returns a declaration. At this stage "declaration" includes values, let assignments, fn declarations, etc
     // Because treatment of something as an expression can vary based on whether it is last value or not, whether semicolon comes after, etc.
     fn parse_decl(&mut self) -> Result<Decl, ParseError> {
@@ -256,6 +230,7 @@ impl<'inp> Parser<'inp> {
             }
             Token::Let => self.parse_let(),
             Token::Loop => self.parse_loop(),
+            Token::Fn => self.parse_fn_decl(),
             _ => Err(ParseError::new(&format!(
                 "Unexpected token: '{}'",
                 prev_tok

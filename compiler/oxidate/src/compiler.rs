@@ -275,6 +275,7 @@ impl Compiler {
                     breaks.push(break_idx);
                 }
             }
+            Decl::FnDeclStmt(_) => todo!(),
         };
 
         Ok(())

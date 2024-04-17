@@ -118,6 +118,9 @@ pub enum Token {
     #[token("else")]
     Else,
 
+    #[token("fn")]
+    Fn,
+
     #[regex(r#"[a-zA-Z_][a-zA-Z0-9_]*"#, |lex| lex.slice().to_owned())]
     Ident(String),
 
@@ -202,6 +205,7 @@ impl Token {
             Self::Break => "break".to_string(),
             Self::Comment => "//".to_string(),
             Self::Newline => "\n".to_string(),
+            Self::Fn => "fn".to_string(),
         }
     }
 }
@@ -393,7 +397,7 @@ mod test {
             Token::Ident("baz".to_string()),
             Token::Ident("_john".to_string()),
             Token::Ident("_".to_string()),
-            Token::Ident("fn".to_string()),
+            Token::Fn,
             Token::Let,
             Token::Ident("mut".to_string()),
             Token::Ident("continue".to_string()),
@@ -460,7 +464,7 @@ mod test {
         let mut lexer = Token::lexer(input);
 
         let expected = vec![
-            Token::Ident("fn".to_string()),
+            Token::Fn,
             Token::Ident("add".to_string()),
             Token::OpenParen,
             Token::Ident("x".to_string()),

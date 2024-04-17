@@ -5,6 +5,7 @@ use crate::Parser;
 use lexer::Token;
 
 impl<'inp> Parser<'inp> {
+    // Invariant: open brace has been consumed and peek is at the first token inside the block
     pub(crate) fn parse_blk(&mut self) -> Result<Decl, ParseError> {
         // BlockSeq - vec decls, last expr
         let blk = self.parse_seq()?;

@@ -403,4 +403,27 @@ mod tests {
             "fn f (x:int) { let z = 3;fn g (y:int) { return ((x+y)+z); };g };let hof = f(2);hof(4)",
         );
     }
+
+    #[test]
+    fn test_parse_fn_recursive() {
+        let t = r"
+        x + sum(n-1, x+y*2) - f(3*5-6)
+        ";
+
+        test_parse(t, "((x+sum((n-1),(x+(y*2))))-f(((3*5)-6)))");
+
+        let t = r"
+        fn fac(n : int) -> int {
+            if n == 0 {
+                return 1;
+            }
+
+            return n * fac(n-1);
+        }
+        ";
+        test_parse(
+            t,
+            "fn fac (n:int) -> int { if (n==0) { return 1; };return (n*fac((n-1))); };",
+        );
+    }
 }

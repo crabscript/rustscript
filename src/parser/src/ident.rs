@@ -28,7 +28,7 @@ impl<'inp> Parser<'inp> {
             } else if tok.eq(&Token::OpenParen) {
                 // Fn call
                 self.consume_token_type(Token::OpenParen, "Expected '('")?;
-                // dbg!("tok after:", &self.lexer.peek());
+                dbg!("tok after:", &self.lexer.peek());
 
                 let mut args: Vec<Expr> = vec![];
 
@@ -41,10 +41,13 @@ impl<'inp> Parser<'inp> {
 
                     self.advance(); // put next tok into prev_tok so parse_expr can use it
 
-                    let expr = self.parse_expr(min_bp)?.to_expr()?;
-                    args.push(expr);
+                    // let expr = self.parse_expr(min_bp)?.to_expr()?;
+                    // need to reset min_bp when parsing each expr, shouldnt depend on prev
+                    let expr = self.parse_expr(0)?.to_expr()?;
 
-                    // dbg!("Peek after parsing:", &self.lexer.peek(), &expr);
+                    dbg!("Peek after parsing:", &self.lexer.peek(), &expr);
+
+                    args.push(expr);
 
                     if !self.lexer.peek().eq(&Some(&Ok(Token::CloseParen))) {
                         self.consume_token_type(

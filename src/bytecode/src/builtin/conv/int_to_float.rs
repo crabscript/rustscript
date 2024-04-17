@@ -1,18 +1,17 @@
-use std::{cell::RefCell, rc::Rc};
+use std::rc::Weak;
 
 use anyhow::Result;
 
-use crate::{Environment, FnType, Value};
-
+use crate::{FnType, Value, W};
 pub const INT_TO_FLOAT_SYM: &str = "int_to_float";
 
-pub fn int_to_float(global_env: Rc<RefCell<Environment>>) -> Value {
+pub fn int_to_float() -> Value {
     Value::Closure {
         fn_type: FnType::Builtin,
         sym: INT_TO_FLOAT_SYM.into(),
         prms: vec!["x".into()],
         addr: 0,
-        env: global_env,
+        env: W(Weak::new()),
     }
 }
 

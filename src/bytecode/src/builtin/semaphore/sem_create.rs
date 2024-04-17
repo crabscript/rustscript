@@ -1,16 +1,16 @@
-use std::{cell::RefCell, rc::Rc};
+use std::rc::Weak;
 
-use crate::{Environment, FnType, Semaphore, Value};
+use crate::{FnType, Semaphore, Value, W};
 
 pub const SEM_CREATE_SYM: &str = "sem_create";
 
-pub fn sem_create(global_env: Rc<RefCell<Environment>>) -> Value {
+pub fn sem_create() -> Value {
     Value::Closure {
         fn_type: FnType::Builtin,
         sym: SEM_CREATE_SYM.into(),
         prms: vec![],
         addr: 0,
-        env: global_env,
+        env: W(Weak::new()),
     }
 }
 

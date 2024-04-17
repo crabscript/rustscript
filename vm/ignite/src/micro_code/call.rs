@@ -30,6 +30,7 @@ use super::apply_builtin;
 /// If the closure is not of type closure or the arity of the closure does not match the number of arguments.
 pub fn call(mut rt: Runtime, arity: usize) -> Result<Runtime> {
     let mut args = Vec::new();
+    args.reserve_exact(arity);
 
     for _ in 0..arity {
         args.push(

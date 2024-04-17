@@ -39,6 +39,7 @@ impl<'inp> Parser<'inp> {
             // param name
             dbg!("peek:", &self.lexer.peek());
 
+            // Invariant: at start peek is a param identifier
             let param_name = Parser::string_from_ident(self.lexer.peek());
             let mut param_ty: Option<Type> = None;
 
@@ -54,8 +55,6 @@ impl<'inp> Parser<'inp> {
                 dbg!("AFTER TY_ANN:", &self.lexer.peek());
                 self.advance();
             }
-
-            // self.advance(); // put next tok into prev_tok so parse_expr can use it
 
             dbg!("Peek here:", &self.lexer.peek());
             dbg!("Param: ", &param_name, &param_ty);
@@ -84,9 +83,25 @@ impl<'inp> Parser<'inp> {
             })
         }
 
-        self.advance(); // skip past close paren, peek is at OpenBRace
+        self.advance(); // skip past close paren, peek is at OpenBrace or ret type first token
 
-        // Parse return type
+        let mut ret_ty = Type::Unit;
+        // Parse return type: expect -> first
+        dbg!("PEEK AT PARSE RET:", &self.lexer.peek());
+        // if its there parse ret type, else keep it as Unit
+        if self.consume_opt_token_type(Token::FnDeclReturn) {
+            // peek is now at type_ann first token
+            let ret_ty_ann = self.parse_type_annotation()?;
+            self.advance(); // go past last token of ty_ann
+
+            ret_ty = ret_ty_ann;
+        }
+
+        // self.consume_opt_token_type(token)
+        // if self.lexer.peek().eq(&Some(&Ok(Token::FnDeclReturn))) {
+        //     self.advance();
+
+        // }
 
         // Parse body
         self.consume_token_type(
@@ -101,7 +116,7 @@ impl<'inp> Parser<'inp> {
         let fn_decl = FnDeclData {
             params,
             name: fn_name,
-            ret_type: None,
+            ret_type: ret_ty,
             body,
         };
 
@@ -114,7 +129,7 @@ mod tests {
     use crate::tests::{test_parse, test_parse_err};
 
     #[test]
-    fn test_parse_fn_decl() {
+    fn test_parse_fn_decl_basic() {
         let t = r"
         fn f() {
             
@@ -156,6 +171,42 @@ mod tests {
         }
         ";
         test_parse(t, "fn f (x, y:int, z:bool, g) { let y = 2; };");
+    }
+
+    #[test]
+    fn test_parse_fn_decl_with_retype() {
+        let t = r"
+        fn f() -> int {
+            2
+        }
+        ";
+        test_parse(t, "fn f () -> int { 2 };");
+
+        let t = r"
+        fn f(x: bool, y: int) -> int {
+            2
+        }
+        ";
+        test_parse(t, "fn f (x:bool, y:int) -> int { 2 };");
+
+        // many
+        let t = r"
+        let x = 20;
+
+        fn f(x: int) -> bool {
+            true
+        }
+
+        fn g(y : bool) -> float {
+            2.56
+        }
+
+        200
+        ";
+        test_parse(
+            t,
+            "let x = 20;fn f (x:int) -> bool { true };fn g (y:bool) -> float { 2.56 };200",
+        );
     }
 
     #[test]

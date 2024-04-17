@@ -217,7 +217,7 @@ impl Display for FnParam {
 pub struct FnDeclData {
     pub name: String,
     pub params: Vec<FnParam>,
-    pub ret_type: Option<Type>,
+    pub ret_type: Type,
     pub body: BlockSeq,
 }
 
@@ -226,7 +226,16 @@ impl Display for FnDeclData {
         let params: Vec<String> = self.params.iter().map(|x| x.to_string()).collect();
         let params = params.join(", ");
 
-        let s = format!("fn {} ({}) {{ {} }}", self.name, params, self.body);
+        let ret_type_str = if self.ret_type.eq(&Type::Unit) {
+            " ".to_string()
+        } else {
+            format!(" -> {} ", self.ret_type)
+        };
+
+        let s = format!(
+            "fn {} ({}){}{{ {} }}",
+            self.name, params, ret_type_str, self.body
+        );
         write!(f, "{}", s)
     }
 }

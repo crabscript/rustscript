@@ -121,6 +121,12 @@ pub enum Token {
     #[token("fn")]
     Fn,
 
+    #[token("->")]
+    FnDeclReturn,
+
+    #[token("return")]
+    Return,
+
     #[regex(r#"[a-zA-Z_][a-zA-Z0-9_]*"#, |lex| lex.slice().to_owned())]
     Ident(String),
 
@@ -206,6 +212,8 @@ impl Token {
             Self::Comment => "//".to_string(),
             Self::Newline => "\n".to_string(),
             Self::Fn => "fn".to_string(),
+            Self::Return => "return".to_string(),
+            Self::FnDeclReturn => "->".to_string(),
         }
     }
 }
@@ -475,11 +483,10 @@ mod test {
             Token::Colon,
             Token::Ident("i64".to_string()),
             Token::CloseParen,
-            Token::Minus,
-            Token::Gt,
+            Token::FnDeclReturn,
             Token::Ident("i64".to_string()),
             Token::OpenBrace,
-            Token::Ident("return".to_string()),
+            Token::Return,
             Token::Ident("x".to_string()),
             Token::Plus,
             Token::Ident("y".to_string()),

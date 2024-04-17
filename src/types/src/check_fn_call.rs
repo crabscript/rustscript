@@ -113,8 +113,6 @@ impl<'prog> TypeChecker<'prog> {
         arg_types: Vec<Type>,
         mut check_res: CheckResult,
     ) -> Result<CheckResult, TypeErrors> {
-        dbg!("BUILTIN_CHK:", &arg_types);
-
         check_res.ty = match name {
             // () -> string
             READ_LINE => {

@@ -4,7 +4,7 @@ use types::type_checker::TypeChecker;
 
 use bytecode::{BinOp, ByteCode, Value};
 use parser::structs::{
-    BinOpType, BlockSeq, Decl, Expr, FnCallData, IfElseData, LoopData, UnOpType,
+    BinOpType, BlockSeq, Decl, Expr, FnCallData, FnDeclData, IfElseData, LoopData, UnOpType,
 };
 
 pub struct Compiler {
@@ -275,9 +275,45 @@ impl Compiler {
                     breaks.push(break_idx);
                 }
             }
-            Decl::FnDeclStmt(_) => todo!(),
+            Decl::FnDeclStmt(fn_decl) => self.compile_fn_decl(fn_decl, arr)?,
             Decl::ReturnStmt(_) => todo!(),
         };
+
+        Ok(())
+    }
+
+    fn compile_fn_decl(
+        &mut self,
+        fn_decl: &FnDeclData,
+        arr: &mut Vec<ByteCode>,
+    ) -> Result<(), CompileError> {
+        dbg!("GOT to compile fn decl: ", fn_decl);
+
+        // we are about to push LDF and GOTO before fn compile
+        let fn_start_idx = arr.len() + 2;
+
+        let param_strs: Vec<String> = fn_decl.params.iter().map(|x| x.to_string()).collect();
+
+        arr.push(ByteCode::ldf(fn_start_idx, param_strs));
+
+        // push GOTO for skipping fn compile
+        let goto_idx = arr.len();
+        arr.push(ByteCode::GOTO(0));
+
+        self.compile_block(&fn_decl.body, arr)?;
+
+        // push reset to return last value produced by blk, in case no return was there
+        arr.push(ByteCode::RESET(bytecode::FrameType::CallFrame));
+
+        // GOTO will jump to ASSIGN, ASSIGN pops closure and then we load Unit so no underflow
+        let goto_addr = arr.len();
+        arr.push(ByteCode::assign(&fn_decl.name));
+        arr.push(ByteCode::ldc(Value::Unit));
+
+        // patch GOTO
+        if let Some(ByteCode::GOTO(idx)) = arr.get_mut(goto_idx) {
+            *idx = goto_addr;
+        }
 
         Ok(())
     }
@@ -288,7 +324,6 @@ impl Compiler {
         fn_call: &FnCallData,
         arr: &mut Vec<ByteCode>,
     ) -> Result<(), CompileError> {
-        dbg!("Got to compile fn call:", fn_call);
         // TODO: change to accept arbitary expr for fn
         self.compile_expr(&Expr::Symbol(fn_call.name.clone()), arr)?;
 

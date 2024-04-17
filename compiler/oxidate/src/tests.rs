@@ -1056,4 +1056,15 @@ mod tests {
             ],
         );
     }
+
+    #[test]
+    fn test_compile_fn_decl() {
+        let t = r"
+        300;
+        fn f() {
+            2
+        }
+        ";
+        // test_comp(t, vec![]);
+    }
 }

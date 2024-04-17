@@ -227,6 +227,23 @@ impl<'inp> Parser<'inp> {
                 }
                 Ok(Decl::BreakStmt)
             }
+            // if not is_fn, err
+            Token::Return => {
+                if !self.is_fn {
+                    return Err(ParseError::new("return outside of fn"));
+                }
+
+                // parse expr if not semicolon
+                let mut ret_expr: Option<Expr> = None;
+                dbg!("PEEK AT RETURN STMT:", &self.lexer.peek());
+                if !self.is_peek_token_type(Token::Semi) {
+                    self.advance();
+                    let expr = self.parse_expr(0)?.to_expr()?;
+                    ret_expr.replace(expr);
+                }
+
+                Ok(Decl::ReturnStmt(ret_expr))
+            }
             Token::Let => self.parse_let(),
             Token::Loop => self.parse_loop(),
             Token::Fn => self.parse_fn_decl(),

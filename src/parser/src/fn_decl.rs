@@ -12,6 +12,21 @@ use lexer::Token;
 // return stmt is only allowed inside a function
 impl<'inp> Parser<'inp> {
     pub(crate) fn parse_fn_decl(&mut self) -> Result<Decl, ParseError> {
+        let prev_is_loop = self.is_loop;
+        let prev_is_fn = self.is_fn;
+
+        // turn it off because break is not automatically allowed in fn
+        self.is_loop = false;
+        self.is_fn = true;
+        let res = self.parse_fn_decl_inner();
+
+        // restore
+        self.is_loop = prev_is_loop;
+        self.is_fn = prev_is_fn;
+        res
+    }
+
+    pub(crate) fn parse_fn_decl_inner(&mut self) -> Result<Decl, ParseError> {
         // Get name
         crate::expect_token_body!(self.lexer.peek(), Ident, "identifier")?;
         let fn_name = Parser::string_from_ident(self.lexer.peek());
@@ -21,8 +36,6 @@ impl<'inp> Parser<'inp> {
             Token::OpenParen,
             &format!("Expected {} for function parameters", Token::OpenBrace),
         )?;
-
-        // dbg!("After paren, peek:", &self.lexer.peek());
 
         let mut params: Vec<FnParam> = vec![];
         // to prevent duplicate params e.g f(x,x). HashSet doesn't preserve order so I need a separate one
@@ -35,9 +48,6 @@ impl<'inp> Parser<'inp> {
             if tok.clone().unwrap().eq(&Token::CloseParen) {
                 break;
             }
-
-            // param name
-            dbg!("peek:", &self.lexer.peek());
 
             // Invariant: at start peek is a param identifier
             let param_name = Parser::string_from_ident(self.lexer.peek());
@@ -52,18 +62,14 @@ impl<'inp> Parser<'inp> {
                 param_ty.replace(ty);
 
                 // to go past last token of type_ann, so peek is at comma or close paren
-                dbg!("AFTER TY_ANN:", &self.lexer.peek());
                 self.advance();
             }
-
-            dbg!("Peek here:", &self.lexer.peek());
-            dbg!("Param: ", &param_name, &param_ty);
 
             // Comma or CloseParen
             if !self.lexer.peek().eq(&Some(&Ok(Token::CloseParen))) {
                 self.consume_token_type(
                     Token::Comma,
-                    "Expected ',' to separate function arguments",
+                    "Expected ',' to separate function parameters",
                 )?;
             }
 
@@ -86,8 +92,8 @@ impl<'inp> Parser<'inp> {
         self.advance(); // skip past close paren, peek is at OpenBrace or ret type first token
 
         let mut ret_ty = Type::Unit;
+
         // Parse return type: expect -> first
-        dbg!("PEEK AT PARSE RET:", &self.lexer.peek());
         // if its there parse ret type, else keep it as Unit
         if self.consume_opt_token_type(Token::FnDeclReturn) {
             // peek is now at type_ann first token
@@ -97,21 +103,13 @@ impl<'inp> Parser<'inp> {
             ret_ty = ret_ty_ann;
         }
 
-        // self.consume_opt_token_type(token)
-        // if self.lexer.peek().eq(&Some(&Ok(Token::FnDeclReturn))) {
-        //     self.advance();
-
-        // }
-
         // Parse body
         self.consume_token_type(
             Token::OpenBrace,
             &format!("Expected {} for function body", Token::OpenBrace),
         )?;
-        dbg!("Got open brace:", &self.lexer.peek());
 
         let body = self.parse_blk()?.to_block()?;
-        dbg!("Got body", &body);
 
         let fn_decl = FnDeclData {
             params,
@@ -211,11 +209,37 @@ mod tests {
 
     #[test]
     fn test_parse_fn_decl_return() {
-        // let t = r"
-        // fn f() {
-        //     return 3;
-        // }
-        // ";
+        let t = r"
+        fn f() {
+            return;
+        }
+        ";
+        test_parse(t, "fn f () { return; };");
+
+        // with expr
+        let t = r"
+        fn f() {
+            return 3+3;
+        }
+        ";
+        test_parse(t, "fn f () { return (3+3); };");
+
+        let t = r"
+        fn f() {
+            let x = 2;
+            return g();
+        }
+        ";
+        test_parse(t, "fn f () { let x = 2;return g(); };");
+
+        // no semi - error for return
+        let t = r"
+        fn f() {
+            let x = 2;
+            return 30
+        }
+        ";
+        test_parse_err(t, "Expected semicolon", true);
     }
 
     #[test]
@@ -254,6 +278,83 @@ mod tests {
 
         }
         ";
-        test_parse_err(t, "'x' bound more than once for function f", true)
+        test_parse_err(t, "'x' bound more than once for function f", true);
+
+        test_parse_err(
+            r"
+        fn f(x: int y : int) {
+
+        }
+        ",
+            "Expected ',' to separate function parameters",
+            true,
+        );
+    }
+
+    #[test]
+    fn test_parse_fn_decl_edges2() {
+        let t = r"
+        fn f() {
+            break;
+        }
+        ";
+        test_parse_err(t, "break outside of loop", true);
+
+        let t = r"
+        fn f() {
+            loop {
+                break;
+            }
+            break;
+        }
+        ";
+        test_parse_err(t, "break outside of loop", true);
+
+        let t = r"
+        fn f() {
+            loop {
+                break;
+                return;
+            }
+        }
+        ";
+        test_parse(t, "fn f () { loop  { break;return; }; };");
+
+        // fn in loop
+        let t = r"
+        loop {
+            fn f() {
+                break;
+            }
+        }
+        ";
+        test_parse_err(t, "break outside of loop", true);
+
+        // fn in loop with return
+        let t = r"
+        loop {
+            fn f() -> int {
+                loop { break; }
+                return;
+            }
+            break;
+        }
+        ";
+        test_parse(
+            t,
+            "loop  { fn f () -> int { loop  { break; };return; };break; };",
+        );
+
+        // cant return outside fn
+        let t = r"
+        loop {
+            fn f() {
+                loop { break; }
+                return;
+            }
+            return;
+        }
+        ";
+        test_parse_err(t, "return outside of fn", true);
     }
 }

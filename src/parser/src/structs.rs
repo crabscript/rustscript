@@ -253,6 +253,8 @@ pub enum Decl {
     FnDeclStmt(FnDeclData),
     // only inside loop
     BreakStmt,
+    // only inside fn
+    ReturnStmt(Option<Expr>),
 }
 
 impl Decl {
@@ -275,6 +277,7 @@ impl Decl {
             }
             Self::LoopStmt(_) => Err(ParseError::new("loop is not an expression")),
             Self::BreakStmt => Err(ParseError::new("break is not an expression")),
+            Self::ReturnStmt(_) => Err(ParseError::new("return is not an expression")),
             Self::ExprStmt(expr) => Ok(expr.clone()),
         }
     }
@@ -305,6 +308,18 @@ impl Display for Decl {
             Decl::LoopStmt(lp) => lp.to_string(),
             Decl::BreakStmt => Token::Break.to_string(),
             Decl::FnDeclStmt(fn_decl) => fn_decl.to_string(),
+            Decl::ReturnStmt(expr) => {
+                let str = expr
+                    .clone()
+                    .map(|x| x.to_string())
+                    .unwrap_or(String::from(""));
+                let str = if str.is_empty() {
+                    str
+                } else {
+                    format!(" {}", str)
+                };
+                format!("{}{}", Token::Return, str)
+            }
         };
 
         write!(f, "{}", string)

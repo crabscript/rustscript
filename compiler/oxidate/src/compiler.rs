@@ -276,6 +276,7 @@ impl Compiler {
                 }
             }
             Decl::FnDeclStmt(_) => todo!(),
+            Decl::ReturnStmt(_) => todo!(),
         };
 
         Ok(())

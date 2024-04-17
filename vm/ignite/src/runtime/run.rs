@@ -33,12 +33,12 @@ impl Runtime {
     }
 
     pub fn should_garbage_collect(&self) -> bool {
-        self.time.elapsed() >= self.gc_interval
+        self.gc_timer.elapsed() >= self.gc_interval
     }
 
     pub fn garbage_collect(mut self) -> Self {
         self = self.mark_and_weep();
-        self.time = Instant::now();
+        self.gc_timer = Instant::now();
         self
     }
 

@@ -26,6 +26,10 @@ impl Runtime {
 }
 
 fn mark(rt: &Runtime) -> HashMap<EnvWeak, bool> {
+    if rt.debug {
+        println!("Mark begin")
+    }
+
     let mut marked = env_hashmap(rt);
 
     // Mark the current thread

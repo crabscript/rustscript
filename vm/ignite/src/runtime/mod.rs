@@ -30,6 +30,8 @@ pub struct Runtime {
     pub time: Instant,
     /// The maximum amount of time a thread can run before it is preempted.
     pub time_quantum: Duration,
+    /// The time the garbage collector was last run.
+    pub gc_timer: Instant,
     /// The interval at which to run the mark and sweep garbage collector.
     pub gc_interval: Duration,
     /// The instructions to execute.
@@ -61,6 +63,7 @@ impl Runtime {
             done: false,
             time: Instant::now(),
             time_quantum: DEFAULT_TIME_QUANTUM,
+            gc_timer: Instant::now(),
             gc_interval: DEFAULT_GC_INTERVAL,
             instrs,
             env_registry: envs,

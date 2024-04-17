@@ -22,12 +22,17 @@ impl<'inp> Parser<'inp> {
             // dbg!("prev_tok:", &self.prev_tok);
 
             let expr = self.parse_decl()?;
-            // dbg!("Got expr:", &expr);
-            // dbg!("Peek:", &self.lexer.peek());
+
+            // Include function names in list of symbols to be used for ENTERSCOPE
+            if let Decl::FnDeclStmt(ref data) = expr {
+                symbols.push(data.name.to_owned());
+            }
 
             // if ends with semicolon: statement, advance past semi
             if self.is_peek_token_type(Token::Semi) {
                 // parse_let doesn't consume the semicolon but does check peek for Semi, so we will definitely run this if expr was let
+
+                // push declared symbols from let or fn declarations so that they can be put in ENTERSCOPE
                 if let Decl::LetStmt(ref stmt) = expr {
                     symbols.push(stmt.ident.to_owned());
                 }

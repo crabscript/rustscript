@@ -124,7 +124,31 @@ impl<'inp> Parser<'inp> {
 
 #[cfg(test)]
 mod tests {
-    use crate::tests::{test_parse, test_parse_err};
+    use lexer::Token;
+    use logos::Logos;
+
+    use crate::{
+        tests::{test_parse, test_parse_err},
+        Parser,
+    };
+
+    #[test]
+    fn test_parse_fn_syms() {
+        // Includes fn syms in symbols
+        let t = r"
+        let x = 2;
+        fn f() {
+
+        };
+        x = 3;
+        f = 4;
+        ";
+        let lex = Token::lexer(t);
+        let parser = Parser::new(lex);
+        let res = parser.parse().expect("Should parse");
+
+        assert_eq!(res.symbols, vec!["x".to_string(), "f".to_string()])
+    }
 
     #[test]
     fn test_parse_fn_decl_basic() {

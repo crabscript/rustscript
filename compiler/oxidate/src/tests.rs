@@ -1065,6 +1065,47 @@ mod tests {
             2
         }
         ";
-        // test_comp(t, vec![]);
+        test_comp(
+            t,
+            vec![
+                ENTERSCOPE(vec!["f".to_string()]),
+                ByteCode::ldc(300),
+                POP,
+                LDF(5, vec![]),
+                GOTO(7),
+                ByteCode::ldc(2),
+                RESET(bytecode::FrameType::CallFrame),
+                ByteCode::assign("f"),
+                LDC(Unit),
+                POP,
+                EXITSCOPE,
+                DONE,
+            ],
+        );
+
+        // explicit return - doesn't skip rest of block yet
+        let t = r"
+        fn f() {
+            return 2;
+        }
+        ";
+        test_comp(
+            t,
+            vec![
+                ENTERSCOPE(vec!["f".to_string()]),
+                LDF(3, vec![]),
+                GOTO(8),
+                ByteCode::ldc(2),
+                RESET(bytecode::FrameType::CallFrame),
+                POP,
+                LDC(Unit),
+                RESET(bytecode::FrameType::CallFrame),
+                ByteCode::assign("f"),
+                LDC(Unit),
+                POP,
+                EXITSCOPE,
+                DONE,
+            ],
+        );
     }
 }

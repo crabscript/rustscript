@@ -276,7 +276,17 @@ impl Compiler {
                 }
             }
             Decl::FnDeclStmt(fn_decl) => self.compile_fn_decl(fn_decl, arr)?,
-            Decl::ReturnStmt(_) => todo!(),
+            Decl::ReturnStmt(ret_stmt) => {
+                // compile expr. if not there, push Unit
+                if let Some(expr) = ret_stmt {
+                    self.compile_expr(expr, arr)?;
+                } else {
+                    arr.push(ByteCode::ldc(Value::Unit));
+                }
+
+                // push RESET
+                arr.push(ByteCode::RESET(bytecode::FrameType::CallFrame))
+            }
         };
 
         Ok(())

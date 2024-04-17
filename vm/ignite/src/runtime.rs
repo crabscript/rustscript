@@ -19,19 +19,31 @@ pub const MAIN_THREAD_ID: i64 = 1;
 /// The blocked queue is a queue of threads that are waiting for some event to occur.
 /// The zombie threads are threads that have finished executing and are waiting to be joined.
 pub struct Runtime {
+    /// If the program is done.
     pub done: bool,
+    /// If the program is in debug mode.
     pub debug: bool,
+    /// The time the program started, used for calculating the time quantum.
     pub time: Instant,
+    /// The maximum amount of time a thread can run before it is preempted.
     pub time_quantum: Duration,
+    /// The instructions to execute.
     pub instrs: Vec<ByteCode>,
+    /// The environment registry, holds strong references to environments.
     pub env_registry: HashMap<EnvStrong, bool>,
+    /// The number of threads that have been created.
     pub thread_count: i64,
+    /// The current thread that is executing.
     pub current_thread: Thread,
+    /// The threads that are ready to run.
     pub ready_queue: VecDeque<Thread>,
+    /// The threads that are blocked.
     pub blocked_queue: VecDeque<(Thread, Semaphore)>,
+    /// The threads that have finished executing, waiting to be joined.
     pub zombie_threads: HashMap<ThreadID, Thread>,
 }
 
+/// Constructors for the runtime.
 impl Runtime {
     pub fn new(instrs: Vec<ByteCode>) -> Self {
         let global_env = Environment::new_global_wrapped();
@@ -53,7 +65,16 @@ impl Runtime {
             zombie_threads: HashMap::new(),
         }
     }
+}
 
+impl Default for Runtime {
+    fn default() -> Self {
+        Runtime::new(vec![])
+    }
+}
+
+/// Configuration for the runtime.
+impl Runtime {
     pub fn set_time_quantum(&mut self, time_quantum: Duration) {
         self.time_quantum = time_quantum;
     }
@@ -63,9 +84,43 @@ impl Runtime {
     }
 }
 
-impl Default for Runtime {
-    fn default() -> Self {
-        Runtime::new(vec![])
+/// Runtime methods at runtime.
+impl Runtime {
+    /// Fetch the next instruction to execute.
+    /// This will increment the program counter of the current thread.
+    ///
+    /// # Returns
+    ///
+    /// The next instruction to execute.
+    ///
+    /// # Errors
+    ///
+    /// If the program counter is out of bounds.
+    pub fn fetch_instr(&mut self) -> Result<ByteCode> {
+        let instr = self
+            .instrs
+            .get(self.current_thread.pc)
+            .cloned()
+            .ok_or(VmError::PcOutOfBounds(self.current_thread.pc))?;
+        self.current_thread.pc += 1;
+        Ok(instr)
+    }
+    /// Check if the time quantum has expired.
+    /// The time quantum is the maximum amount of time a thread can run before it is preempted.
+    pub fn time_quantum_expired(&self) -> bool {
+        self.time.elapsed() >= self.time_quantum
+    }
+
+    /// The program is done if the current thread is the main thread and the current thread is done.
+    pub fn is_done(&self) -> bool {
+        self.done
+    }
+
+    pub fn debug_print(&self) {
+        let thread_id = self.current_thread.thread_id;
+        let pc = self.current_thread.pc;
+        let instruction = self.instrs.get(pc).expect("PC out of bounds");
+        println!("Thread: {}, PC: {}, {:?}", thread_id, pc, instruction);
     }
 }
 
@@ -142,45 +197,6 @@ pub fn execute(rt: Runtime, instr: ByteCode) -> Result<Runtime> {
         ByteCode::SEMCREATE => micro_code::sem_create(rt),
         ByteCode::WAIT => micro_code::wait(rt),
         ByteCode::POST => micro_code::post(rt),
-    }
-}
-
-impl Runtime {
-    /// Fetch the next instruction to execute.
-    /// This will increment the program counter of the current thread.
-    ///
-    /// # Returns
-    ///
-    /// The next instruction to execute.
-    ///
-    /// # Errors
-    ///
-    /// If the program counter is out of bounds.
-    pub fn fetch_instr(&mut self) -> Result<ByteCode> {
-        let instr = self
-            .instrs
-            .get(self.current_thread.pc)
-            .cloned()
-            .ok_or(VmError::PcOutOfBounds(self.current_thread.pc))?;
-        self.current_thread.pc += 1;
-        Ok(instr)
-    }
-    /// Check if the time quantum has expired.
-    /// The time quantum is the maximum amount of time a thread can run before it is preempted.
-    pub fn time_quantum_expired(&self) -> bool {
-        self.time.elapsed() >= self.time_quantum
-    }
-
-    /// The program is done if the current thread is the main thread and the current thread is done.
-    pub fn is_done(&self) -> bool {
-        self.done
-    }
-
-    pub fn debug_print(&self) {
-        let thread_id = self.current_thread.thread_id;
-        let pc = self.current_thread.pc;
-        let instruction = self.instrs.get(pc).expect("PC out of bounds");
-        println!("Thread: {}, PC: {}, {:?}", thread_id, pc, instruction);
     }
 }
 

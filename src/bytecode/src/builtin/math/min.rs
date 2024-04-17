@@ -1,18 +1,18 @@
-use std::{cell::RefCell, rc::Rc};
+use std::rc::Weak;
 
 use anyhow::Result;
 
-use crate::{type_of, ByteCodeError, Environment, FnType, Value};
+use crate::{type_of, ByteCodeError, FnType, Value, W};
 
 pub const MIN_SYM: &str = "min";
 
-pub fn min(global_env: Rc<RefCell<Environment>>) -> Value {
+pub fn min() -> Value {
     Value::Closure {
         fn_type: FnType::Builtin,
         sym: MIN_SYM.into(),
         prms: vec!["v1".into(), "v2".into()],
         addr: 0,
-        env: global_env,
+        env: W(Weak::new()),
     }
 }
 

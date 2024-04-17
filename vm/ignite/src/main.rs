@@ -28,14 +28,19 @@ struct Args {
     #[arg(long, short)]
     repl: bool,
 
-    /// Set custom time quantum for the VM.
-    /// Default is 1000.
+    /// Set custom time quantum for the VM in milliseconds.
+    /// Default is 100ms.
     #[arg(short, long)]
-    quantum: Option<usize>,
+    quantum: Option<u64>,
+
+    /// Set custom garbage collection interval for the VM in milliseconds.
+    /// Default is 1000ms.
+    #[arg(short, long)]
+    gc_interval: Option<u64>,
 
     /// Turn debugging information on
-    #[arg(short, long, action = clap::ArgAction::Count)]
-    debug: u8,
+    #[arg(short, long)]
+    debug: bool,
 
     /// If present, does not type check in REPL. Ignored if only running bytecode.
     #[arg(short)]
@@ -73,10 +78,14 @@ fn main() -> Result<()> {
     let mut rt = Runtime::new(bytecode_vec);
 
     if let Some(quantum) = args.quantum {
-        rt.set_time_quantum(Duration::from_millis(quantum as u64));
+        rt.set_time_quantum(Duration::from_millis(quantum));
     }
 
-    if args.debug > 0 {
+    if let Some(gc_interval) = args.gc_interval {
+        rt.set_gc_interval(Duration::from_millis(gc_interval));
+    }
+
+    if args.debug {
         rt.set_debug_mode();
     }
 

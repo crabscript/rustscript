@@ -1,16 +1,16 @@
-use std::{cell::RefCell, rc::Rc};
+use std::rc::Weak;
 
-use crate::{Environment, FnType, Value};
+use crate::{FnType, Value, W};
 
 pub const PRINT_SYM: &str = "print";
 
-pub fn print(global_env: Rc<RefCell<Environment>>) -> Value {
+pub fn print() -> Value {
     Value::Closure {
         fn_type: FnType::Builtin,
         sym: PRINT_SYM.into(),
         prms: vec!["s".into()],
         addr: 0,
-        env: global_env,
+        env: W(Weak::new()),
     }
 }
 

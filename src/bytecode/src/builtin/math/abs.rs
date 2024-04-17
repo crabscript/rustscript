@@ -1,18 +1,18 @@
-use std::{cell::RefCell, rc::Rc};
+use std::rc::Weak;
 
 use anyhow::Result;
 
-use crate::{type_of, ByteCodeError, Environment, FnType, Value};
+use crate::{type_of, ByteCodeError, FnType, Value, W};
 
 pub const ABS_SYM: &str = "abs";
 
-pub fn abs(global_env: Rc<RefCell<Environment>>) -> Value {
+pub fn abs() -> Value {
     Value::Closure {
         fn_type: FnType::Builtin,
         sym: ABS_SYM.into(),
         prms: vec!["x".into()],
         addr: 0,
-        env: global_env,
+        env: W(Weak::new()),
     }
 }
 

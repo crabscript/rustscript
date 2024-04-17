@@ -1,18 +1,18 @@
-use std::{cell::RefCell, rc::Rc};
+use std::rc::Weak;
 
 use anyhow::Result;
 
-use crate::{Environment, FnType, Value};
+use crate::{FnType, Value, W};
 
 pub const READ_LINE_SYM: &str = "read_line";
 
-pub fn read_line(global_env: Rc<RefCell<Environment>>) -> Value {
+pub fn read_line() -> Value {
     Value::Closure {
         fn_type: FnType::Builtin,
         sym: READ_LINE_SYM.into(),
         prms: vec![],
         addr: 0,
-        env: global_env,
+        env: W(Weak::new()),
     }
 }
 

@@ -1,9 +1,7 @@
-use std::rc::Rc;
-
 use anyhow::Result;
 use bytecode::{type_of, FnType, FrameType, StackFrame, Value};
 
-use crate::{Runtime, VmError};
+use crate::{extend_environment, Runtime, VmError};
 
 use super::apply_builtin;
 
@@ -78,12 +76,12 @@ pub fn call(mut rt: Runtime, arity: usize) -> Result<Runtime> {
 
     let frame = StackFrame {
         frame_type: FrameType::CallFrame,
-        env: Rc::clone(&env),
+        env: env.clone(),
         address: Some(rt.current_thread.pc),
     };
 
     rt.current_thread.runtime_stack.push(frame);
-    rt.current_thread.extend_environment(prms, args)?;
+    rt = extend_environment(rt, env.0, prms, args)?;
     rt.current_thread.pc = addr;
 
     Ok(rt)
@@ -92,10 +90,10 @@ pub fn call(mut rt: Runtime, arity: usize) -> Result<Runtime> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bytecode::{ByteCode, Environment, FnType};
+    use bytecode::{ByteCode, FnType};
 
     #[test]
-    fn test_call() {
+    fn test_call() -> Result<()> {
         let rt = Runtime::new(vec![ByteCode::CALL(0), ByteCode::DONE]);
         let result = call(rt, 0);
         assert!(result.is_err());
@@ -106,12 +104,12 @@ mod tests {
             sym: "Closure".to_string(),
             prms: vec![],
             addr: 123,
-            env: Environment::new_wrapped(),
+            env: Default::default(),
         });
 
-        let result = call(rt, 0);
-        assert!(result.is_ok());
-        rt = result.unwrap();
+        let rt = call(rt, 0)?;
         assert_eq!(rt.current_thread.pc, 123);
+
+        Ok(())
     }
 }

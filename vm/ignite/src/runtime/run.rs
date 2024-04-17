@@ -1,63 +1,64 @@
-use std::{
-    collections::{HashMap, VecDeque},
-    time::{Duration, Instant},
-};
+use std::time::Instant;
 
 use anyhow::Result;
-use bytecode::{ByteCode, Semaphore, ThreadID};
+use bytecode::ByteCode;
 
-use crate::{micro_code, Thread, VmError};
+use crate::{micro_code, Runtime, VmError};
 
-pub const DEFAULT_TIME_QUANTUM: Duration = Duration::from_millis(100);
-pub const MAIN_THREAD_ID: i64 = 1;
-
-/// The runtime of the virtual machine.
-/// It contains the instructions to execute, the current thread, and the ready and blocked threads.
-/// The instructions are the bytecode instructions to execute.
-/// The ready queue is a queue of threads that are ready to run.
-/// The blocked queue is a queue of threads that are waiting for some event to occur.
-/// The zombie threads are threads that have finished executing and are waiting to be joined.
-pub struct Runtime {
-    pub done: bool,
-    pub debug: bool,
-    pub time: Instant,
-    pub time_quantum: Duration,
-    pub instrs: Vec<ByteCode>,
-    pub thread_count: i64,
-    pub current_thread: Thread,
-    pub ready_queue: VecDeque<Thread>,
-    pub blocked_queue: VecDeque<(Thread, Semaphore)>,
-    pub zombie_threads: HashMap<ThreadID, Thread>,
-}
-
+/// Runtime methods at runtime.
 impl Runtime {
-    pub fn new(instrs: Vec<ByteCode>) -> Self {
-        Runtime {
-            time: Instant::now(),
-            time_quantum: DEFAULT_TIME_QUANTUM,
-            instrs,
-            debug: false,
-            done: false,
-            thread_count: 1,
-            current_thread: Thread::new(MAIN_THREAD_ID),
-            ready_queue: VecDeque::new(),
-            blocked_queue: VecDeque::new(),
-            zombie_threads: HashMap::new(),
-        }
+    /// Fetch the next instruction to execute.
+    /// This will increment the program counter of the current thread.
+    ///
+    /// # Returns
+    ///
+    /// The next instruction to execute.
+    ///
+    /// # Errors
+    ///
+    /// If the program counter is out of bounds.
+    pub fn fetch_instr(&mut self) -> Result<ByteCode> {
+        let instr = self
+            .instrs
+            .get(self.current_thread.pc)
+            .cloned()
+            .ok_or(VmError::PcOutOfBounds(self.current_thread.pc))?;
+        self.current_thread.pc += 1;
+        Ok(instr)
+    }
+    /// Check if the time quantum has expired.
+    /// The time quantum is the maximum amount of time a thread can run before it is preempted.
+    pub fn time_quantum_expired(&self) -> bool {
+        self.time.elapsed() >= self.time_quantum
     }
 
-    pub fn set_time_quantum(&mut self, time_quantum: Duration) {
-        self.time_quantum = time_quantum;
+    pub fn should_garbage_collect(&self) -> bool {
+        self.gc_timer.elapsed() >= self.gc_interval
     }
 
-    pub fn set_debug_mode(&mut self) {
-        self.debug = true;
+    pub fn garbage_collect(mut self) -> Self {
+        self = self.mark_and_weep();
+        self.gc_timer = Instant::now();
+        self
     }
-}
 
-impl Default for Runtime {
-    fn default() -> Self {
-        Runtime::new(vec![])
+    /// The program is done if the current thread is the main thread and the current thread is done.
+    pub fn is_done(&self) -> bool {
+        self.done
+    }
+
+    pub fn debug_print(&self) {
+        let thread_id = self.current_thread.thread_id;
+        let pc = self.current_thread.pc;
+        let instruction = self.instrs.get(pc).expect("PC out of bounds");
+        println!("Thread: {}, PC: {}, {:?}", thread_id, pc, instruction);
+        println!("Operand Stack: {:?}", self.current_thread.operand_stack);
+        println!("Runtime Stack: {:?}", self.current_thread.runtime_stack);
+        println!(
+            "Environment: {:?}",
+            self.current_thread.env.upgrade().unwrap().borrow()
+        );
+        println!();
     }
 }
 
@@ -80,19 +81,20 @@ pub fn run(mut rt: Runtime) -> Result<Runtime> {
             break;
         }
 
+        if rt.should_garbage_collect() {
+            rt = rt.garbage_collect();
+        }
+
         if rt.time_quantum_expired() {
             rt = micro_code::yield_(rt)?;
             continue;
         }
 
-        let instr = rt.fetch_instr()?;
-
         if rt.debug {
-            let thread_id = rt.current_thread.thread_id;
-            let pc = rt.current_thread.pc - 1;
-            let instruction = instr.clone();
-            println!("Thread: {}, PC: {}, {:?}", thread_id, pc, instruction);
+            rt.debug_print();
         }
+
+        let instr = rt.fetch_instr()?;
 
         rt = execute(rt, instr)?;
     }
@@ -140,41 +142,11 @@ pub fn execute(rt: Runtime, instr: ByteCode) -> Result<Runtime> {
     }
 }
 
-impl Runtime {
-    /// Fetch the next instruction to execute.
-    /// This will increment the program counter of the current thread.
-    ///
-    /// # Returns
-    ///
-    /// The next instruction to execute.
-    ///
-    /// # Errors
-    ///
-    /// If the program counter is out of bounds.
-    pub fn fetch_instr(&mut self) -> Result<ByteCode> {
-        let instr = self
-            .instrs
-            .get(self.current_thread.pc)
-            .cloned()
-            .ok_or(VmError::PcOutOfBounds(self.current_thread.pc))?;
-        self.current_thread.pc += 1;
-        Ok(instr)
-    }
-    /// Check if the time quantum has expired.
-    /// The time quantum is the maximum amount of time a thread can run before it is preempted.
-    pub fn time_quantum_expired(&self) -> bool {
-        self.time.elapsed() >= self.time_quantum
-    }
-
-    /// The program is done if the current thread is the main thread and the current thread is done.
-    pub fn is_done(&self) -> bool {
-        self.done
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use std::vec;
+    use std::time::Duration;
+
+    use crate::MAIN_THREAD_ID;
 
     use super::*;
     use anyhow::{Ok, Result};
@@ -261,7 +233,7 @@ mod tests {
     }
 
     #[test]
-    fn test_assignment() {
+    fn test_assignment() -> Result<()> {
         let instrs = vec![
             ByteCode::ldc(42),
             ByteCode::assign("x"),
@@ -275,22 +247,38 @@ mod tests {
         let rt = Runtime::new(instrs);
         rt.current_thread
             .env
+            .upgrade()
+            .unwrap()
             .borrow_mut()
             .set("x", Value::Unitialized);
         rt.current_thread
             .env
+            .upgrade()
+            .unwrap()
             .borrow_mut()
             .set("y", Value::Unitialized);
 
         let rt = run(rt).unwrap();
         assert_eq!(
-            rt.current_thread.env.borrow().get(&"x".to_string()),
-            Some(Value::Int(44))
+            rt.current_thread
+                .env
+                .upgrade()
+                .unwrap()
+                .borrow()
+                .get(&"x".to_string())?,
+            Value::Int(44)
         );
         assert_eq!(
-            rt.current_thread.env.borrow().get(&"y".to_string()),
-            Some(Value::Int(43))
+            rt.current_thread
+                .env
+                .upgrade()
+                .unwrap()
+                .borrow()
+                .get(&"y".to_string())?,
+            Value::Int(43)
         );
+
+        Ok(())
     }
 
     #[test]
@@ -481,6 +469,8 @@ mod tests {
         let final_count: i64 = rt
             .current_thread
             .env
+            .upgrade()
+            .unwrap()
             .borrow()
             .get(&"count".to_string())
             .expect("Count not in environment")
@@ -632,6 +622,8 @@ mod tests {
         let final_count: i64 = rt
             .current_thread
             .env
+            .upgrade()
+            .unwrap()
             .borrow()
             .get(&"count".to_string())
             .expect("Count not in environment")
@@ -801,6 +793,8 @@ mod tests {
         let final_count: i64 = rt
             .current_thread
             .env
+            .upgrade()
+            .unwrap()
             .borrow()
             .get(&"count".to_string())
             .expect("Count not in environment")
@@ -819,6 +813,8 @@ mod tests {
         let final_count: i64 = rt
             .current_thread
             .env
+            .upgrade()
+            .unwrap()
             .borrow()
             .get(&"count".to_string())
             .expect("Count not in environment")

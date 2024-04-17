@@ -44,6 +44,9 @@ pub enum VmError {
     #[error("Insufficient arguments: expected {expected}, got {got}")]
     InsufficientArguments { expected: usize, got: usize },
 
+    #[error("Environment access after drop")]
+    EnvironmentDroppedError,
+
     #[error("Unknown builtin: {sym}")]
     UnknownBuiltin { sym: String },
 }

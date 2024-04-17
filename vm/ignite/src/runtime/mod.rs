@@ -6,8 +6,6 @@ use std::{
 use bytecode::{weak_clone, ByteCode, EnvStrong, Environment, Semaphore, ThreadID, W};
 
 use crate::Thread;
-
-pub use gc::*;
 pub use run::*;
 
 mod gc;

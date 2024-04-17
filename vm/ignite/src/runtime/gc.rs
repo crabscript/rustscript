@@ -47,7 +47,13 @@ fn mark(rt: &Runtime) -> HashMap<EnvWeak, bool> {
 }
 
 fn sweep(mut rt: Runtime, m: HashMap<EnvWeak, bool>) -> Runtime {
-    todo!()
+    let registry = rt
+        .env_registry
+        .drain()
+        .filter(|env| *m.get(&W(weak_clone(env))).unwrap_or(&false))
+        .collect();
+    rt.env_registry = registry;
+    rt // Any environment that is not marked will be removed from the registry and dropped
 }
 
 fn env_hashmap(rt: &Runtime) -> HashMap<EnvWeak, bool> {

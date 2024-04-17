@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use anyhow::Result;
 use bytecode::ByteCode;
 
@@ -30,6 +32,16 @@ impl Runtime {
         self.time.elapsed() >= self.time_quantum
     }
 
+    pub fn should_garbage_collect(&self) -> bool {
+        self.time.elapsed() >= self.gc_interval
+    }
+
+    pub fn garbage_collect(mut self) -> Self {
+        self = self.mark_and_weep();
+        self.time = Instant::now();
+        self
+    }
+
     /// The program is done if the current thread is the main thread and the current thread is done.
     pub fn is_done(&self) -> bool {
         self.done
@@ -60,6 +72,10 @@ pub fn run(mut rt: Runtime) -> Result<Runtime> {
     loop {
         if rt.is_done() {
             break;
+        }
+
+        if rt.should_garbage_collect() {
+            rt = rt.garbage_collect();
         }
 
         if rt.time_quantum_expired() {

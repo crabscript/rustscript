@@ -40,7 +40,12 @@ impl Thread {
     }
 }
 
-pub fn extend_environment<S, V>(mut rt: Runtime, syms: Vec<S>, vals: Vec<V>) -> Result<Runtime>
+pub fn extend_environment<S, V>(
+    mut rt: Runtime,
+    env: Weak<RefCell<Environment>>,
+    syms: Vec<S>,
+    vals: Vec<V>,
+) -> Result<Runtime>
 where
     S: Into<Symbol>,
     V: Into<Value>,
@@ -52,13 +57,8 @@ where
         .into());
     }
 
-    let current_env = &rt
-        .current_thread
-        .env
-        .upgrade()
-        .ok_or(VmError::EnvironmentDroppedError)?;
     let new_env = Environment::new_wrapped();
-    new_env.borrow_mut().set_parent(weak_clone(current_env));
+    new_env.borrow_mut().set_parent(env);
 
     for (sym, val) in syms.into_iter().zip(vals.into_iter()) {
         new_env.borrow_mut().set(sym, val);
@@ -95,7 +95,8 @@ mod tests {
             .set("b", 123);
 
         let empty: Vec<String> = Vec::new();
-        let result = extend_environment(rt, vec!["c", "d"], empty);
+        let current_env = rt.current_thread.env.clone();
+        let result = extend_environment(rt, current_env, vec!["c", "d"], empty);
         assert!(result.is_err());
 
         Ok(())
@@ -120,8 +121,10 @@ mod tests {
             .borrow_mut()
             .set("b", 123);
 
+        let current_env = rt.current_thread.env.clone();
         let rt = extend_environment(
             rt,
+            current_env,
             vec!["c", "d"],
             vec![Value::Float(12.3), Value::Bool(true)],
         )?;

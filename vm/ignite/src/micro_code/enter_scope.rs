@@ -29,7 +29,8 @@ pub fn enter_scope(mut rt: Runtime, syms: Vec<Symbol>) -> Result<Runtime> {
         .map(|_| Value::Unitialized)
         .collect::<Vec<Value>>();
 
-    rt = extend_environment(rt, syms, uninitialized)?;
+    let current_env = rt.current_thread.env.clone();
+    rt = extend_environment(rt, current_env, syms, uninitialized)?;
 
     Ok(rt)
 }

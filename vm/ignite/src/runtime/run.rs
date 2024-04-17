@@ -52,6 +52,13 @@ impl Runtime {
         let pc = self.current_thread.pc;
         let instruction = self.instrs.get(pc).expect("PC out of bounds");
         println!("Thread: {}, PC: {}, {:?}", thread_id, pc, instruction);
+        println!("Operand Stack: {:?}", self.current_thread.operand_stack);
+        println!("Runtime Stack: {:?}", self.current_thread.runtime_stack);
+        println!(
+            "Environment: {:?}",
+            self.current_thread.env.upgrade().unwrap().borrow()
+        );
+        println!();
     }
 }
 

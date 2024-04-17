@@ -20,8 +20,8 @@ impl Debug for EnvWeak {
         let this = self.0.upgrade();
 
         match this {
-            Some(this) => write!(f, "{:?}", this),
-            None => write!(f, "Weak::None"),
+            Some(this) => write!(f, "{:?}", this.borrow()),
+            None => write!(f, "None"),
         }
     }
 }

@@ -1,11 +1,11 @@
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
 
 use serde::{Deserialize, Serialize};
 
 use crate::{ByteCodeError, EnvWeak, Semaphore, Symbol};
 
 /// The values that can be stored on the operant stack.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub enum Value {
     Unitialized,
     Unit,
@@ -56,6 +56,32 @@ impl Display for Value {
             Value::Float(f) => f.to_string(),
             Value::Semaphore(_) => "semaphore".to_string(),
             Value::Closure { .. } => "closure".to_string(),
+        };
+
+        write!(f, "{}", res)
+    }
+}
+
+impl Debug for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let res = match self {
+            Value::Unitialized => "uninitialized".to_string(),
+            Value::Unit => "()".to_string(),
+            Value::String(s) => s.to_string(),
+            Value::Bool(b) => b.to_string(),
+            Value::Int(i) => i.to_string(),
+            Value::Float(f) => f.to_string(),
+            Value::Semaphore(_) => "semaphore".to_string(),
+            Value::Closure {
+                sym,
+                fn_type,
+                prms,
+                addr,
+                ..
+            } => format!(
+                "Closure {{ sym: {}, fn_type: {:?}, prms: {:?}, addr: {} }}",
+                sym, fn_type, prms, addr
+            ),
         };
 
         write!(f, "{}", res)

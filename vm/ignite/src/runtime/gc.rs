@@ -51,12 +51,24 @@ fn mark(rt: &Runtime) -> HashMap<EnvWeak, bool> {
 }
 
 fn sweep(mut rt: Runtime, m: HashMap<EnvWeak, bool>) -> Runtime {
+    if rt.debug {
+        println!("Sweep begin")
+    }
+
     let registry = rt
         .env_registry
         .drain()
         .filter(|env| *m.get(&W(weak_clone(env))).unwrap_or(&false))
         .collect();
     rt.env_registry = registry;
+
+    if rt.debug {
+        println!(
+            "Sweep end, {} environments removed",
+            m.len() - rt.env_registry.len()
+        )
+    }
+
     rt // Any environment that is not marked will be removed from the registry and dropped
 }
 
@@ -113,4 +125,116 @@ fn mark_runtime_stack(mut m: HashMap<EnvWeak, bool>, rs: &[StackFrame]) -> HashM
         m = mark_env(m, &frame.env);
     }
     m
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::run;
+
+    use super::*;
+
+    use anyhow::Result;
+    use bytecode::*;
+
+    #[test]
+    fn test_gc_01() -> Result<()> {
+        // {
+        //   fn garbage() {}
+        // }
+        // // garbage is out of scope and not reachable, so the environment should be removed
+        let empty_vec: Vec<Symbol> = vec![];
+
+        let instrs = vec![
+            ByteCode::enterscope(empty_vec.clone()), // Program scope
+            ByteCode::enterscope(vec!["garbage"]),   // Block scope
+            ByteCode::ldf(0, empty_vec.clone()),
+            ByteCode::assign("garbage"),
+            ByteCode::EXITSCOPE,
+            ByteCode::EXITSCOPE,
+            ByteCode::DONE,
+        ];
+
+        let mut rt = Runtime::new(instrs);
+        rt.set_debug_mode();
+        let rt = run(rt)?;
+        assert_eq!(rt.env_registry.len(), 3); // Global env, program env, block env
+
+        let rt = rt.mark_and_weep();
+        assert_eq!(rt.env_registry.len(), 1); // Only the global environment should be left
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_gc_02() -> Result<()> {
+        // fn higher_order(x) {
+        //   return y => x + y;
+        // }
+        //
+        // const add10 = higher_order(10);
+        //
+        // const result = add10(20);
+        //
+        // println(result); // 30
+
+        let instrs = vec![
+            // PC: 0
+            ByteCode::enterscope(vec!["higher_order", "add10", "result"]), // Program scope
+            // PC: 1
+            ByteCode::ldf(4, vec!["x"]), // higher_order
+            // PC: 2
+            ByteCode::assign("higher_order"),
+            // PC: 3
+            ByteCode::GOTO(11), // Jump past higher_order body
+            // PC: 4
+            ByteCode::ldf(6, vec!["y"]), // higher_order annonymous function
+            // PC: 5
+            ByteCode::GOTO(10), // Jump past annonymous function body
+            // PC: 6
+            ByteCode::ld("x"),
+            // PC: 7
+            ByteCode::ld("y"),
+            // PC: 8
+            ByteCode::BINOP(BinOp::Add),
+            // PC: 9
+            ByteCode::RESET(FrameType::CallFrame), // reset instruction for annonymous function
+            // PC: 10
+            ByteCode::RESET(FrameType::CallFrame), // reset instruction for higher_order
+            // PC: 11
+            ByteCode::ld("higher_order"),
+            // PC: 12
+            ByteCode::ldc(10),
+            // PC: 13
+            ByteCode::CALL(1),
+            // PC: 14
+            ByteCode::assign("add10"),
+            // PC: 15
+            ByteCode::ld("add10"),
+            // PC: 16
+            ByteCode::ldc(20),
+            // PC: 17
+            ByteCode::CALL(1),
+            // PC: 18
+            ByteCode::assign("result"),
+            // PC: 19
+            ByteCode::ld("println"),
+            // PC: 20
+            ByteCode::ld("result"),
+            // PC: 21
+            ByteCode::CALL(1),
+            // PC: 22
+            ByteCode::EXITSCOPE,
+            // PC: 23
+            ByteCode::DONE,
+        ];
+
+        let mut rt = Runtime::new(instrs);
+        rt.set_debug_mode();
+        let rt = run(rt)?;
+
+        let rt = rt.mark_and_weep();
+        assert_eq!(rt.env_registry.len(), 1); // Only the global environment should be left
+
+        Ok(())
+    }
 }

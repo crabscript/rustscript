@@ -81,7 +81,7 @@ pub fn call(mut rt: Runtime, arity: usize) -> Result<Runtime> {
     };
 
     rt.current_thread.runtime_stack.push(frame);
-    rt = extend_environment(rt, prms, args)?;
+    rt = extend_environment(rt, env.0, prms, args)?;
     rt.current_thread.pc = addr;
 
     Ok(rt)
@@ -93,7 +93,7 @@ mod tests {
     use bytecode::{ByteCode, FnType};
 
     #[test]
-    fn test_call() {
+    fn test_call() -> Result<()> {
         let rt = Runtime::new(vec![ByteCode::CALL(0), ByteCode::DONE]);
         let result = call(rt, 0);
         assert!(result.is_err());
@@ -107,9 +107,9 @@ mod tests {
             env: Default::default(),
         });
 
-        let result = call(rt, 0);
-        assert!(result.is_ok());
-        rt = result.unwrap();
+        let rt = call(rt, 0)?;
         assert_eq!(rt.current_thread.pc, 123);
+
+        Ok(())
     }
 }

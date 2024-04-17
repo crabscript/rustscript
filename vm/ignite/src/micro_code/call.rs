@@ -9,6 +9,8 @@ use super::apply_builtin;
 
 /// Call a function with the given number of arguments.
 /// First it pops n values from the operand stack where n is the arity of the function.
+/// The values will be the arguments to the function and they are pushed to a vector and reversed.
+/// i.e. the last argument is the top value of the operand stack.
 /// Then it pops the closure from the operand stack.
 /// It checks that the closure is a closure and that the arity of the closure matches the number of arguments.
 /// If the closure is a builtin function it applies the builtin function and returns.
@@ -37,6 +39,8 @@ pub fn call(mut rt: Runtime, arity: usize) -> Result<Runtime> {
                 .ok_or(VmError::OperandStackUnderflow)?,
         );
     }
+
+    args.reverse();
 
     let value = rt
         .current_thread

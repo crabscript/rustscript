@@ -65,7 +65,7 @@ where
     }
 
     rt.current_thread.env = weak_clone(&new_env);
-    rt.env_registry.insert(W(new_env), false);
+    rt.env_registry.insert(W(new_env));
 
     Ok(rt)
 }

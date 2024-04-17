@@ -195,7 +195,7 @@ impl Environment {
 
 pub fn weak_clone(env: &Rc<RefCell<Environment>>) -> Weak<RefCell<Environment>> {
     let env = Rc::clone(env);
-    weak_clone(&env)
+    Rc::downgrade(&env)
 }
 
 #[cfg(test)]

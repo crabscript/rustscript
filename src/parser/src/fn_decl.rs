@@ -381,4 +381,26 @@ mod tests {
         ";
         test_parse_err(t, "return outside of fn", true);
     }
+
+    #[test]
+    fn test_parse_fn_decl_hof() {
+        let t = r"
+        fn f(x : int) {
+            let z = 3;
+            fn g(y : int) {
+                return x + y + z;
+            }
+           
+            g
+        }
+        
+        let hof = f(2);
+        
+        hof(4)
+        ";
+        test_parse(
+            t,
+            "fn f (x:int) { let z = 3;fn g (y:int) { return ((x+y)+z); };g };let hof = f(2);hof(4)",
+        );
+    }
 }

@@ -51,31 +51,56 @@ fn sweep(mut rt: Runtime, m: HashMap<EnvWeak, bool>) -> Runtime {
 }
 
 fn env_hashmap(rt: &Runtime) -> HashMap<EnvWeak, bool> {
-    let mut envs = HashMap::new();
+    let mut m = HashMap::new();
     for env in rt.env_registry.iter() {
-        envs.insert(W(weak_clone(env)), false);
+        m.insert(W(weak_clone(env)), false);
     }
-    envs
+    m
 }
 
 fn mark_thread(mut m: HashMap<EnvWeak, bool>, t: &Thread) -> HashMap<EnvWeak, bool> {
-    todo!()
+    m = mark_env(m, &t.env);
+    m = mark_operand_stack(m, &t.operand_stack);
+    m = mark_runtime_stack(m, &t.runtime_stack);
+    m
 }
 
 fn mark_env(
     mut m: HashMap<EnvWeak, bool>,
     env: &Weak<RefCell<Environment>>,
 ) -> HashMap<EnvWeak, bool> {
-    todo!()
+    let is_marked = m
+        .get_mut(&W(env.clone()))
+        .expect("Environment must be in the registry");
+
+    match is_marked {
+        true => return m, // Already marked
+        false => *is_marked = true,
+    }
+
+    let env = env
+        .upgrade()
+        .expect("Environment must still be referenced to be marked");
+
+    if let Some(parent) = &env.borrow().parent {
+        m = mark_env(m, parent);
+    }
+
+    m
 }
 
-fn mark_operand_stack(mut m: HashMap<EnvWeak, bool>, os: &Vec<Value>) -> HashMap<EnvWeak, bool> {
-    todo!()
+fn mark_operand_stack(mut m: HashMap<EnvWeak, bool>, os: &[Value]) -> HashMap<EnvWeak, bool> {
+    for val in os.iter() {
+        if let Value::Closure { env, .. } = val {
+            m = mark_env(m, env);
+        }
+    }
+    m
 }
 
-fn mark_runtime_stack(
-    mut m: HashMap<EnvWeak, bool>,
-    rs: &Vec<StackFrame>,
-) -> HashMap<EnvWeak, bool> {
-    todo!()
+fn mark_runtime_stack(mut m: HashMap<EnvWeak, bool>, rs: &[StackFrame]) -> HashMap<EnvWeak, bool> {
+    for frame in rs.iter() {
+        m = mark_env(m, &frame.env);
+    }
+    m
 }

@@ -152,6 +152,8 @@ impl<'inp> Parser<'inp> {
     }
 
     /// Parse and return type annotation. Expect lexer.peek() to be at Colon before call
+    // Should only consume tokens belonging to the annotation, starting peek at first token and ending
+    // peek at the last token of the annotation
     fn parse_type_annotation(&mut self) -> Result<Type, ParseError> {
         // self.consume_token_type(Token::Colon, "Expected a colon")?;
         // expect_token_body!(self.lexer.peek(), Ident, "identifier")?;
@@ -177,9 +179,6 @@ impl<'inp> Parser<'inp> {
             }
             _ => unreachable!(),
         }?;
-
-        // Peek should be at equals at the end, so we advance
-        self.advance();
 
         Ok(type_ann)
     }

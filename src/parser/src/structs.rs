@@ -197,14 +197,18 @@ impl Display for LoopData {
 // function parameter
 pub struct FnParam {
     pub name: String,
-    pub ty: Type,
     pub type_ann: Option<Type>,
 }
 
 impl Display for FnParam {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = format!("{}:{}", self.name, self.ty);
-        write!(f, "{}", s)
+        let param_str = if let Some(ty) = self.type_ann {
+            format!("{}:{}", self.name, ty)
+        } else {
+            self.name.to_string()
+        };
+
+        write!(f, "{}", param_str)
     }
 }
 

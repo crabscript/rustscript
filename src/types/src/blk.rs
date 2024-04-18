@@ -5,7 +5,7 @@ impl<'prog> TypeChecker<'prog> {
     pub(crate) fn check_block(
         &mut self,
         program: &BlockSeq,
-        fn_params: Vec<FnParam>,
+        _fn_params: Vec<FnParam>,
     ) -> Result<CheckResult, TypeErrors> {
         let mut errs = TypeErrors::new();
         // map bindings to types

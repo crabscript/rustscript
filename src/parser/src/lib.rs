@@ -5,6 +5,8 @@ use structs::*;
 
 pub mod blk;
 pub mod expr;
+pub mod fn_decl;
+pub mod ident;
 pub mod if_else;
 pub mod let_stmt;
 pub mod parse_loop;
@@ -38,15 +40,16 @@ pub struct Parser<'inp> {
     prev_tok: Option<Token>,
     lexer: Peekable<Lexer<'inp, Token>>,
     pub is_loop: bool,
+    pub is_fn: bool,
 }
 
-use Decl::*;
 impl<'inp> Parser<'inp> {
     pub fn new(lexer: Lexer<'_, Token>) -> Parser<'_> {
         Parser {
             prev_tok: None,
             lexer: lexer.peekable(),
             is_loop: false,
+            is_fn: false,
         }
     }
 
@@ -55,6 +58,7 @@ impl<'inp> Parser<'inp> {
             prev_tok: None,
             lexer: lex(inp).peekable(),
             is_loop: false,
+            is_fn: false,
         }
     }
 
@@ -120,7 +124,7 @@ impl<'inp> Parser<'inp> {
     }
 
     // Pass in self.lexer.peek() => get String out for Ident, String in quotes
-    fn string_from_ident(token: Option<&Result<Token, ()>>) -> String {
+    pub(crate) fn string_from_ident(token: Option<&Result<Token, ()>>) -> String {
         // dbg!("string from ident token:", &token);
         let tok = token.unwrap();
         let tok = tok.clone().unwrap();
@@ -148,8 +152,10 @@ impl<'inp> Parser<'inp> {
     }
 
     /// Parse and return type annotation. Expect lexer.peek() to be at Colon before call
+    // Should only consume tokens belonging to the annotation, starting peek at first token and ending
+    // peek at the last token of the annotation
     fn parse_type_annotation(&mut self) -> Result<Type, ParseError> {
-        self.consume_token_type(Token::Colon, "Expected a colon")?;
+        // self.consume_token_type(Token::Colon, "Expected a colon")?;
         // expect_token_body!(self.lexer.peek(), Ident, "identifier")?;
         Parser::expect_token_for_type_ann(self.lexer.peek())?;
 
@@ -173,9 +179,6 @@ impl<'inp> Parser<'inp> {
             }
             _ => unreachable!(),
         }?;
-
-        // Peek should be at equals at the end, so we advance
-        self.advance();
 
         Ok(type_ann)
     }
@@ -203,27 +206,6 @@ impl<'inp> Parser<'inp> {
         }
     }
 
-    fn parse_ident(&mut self, ident: String, min_bp: u8) -> Result<Decl, ParseError> {
-        let sym = Expr::Symbol(ident.to_string());
-
-        // Handle assignment
-        if let Some(tok) = self.lexer.peek() {
-            let tok = tok.as_ref().expect("Lexer should not fail");
-            if tok.eq(&Token::Eq) {
-                self.consume_token_type(Token::Eq, "Expected '='")?;
-                self.advance();
-
-                // now prev_tok has the start of the expr
-                let expr = self.parse_expr(min_bp)?.to_expr()?;
-
-                let assign = AssignStmtData { ident, expr };
-
-                return Ok(AssignStmt(assign));
-            }
-        }
-        Ok(ExprStmt(sym))
-    }
-
     // Parses and returns a declaration. At this stage "declaration" includes values, let assignments, fn declarations, etc
     // Because treatment of something as an expression can vary based on whether it is last value or not, whether semicolon comes after, etc.
     fn parse_decl(&mut self) -> Result<Decl, ParseError> {
@@ -237,7 +219,48 @@ impl<'inp> Parser<'inp> {
             | Token::OpenParen
             | Token::Bang
             | Token::OpenBrace
-            | Token::If => self.parse_expr(0),
+            | Token::If
+            | Token::String(_) => self.parse_expr(0),
+            Token::Spawn => {
+                self.advance();
+                let fn_call = self.parse_expr(0)?.to_expr()?;
+                if let Expr::FnCallExpr(fn_data) = fn_call {
+                    let sp = Expr::SpawnExpr(fn_data);
+                    Ok(Decl::ExprStmt(sp))
+                } else {
+                    Err(ParseError::new("spawn expected function call"))
+                }
+            }
+            // join t;
+            Token::Join => {
+                self.advance();
+                let join_id = self.parse_expr(0)?.to_expr()?;
+                if let Expr::Symbol(tid) = join_id {
+                    let j = Expr::JoinExpr(tid);
+                    Ok(Decl::ExprStmt(j))
+                } else {
+                    Err(ParseError::new("join expected variable for thread to join"))
+                }
+            }
+            // wait sem;
+            Token::Wait => {
+                self.advance();
+                let sem = self.parse_expr(0)?.to_expr()?;
+                if let Expr::Symbol(sem_sym) = sem {
+                    Ok(Decl::WaitStmt(sem_sym))
+                } else {
+                    Err(ParseError::new("wait expected semaphore variable"))
+                }
+            }
+            Token::Post => {
+                self.advance();
+                let sem = self.parse_expr(0)?.to_expr()?;
+                if let Expr::Symbol(sem_sym) = sem {
+                    Ok(Decl::PostStmt(sem_sym))
+                } else {
+                    Err(ParseError::new("post expected semaphore variable"))
+                }
+            }
             // if not is_loop, error
             Token::Break => {
                 if !self.is_loop {
@@ -245,8 +268,26 @@ impl<'inp> Parser<'inp> {
                 }
                 Ok(Decl::BreakStmt)
             }
+            Token::Yield => Ok(Decl::YieldStmt),
+            // if not is_fn, err
+            Token::Return => {
+                if !self.is_fn {
+                    return Err(ParseError::new("return outside of fn"));
+                }
+
+                // parse expr if not semicolon
+                let mut ret_expr: Option<Expr> = None;
+                if !self.is_peek_token_type(Token::Semi) {
+                    self.advance();
+                    let expr = self.parse_expr(0)?.to_expr()?;
+                    ret_expr.replace(expr);
+                }
+
+                Ok(Decl::ReturnStmt(ret_expr))
+            }
             Token::Let => self.parse_let(),
             Token::Loop => self.parse_loop(),
+            Token::Fn => self.parse_fn_decl(),
             _ => Err(ParseError::new(&format!(
                 "Unexpected token: '{}'",
                 prev_tok
@@ -374,5 +415,77 @@ mod tests {
             "Expected '()' for unit type annotation",
             true,
         );
+    }
+
+    #[test]
+    fn test_parse_concurrency() {
+        let t = r"
+        let t = spawn func();
+        spawn f2();
+        spawn f3()
+        ";
+        test_parse(t, "let t = spawn func();spawn f2();spawn f3()");
+
+        let t = r"
+        spawn 2+2;
+        ";
+        test_parse_err(t, "spawn expected function call", true);
+
+        // join
+        let t = r"
+        let t = spawn func();
+        let res = join t;
+        ";
+        test_parse(t, "let t = spawn func();let res = join t;");
+
+        // wait and post
+        let t = r"
+        let sem = sem_create();
+        wait sem;
+        post sem;
+        ";
+        test_parse(t, "let sem = sem_create();wait sem;post sem;");
+
+        let t = r"
+        wait 2+2;
+        ";
+        test_parse_err(t, "expected semaphore variable", true);
+
+        let t = r"
+        post 2+2;
+        ";
+        test_parse_err(t, "expected semaphore variable", true);
+
+        // can't assign wait/post
+        let t = r"
+        let x = wait sem;
+        ";
+        test_parse_err(t, "wait is not an expression", true);
+
+        // can't assign wait/post
+        let t = r"
+        let x = post sem;
+        ";
+        test_parse_err(t, "post is not an expression", true);
+
+        // must be stmt with semi
+        let t = r"
+         wait sem
+         ";
+        test_parse_err(t, "Expected semicolon", true);
+
+        let t = r"
+         post sem
+         ";
+        test_parse_err(t, "Expected semicolon", true);
+    }
+
+    #[test]
+    fn test_parse_string() {
+        let t = r#""hello" + "world""#;
+        test_parse(t, "(hello+world)");
+
+        let t = r#"let t = "hello world"; println(t);"#;
+        test_parse(t, "let t = hello world;println(t);");
     }
 }

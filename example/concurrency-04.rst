@@ -1,3 +1,5 @@
+// Expected: count = 3000 on each run
+
 let count = 0;
 let sem = sem_create();
 
@@ -11,9 +13,13 @@ fn increment(times: int) {
   }
 }
 
-let tid_1 = spawn increment(l00);
-let tid_2 = spawn increment(100);
-let tid_3 = spawn increment(100);
+println("Spawning 3 threads");
+
+let tid_1 = spawn increment(1000);
+let tid_2 = spawn increment(1000);
+let tid_3 = spawn increment(1000);
+
+println("Joining 3 threads");
 
 join tid_3;
 join tid_2;

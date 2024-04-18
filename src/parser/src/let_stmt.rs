@@ -19,8 +19,13 @@ impl<'inp> Parser<'inp> {
         // Do nothing if not colon: allow no annotation to let prev tests pass (for now)
         if self.is_peek_token_type(Token::Colon) {
             // Parse type annotation if any
+            self.advance(); // put colon in advance so at type_ann first tok = first token for type
+
             let ty = self.parse_type_annotation()?;
             type_ann.replace(ty);
+
+            // call advance so peek is at equals
+            self.advance();
         }
 
         self.consume_token_type(Token::Eq, "Expected '='")?;

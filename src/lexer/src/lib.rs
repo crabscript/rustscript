@@ -118,6 +118,15 @@ pub enum Token {
     #[token("else")]
     Else,
 
+    #[token("fn")]
+    Fn,
+
+    #[token("->")]
+    FnDeclReturn,
+
+    #[token("return")]
+    Return,
+
     #[regex(r#"[a-zA-Z_][a-zA-Z0-9_]*"#, |lex| lex.slice().to_owned())]
     Ident(String),
 
@@ -129,6 +138,21 @@ pub enum Token {
 
     #[token("break")]
     Break,
+
+    #[token("spawn")]
+    Spawn,
+
+    #[token("join")]
+    Join,
+
+    #[token("wait")]
+    Wait,
+
+    #[token("post")]
+    Post,
+
+    #[token("yield")]
+    Yield,
 
     #[token("false", |_| false)]
     #[token("true", |_| true)]
@@ -202,6 +226,14 @@ impl Token {
             Self::Break => "break".to_string(),
             Self::Comment => "//".to_string(),
             Self::Newline => "\n".to_string(),
+            Self::Fn => "fn".to_string(),
+            Self::Return => "return".to_string(),
+            Self::FnDeclReturn => "->".to_string(),
+            Self::Spawn => "spawn".to_string(),
+            Self::Join => "join".to_string(),
+            Self::Wait => "wait".to_string(),
+            Self::Post => "post".to_string(),
+            Self::Yield => "yield".to_string(),
         }
     }
 }
@@ -393,7 +425,7 @@ mod test {
             Token::Ident("baz".to_string()),
             Token::Ident("_john".to_string()),
             Token::Ident("_".to_string()),
-            Token::Ident("fn".to_string()),
+            Token::Fn,
             Token::Let,
             Token::Ident("mut".to_string()),
             Token::Ident("continue".to_string()),
@@ -460,7 +492,7 @@ mod test {
         let mut lexer = Token::lexer(input);
 
         let expected = vec![
-            Token::Ident("fn".to_string()),
+            Token::Fn,
             Token::Ident("add".to_string()),
             Token::OpenParen,
             Token::Ident("x".to_string()),
@@ -471,11 +503,10 @@ mod test {
             Token::Colon,
             Token::Ident("i64".to_string()),
             Token::CloseParen,
-            Token::Minus,
-            Token::Gt,
+            Token::FnDeclReturn,
             Token::Ident("i64".to_string()),
             Token::OpenBrace,
-            Token::Ident("return".to_string()),
+            Token::Return,
             Token::Ident("x".to_string()),
             Token::Plus,
             Token::Ident("y".to_string()),
@@ -605,5 +636,28 @@ mod test {
         assert_eq!(lexer.next().unwrap().unwrap(), Token::Integer(3));
         assert_eq!(lexer.extras.0, 3);
         assert_eq!(lexer.next(), None);
+    }
+
+    #[test]
+    fn test_lex_spawn_join() {
+        let t = r"
+        spawn join
+        ";
+        let mut lexer = Token::lexer(t);
+
+        assert_eq!(lexer.next().unwrap().unwrap(), Token::Spawn);
+        assert_eq!(lexer.next().unwrap().unwrap(), Token::Join);
+    }
+
+    #[test]
+    fn test_lex_wait_post() {
+        let t = r"
+        wait post yield
+        ";
+        let mut lexer = Token::lexer(t);
+
+        assert_eq!(lexer.next().unwrap().unwrap(), Token::Wait);
+        assert_eq!(lexer.next().unwrap().unwrap(), Token::Post);
+        assert_eq!(lexer.next().unwrap().unwrap(), Token::Yield);
     }
 }

@@ -3,3 +3,4 @@ fn foo(x: int, y: int) -> int {
 }
 
 foo(2, 5)
+// Expected: 7

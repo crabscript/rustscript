@@ -1,11 +1,11 @@
-use crate::type_checker::{TypeChecker, TypeErrors};
-use parser::structs::{LetStmtData, Type};
+use crate::type_checker::{CheckResult, TypeChecker, TypeErrors};
+use parser::structs::LetStmtData;
 
 impl<'prog> TypeChecker<'prog> {
-    pub(crate) fn check_let(&mut self, stmt: &LetStmtData) -> Result<(), TypeErrors> {
+    pub(crate) fn check_let(&mut self, stmt: &LetStmtData) -> Result<CheckResult, TypeErrors> {
         let mut ty_errs = TypeErrors::new();
 
-        let mut expr_type: Option<Type> = None;
+        let mut expr_type: Option<CheckResult> = None;
         match self.check_expr(&stmt.expr) {
             Ok(res) => {
                 expr_type.replace(res);
@@ -15,7 +15,7 @@ impl<'prog> TypeChecker<'prog> {
             }
         };
 
-        match (expr_type, stmt.type_ann) {
+        match (expr_type, &stmt.type_ann) {
             // type check expr has error + we have no type annotation: e.g let x = !2;
             // cannot proceed, error out with cont = false
             (None, None) => {
@@ -26,29 +26,47 @@ impl<'prog> TypeChecker<'prog> {
             // type check expr has err + we have type ann: e.g let x : int = !2;
             // use type of annotation, continue
             (None, Some(ty_ann)) => {
-                self.assign_ident(&stmt.ident.to_owned(), ty_ann)?;
+                self.assign_ident(&stmt.ident.to_owned(), ty_ann.to_owned())?;
                 Err(ty_errs)
             }
 
             // expr is well-typed + no type annotation e.g let x = 2+2;
             // use expr type, no err
-            (Some(ty), None) => self.assign_ident(&stmt.ident.to_owned(), ty),
+            (Some(expr_res), None) => {
+                // assign ident, return checkresult propagated from expr
+
+                self.assign_ident(&stmt.ident.to_owned(), expr_res.ty.clone())?;
+
+                let res = CheckResult {
+                    ty: expr_res.ty,
+                    must_break: expr_res.must_break,
+                    must_return: expr_res.must_return,
+                };
+
+                Ok(res)
+            }
 
             // expr is well-typed + have ty ann: e.g let x : int = true; or let x : int  = 2;
             // either way, insert type of binding = annotation so we can ty check rest. error out if mismatch
-            (Some(ty), Some(ty_ann)) => {
-                self.assign_ident(&stmt.ident.to_owned(), ty_ann)?;
+            (Some(expr_res), Some(ty_ann)) => {
+                self.assign_ident(&stmt.ident.to_owned(), ty_ann.to_owned())?;
 
-                if !ty_ann.eq(&ty) {
+                if !ty_ann.eq(&expr_res.ty) {
                     let string = format!(
                         "'{}' has declared type {} but assigned type {}",
-                        stmt.ident, ty_ann, ty
+                        stmt.ident, ty_ann, expr_res.ty
                     );
                     ty_errs.add(&string);
                     return Err(ty_errs);
                 }
 
-                Ok(())
+                let res = CheckResult {
+                    ty: expr_res.ty,
+                    must_break: expr_res.must_break,
+                    must_return: expr_res.must_return,
+                };
+
+                Ok(res)
             }
         }
     }

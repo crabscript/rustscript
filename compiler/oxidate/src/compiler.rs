@@ -3,7 +3,9 @@ use std::{fmt::Display, rc::Rc, vec};
 use types::type_checker::TypeChecker;
 
 use bytecode::{BinOp, ByteCode, Value};
-use parser::structs::{BinOpType, BlockSeq, Decl, Expr, IfElseData, LoopData, UnOpType};
+use parser::structs::{
+    BinOpType, BlockSeq, Decl, Expr, FnCallData, FnDeclData, IfElseData, LoopData, UnOpType,
+};
 
 pub struct Compiler {
     program: BlockSeq,
@@ -32,6 +34,11 @@ impl Display for CompileError {
 }
 
 impl std::error::Error for CompileError {}
+
+// Workaround to ensure builtins that dont pop produce Unit when compiling fn call
+// Because user functions even if empty will produce unit (everything is value producing), so
+// this issue only applies to builtins with no value pushed
+const BUILTINS_WITH_NO_VAL: [&str; 3] = ["println", "print", "sem_set"];
 
 impl Compiler {
     pub fn new(program: BlockSeq) -> Compiler {
@@ -156,6 +163,7 @@ impl Compiler {
             Expr::Integer(val) => arr.push(ByteCode::ldc(*val)),
             Expr::Float(val) => arr.push(ByteCode::ldc(*val)),
             Expr::Bool(val) => arr.push(ByteCode::ldc(*val)),
+            Expr::StringLiteral(str) => arr.push(ByteCode::LDC(Value::String(str.to_owned()))),
             Expr::BinOpExpr(op, lhs, rhs) => {
                 self.compile_binop(op, lhs, rhs, arr)?;
             }
@@ -170,6 +178,46 @@ impl Compiler {
                 self.compile_block(blk, arr)?;
             }
             Expr::IfElseExpr(if_else) => self.compile_if_else(if_else, arr)?,
+            Expr::FnCallExpr(fn_call) => self.compile_fn_call(fn_call, arr)?,
+            Expr::SpawnExpr(fn_call) => self.compile_spawn(fn_call, arr)?,
+            Expr::JoinExpr(id) => {
+                arr.push(ByteCode::ld(id));
+                arr.push(ByteCode::JOIN);
+            }
+        }
+
+        Ok(())
+    }
+
+    fn compile_spawn(
+        &mut self,
+        fn_call: &FnCallData,
+        arr: &mut Vec<ByteCode>,
+    ) -> Result<(), CompileError> {
+        // dbg!("SPAWN COMPILE:", _fn_call);
+        let spawn_idx = arr.len();
+        arr.push(ByteCode::SPAWN(0));
+
+        let goto_idx = arr.len();
+        arr.push(ByteCode::GOTO(0));
+
+        // spawn jumps to POP which is added after this
+        let spawn_jmp = arr.len();
+        if let Some(ByteCode::SPAWN(jmp)) = arr.get_mut(spawn_idx) {
+            *jmp = spawn_jmp;
+        }
+
+        // child pops value on its stack
+        arr.push(ByteCode::POP);
+
+        self.compile_fn_call(fn_call, arr)?;
+        arr.push(ByteCode::DONE); // child thread finishes
+
+        let goto_jmp = arr.len();
+
+        // parent jumps after DONE
+        if let Some(ByteCode::GOTO(jmp)) = arr.get_mut(goto_idx) {
+            *jmp = goto_jmp;
         }
 
         Ok(())
@@ -267,7 +315,99 @@ impl Compiler {
                     breaks.push(break_idx);
                 }
             }
+            Decl::FnDeclStmt(fn_decl) => self.compile_fn_decl(fn_decl, arr)?,
+            Decl::ReturnStmt(ret_stmt) => {
+                // compile expr. if not there, push Unit
+                if let Some(expr) = ret_stmt {
+                    self.compile_expr(expr, arr)?;
+                } else {
+                    arr.push(ByteCode::ldc(Value::Unit));
+                }
+
+                // push RESET
+                arr.push(ByteCode::RESET(bytecode::FrameType::CallFrame))
+            }
+            // These don't return anything, so push unit after as well
+            Decl::WaitStmt(sem) => {
+                arr.push(ByteCode::ld(sem));
+                arr.push(ByteCode::WAIT);
+                arr.push(ByteCode::ldc(Value::Unit));
+            }
+            Decl::PostStmt(sem) => {
+                arr.push(ByteCode::ld(sem));
+                arr.push(ByteCode::POST);
+                arr.push(ByteCode::ldc(Value::Unit));
+            }
+            Decl::YieldStmt => {
+                arr.push(ByteCode::YIELD);
+                arr.push(ByteCode::ldc(Value::Unit));
+            }
         };
+
+        Ok(())
+    }
+
+    fn compile_fn_decl(
+        &mut self,
+        fn_decl: &FnDeclData,
+        arr: &mut Vec<ByteCode>,
+    ) -> Result<(), CompileError> {
+        // we are about to push LDF and GOTO before fn compile
+        let fn_start_idx = arr.len() + 2;
+
+        let param_strs: Vec<String> = fn_decl.params.iter().map(|x| x.name.to_string()).collect();
+
+        arr.push(ByteCode::ldf(fn_start_idx, param_strs));
+
+        // push GOTO for skipping fn compile
+        let goto_idx = arr.len();
+        arr.push(ByteCode::GOTO(0));
+
+        // add params to fn blk
+        // let mut fn_blk = fn_decl.body.clone();
+        // let mut param_names = fn_decl.params.iter().map(|x| x.name.clone()).collect::<Vec<_>>();
+        // fn_blk.symbols.append(&mut param_names);
+
+        // compile the augmented blk
+
+        self.compile_block(&fn_decl.body, arr)?;
+        // self.compile_block(&fn_blk, arr)?;
+
+        // push reset to return last value produced by blk, in case no return was there
+        arr.push(ByteCode::RESET(bytecode::FrameType::CallFrame));
+
+        // GOTO will jump to ASSIGN, ASSIGN pops closure and then we load Unit so no underflow
+        let goto_addr = arr.len();
+        arr.push(ByteCode::assign(&fn_decl.name));
+        arr.push(ByteCode::ldc(Value::Unit));
+
+        // patch GOTO
+        if let Some(ByteCode::GOTO(idx)) = arr.get_mut(goto_idx) {
+            *idx = goto_addr;
+        }
+
+        Ok(())
+    }
+
+    /// Function call expression e.g println(2,3)
+    fn compile_fn_call(
+        &mut self,
+        fn_call: &FnCallData,
+        arr: &mut Vec<ByteCode>,
+    ) -> Result<(), CompileError> {
+        // TODO: change to accept arbitary expr for fn
+        self.compile_expr(&Expr::Symbol(fn_call.name.clone()), arr)?;
+
+        for arg in fn_call.args.iter() {
+            self.compile_expr(arg, arr)?;
+        }
+
+        arr.push(ByteCode::CALL(fn_call.args.len()));
+
+        // push unit for builtin that produces no value
+        if BUILTINS_WITH_NO_VAL.contains(&fn_call.name.as_str()) {
+            arr.push(ByteCode::ldc(Value::Unit));
+        }
 
         Ok(())
     }

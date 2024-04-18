@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 
 use lexer::Token;
@@ -70,6 +70,24 @@ impl Display for UnOpType {
     }
 }
 
+// Function call
+#[derive(Debug, Clone)]
+pub struct FnCallData {
+    pub name: String,
+    pub args: Vec<Expr>,
+}
+
+impl Display for FnCallData {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let args: Vec<String> = self.args.iter().map(|x| x.to_string()).collect();
+        let args = args.join(",");
+
+        let s = format!("{}({})", self.name, args);
+
+        write!(f, "{}", s)
+    }
+}
+
 // Different from bytecode Value because values on op stack might be different (e.g fn call)
 #[derive(Debug, Clone)]
 pub enum Expr {
@@ -77,10 +95,16 @@ pub enum Expr {
     Integer(i64),
     Float(f64),
     Bool(bool),
+    StringLiteral(String),
     UnOpExpr(UnOpType, Box<Expr>),
     BinOpExpr(BinOpType, Box<Expr>, Box<Expr>),
     BlockExpr(BlockSeq), // expr can be a block
     IfElseExpr(Box<IfElseData>),
+    FnCallExpr(FnCallData),
+    SpawnExpr(FnCallData),
+    // Because join can return something so must be able to assign to it
+    // String is the symbol of the thread id to join
+    JoinExpr(String),
 }
 
 impl Display for Expr {
@@ -99,6 +123,10 @@ impl Display for Expr {
             Expr::BlockExpr(seq) => format!("{{ {} }}", seq),
             // Expr::BlockExpr(seq) => seq.to_string(),
             Expr::IfElseExpr(expr) => expr.to_string(),
+            Expr::FnCallExpr(expr) => expr.to_string(),
+            Expr::SpawnExpr(expr) => format!("spawn {}", expr),
+            Expr::JoinExpr(sym) => format!("join {}", sym),
+            Expr::StringLiteral(str) => str.to_string(),
         };
 
         write!(f, "{}", string)
@@ -120,7 +148,7 @@ pub struct AssignStmtData {
 
 impl Display for LetStmtData {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let string = if let Some(ty) = self.type_ann {
+        let string = if let Some(ty) = &self.type_ann {
             format!("let {} : {} = {}", self.ident, ty, self.expr)
         } else {
             format!("let {} = {}", self.ident, self.expr)
@@ -173,6 +201,53 @@ impl Display for LoopData {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+// function parameter
+pub struct FnParam {
+    pub name: String,
+    pub type_ann: Option<Type>,
+}
+
+impl Display for FnParam {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let param_str = if let Some(ty) = &self.type_ann {
+            format!("{}:{}", self.name, ty)
+        } else {
+            self.name.to_string()
+        };
+
+        write!(f, "{}", param_str)
+    }
+}
+
+// Fn Decl
+#[derive(Debug, Clone)]
+pub struct FnDeclData {
+    pub name: String,
+    pub params: Vec<FnParam>,
+    pub ret_type: Type,
+    pub body: BlockSeq,
+}
+
+impl Display for FnDeclData {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let params: Vec<String> = self.params.iter().map(|x| x.to_string()).collect();
+        let params = params.join(", ");
+
+        let ret_type_str = if self.ret_type.eq(&Type::Unit) {
+            " ".to_string()
+        } else {
+            format!(" -> {} ", self.ret_type)
+        };
+
+        let s = format!(
+            "fn {} ({}){}{{ {} }}",
+            self.name, params, ret_type_str, self.body
+        );
+        write!(f, "{}", s)
+    }
+}
+
 // Later: LetStmt, IfStmt, FnDef, etc.
 #[derive(Debug, Clone)]
 pub enum Decl {
@@ -183,14 +258,24 @@ pub enum Decl {
     IfOnlyStmt(IfElseData),
     // loop is always a stmt (for now)
     LoopStmt(LoopData),
+    FnDeclStmt(FnDeclData),
     // only inside loop
     BreakStmt,
+    // only inside fn
+    ReturnStmt(Option<Expr>),
+    // wait sem; - stmt only
+    WaitStmt(String),
+    // post sem; - stmt only
+    PostStmt(String),
+    // yield; - no args
+    YieldStmt,
 }
 
 impl Decl {
     // Need to clone so we can re-use in pratt parser loop
     // Reasoning: parsing won't take most of the runtime
     pub fn to_expr(&self) -> Result<Expr, ParseError> {
+        // Decls that return parse error will always be treated as statements
         match self {
             Self::LetStmt(ref stmt) => {
                 Err(ParseError::new(&format!("'{}' is not an expression", stmt)))
@@ -201,9 +286,16 @@ impl Decl {
             Self::IfOnlyStmt(_) => Err(ParseError::new(
                 "if without else branch is not an expression",
             )),
-            Self::ExprStmt(expr) => Ok(expr.clone()),
+            Self::FnDeclStmt(_) => {
+                Err(ParseError::new("Function declaration is not an expression"))
+            }
             Self::LoopStmt(_) => Err(ParseError::new("loop is not an expression")),
             Self::BreakStmt => Err(ParseError::new("break is not an expression")),
+            Self::ReturnStmt(_) => Err(ParseError::new("return is not an expression")),
+            Self::WaitStmt(_) => Err(ParseError::new("wait is not an expression")),
+            Self::PostStmt(_) => Err(ParseError::new("post is not an expression")),
+            Self::YieldStmt => Err(ParseError::new("yield is not an expression")),
+            Self::ExprStmt(expr) => Ok(expr.clone()),
         }
     }
 
@@ -232,6 +324,22 @@ impl Display for Decl {
             Decl::IfOnlyStmt(expr) => expr.to_string(),
             Decl::LoopStmt(lp) => lp.to_string(),
             Decl::BreakStmt => Token::Break.to_string(),
+            Decl::FnDeclStmt(fn_decl) => fn_decl.to_string(),
+            Decl::ReturnStmt(expr) => {
+                let str = expr
+                    .clone()
+                    .map(|x| x.to_string())
+                    .unwrap_or(String::from(""));
+                let str = if str.is_empty() {
+                    str
+                } else {
+                    format!(" {}", str)
+                };
+                format!("{}{}", Token::Return, str)
+            }
+            Decl::WaitStmt(sym) => format!("wait {}", sym),
+            Decl::PostStmt(sym) => format!("post {}", sym),
+            Decl::YieldStmt => "yield".to_string(),
         };
 
         write!(f, "{}", string)
@@ -286,14 +394,68 @@ impl Display for ParseError {
 // automatic due to Display
 impl std::error::Error for ParseError {}
 
+// Type of a function value - subset of FnDeclData
+#[derive(Debug, Clone, PartialEq)]
+pub struct FnTypeData {
+    pub params: Vec<FnParam>,
+    pub ret_type: Type,
+}
+
+impl Display for FnTypeData {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        // Format parameters
+        let params_str = if self.params.is_empty() {
+            "()".to_string()
+        } else {
+            let params_display: Vec<String> = self
+                .params
+                .iter()
+                .map(|p| format!("{}", p.type_ann.clone().unwrap_or(Type::Unit)))
+                .map(|x| x.to_string())
+                .collect();
+            format!("({})", params_display.join(", "))
+        };
+
+        // Format return type
+        let ret_type_str = match &self.ret_type {
+            Type::Unit => "".to_string(),
+            _ => format!("{}", self.ret_type),
+        };
+
+        // Combine formatted parameters and return type
+        let display_str = if ret_type_str.is_empty() {
+            format!("fn{}", params_str)
+        } else {
+            format!("fn{} -> {}", params_str, ret_type_str)
+        };
+
+        write!(f, "{}", display_str)
+    }
+}
+
 // Type annotation corresponding to compile time types
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Type {
     Int,
     Float,
     Bool,
+    String,
+    UserFn(Box<FnTypeData>),
+    BuiltInFn, // type checking done separately since it can be polymorphic unlike user fn
+    ThreadId,  // result of spawn
+    Semaphore,
     Unit,        // void type like Rust
     Unitialised, // Type for variables that exist in a block but not yet declared - only used for TyEnv
+}
+
+impl Type {
+    // Cast to fn type
+    pub fn to_fn_type(&self) -> Option<Box<FnTypeData>> {
+        match self {
+            Self::UserFn(ty) => Some(ty.to_owned()),
+            _ => None,
+        }
+    }
 }
 
 impl Type {
@@ -313,12 +475,17 @@ impl Type {
 
 impl Display for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let string = match self {
-            Self::Int => "int",
-            Self::Bool => "bool",
-            Self::Float => "float",
-            Self::Unit => "()",
-            Self::Unitialised => "uninit",
+        let string: String = match self {
+            Self::Int => "int".to_string(),
+            Self::Bool => "bool".to_string(),
+            Self::Float => "float".to_string(),
+            Self::Unit => "()".to_string(),
+            Self::Unitialised => "uninit".to_string(),
+            Self::BuiltInFn => "builtin_fn".to_string(),
+            Self::String => "string".to_string(),
+            Self::UserFn(fn_ty) => fn_ty.to_string(),
+            Self::ThreadId => "tid".to_string(),
+            Self::Semaphore => "sem".to_string(),
         };
 
         write!(f, "{}", string)

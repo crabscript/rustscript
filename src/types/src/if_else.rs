@@ -1,4 +1,4 @@
-use crate::type_checker::{TypeChecker, TypeErrors};
+use crate::type_checker::{CheckResult, TypeChecker, TypeErrors};
 use parser::structs::{IfElseData, Type};
 
 impl<'prog> TypeChecker<'prog> {
@@ -8,7 +8,10 @@ impl<'prog> TypeChecker<'prog> {
     2. No errs: check type. Types must be equal
     3. IfOnly: just check if_blk. If everything ok, always return Unit because all ifs are decl even if last
     */
-    pub(crate) fn check_if_else(&mut self, if_else: &IfElseData) -> Result<Type, TypeErrors> {
+    pub(crate) fn check_if_else(
+        &mut self,
+        if_else: &IfElseData,
+    ) -> Result<CheckResult, TypeErrors> {
         let mut ty_errs = TypeErrors::new();
         let check_cond = self.check_expr(&if_else.cond);
 
@@ -17,27 +20,33 @@ impl<'prog> TypeChecker<'prog> {
             ty_errs.append(&mut errs);
         } else {
             let check_cond = check_cond.unwrap();
-            if !check_cond.eq(&Type::Bool) {
+            if !check_cond.ty.eq(&Type::Bool) {
                 // add cond is not bool err
                 let e = format!(
                     "Expected type '{}' for if condition, got '{}'",
                     Type::Bool,
-                    check_cond
+                    check_cond.ty
                 );
                 ty_errs.add(&e);
             }
         }
 
         // add if blk errs
-        let mut check_if = self.check_block(&if_else.if_blk);
+        let mut check_if = self.check_block(&if_else.if_blk, vec![]);
         if let Err(ref mut errs) = check_if {
             ty_errs.append(errs);
         }
 
         // no else: stop here and return
+        // condition may not run, so doesn't matter
         if if_else.else_blk.is_none() {
             return if ty_errs.is_ok() {
-                Ok(Type::Unit)
+                // Ok(Type::Unit)
+                Ok(CheckResult {
+                    ty: Type::Unit,
+                    must_break: false,
+                    must_return: false,
+                })
             } else {
                 Err(ty_errs)
             };
@@ -46,25 +55,65 @@ impl<'prog> TypeChecker<'prog> {
         let else_blk = if_else.else_blk.as_ref().unwrap();
 
         // Have else: check for errs and add. No errs, and if_blk also no errs: check for type mismatch
-        let mut check_else = self.check_block(else_blk);
+        let mut check_else = self.check_block(else_blk, vec![]);
         if let Err(ref mut errs) = check_else {
             ty_errs.append(errs);
         }
 
         if let (Ok(if_ty), Ok(else_ty)) = (check_if, check_else) {
-            if if_ty.eq(&else_ty) {
-                if ty_errs.is_ok() {
-                    return Ok(if_ty);
-                } else {
+            // dbg!(&if_ty, &else_ty);
+            // if one block has must_return or must_break, take the type of the other block. if both blks must_return || must_break,
+            // overall type is Unit
+            let if_terms = if_ty.must_break || if_ty.must_return;
+            let else_terms = else_ty.must_break || else_ty.must_return;
+
+            let overall_ty = match (if_terms, else_terms) {
+                // no terminate: return out
+                (false, false) => {
+                    if if_ty.ty.eq(&else_ty.ty) {
+                        if ty_errs.is_ok() {
+                            return Ok(if_ty);
+                        } else {
+                            return Err(ty_errs);
+                        }
+                    }
+
+                    let e = format!(
+                        "if-else has type mismatch - consequent: {}, alt: {}",
+                        if_ty.ty, else_ty.ty
+                    );
+                    ty_errs.add(&e);
+                    // this would be the last error so we can return
                     return Err(ty_errs);
                 }
-            }
+                // if terms: take else type
+                (true, false) => else_ty.ty,
+                // else terms: take if type
+                (false, true) => if_ty.ty,
+                // both term: unit type
+                (true, true) => Type::Unit,
+            };
 
-            let e = format!(
-                "if-else has type mismatch - consequent:{}, alt :{}",
-                if_ty, else_ty
-            );
-            ty_errs.add(&e);
+            // if-else: both branches must terminate for this to terminate as well
+            return Ok(CheckResult {
+                ty: overall_ty,
+                must_break: if_ty.must_break && else_ty.must_break,
+                must_return: if_ty.must_return && else_ty.must_return,
+            });
+
+            // if if_ty.ty.eq(&else_ty.ty) {
+            //     if ty_errs.is_ok() {
+            //         return Ok(if_ty);
+            //     } else {
+            //         return Err(ty_errs);
+            //     }
+            // }
+
+            // let e = format!(
+            //     "if-else has type mismatch - consequent:{}, alt :{}",
+            //     if_ty.ty, else_ty.ty
+            // );
+            // ty_errs.add(&e);
         }
 
         Err(ty_errs)
@@ -227,7 +276,7 @@ mod tests {
          ";
         expect_err(
             t,
-            "if-else has type mismatch - consequent:int, alt :bool",
+            "if-else has type mismatch - consequent: int, alt: bool",
             true,
         );
 
@@ -241,7 +290,7 @@ mod tests {
          ";
         expect_err(
             t,
-            "if-else has type mismatch - consequent:int, alt :bool",
+            "if-else has type mismatch - consequent: int, alt: bool",
             true,
         );
 

@@ -22,6 +22,7 @@ impl<'inp> Parser<'inp> {
             Token::Integer(val) => Ok(ExprStmt(Expr::Integer(*val))),
             Token::Float(val) => Ok(ExprStmt(Expr::Float(*val))),
             Token::Bool(val) => Ok(ExprStmt(Expr::Bool(*val))),
+            Token::String(str) => Ok(ExprStmt(Expr::StringLiteral(str.to_owned()))),
             // Unary
             Token::Minus => {
                 let ((), r_bp) = Parser::get_prefix_bp(&UnOpType::Negate);
@@ -57,8 +58,10 @@ impl<'inp> Parser<'inp> {
                 || self.is_peek_token_type(Token::Semi)
                 || self.is_peek_token_type(Token::CloseBrace)
                 || self.is_peek_token_type(Token::CloseParen)
-                // to deal with if and bracket
+                // to deal with if and bracket e.g if { .. } else { .. } when it reaches last bracket
                 || self.is_peek_token_type(Token::OpenBrace)
+                // to deal with comma in func call e.g print(2,3);
+                || self.is_peek_token_type(Token::Comma)
             {
                 break;
             }

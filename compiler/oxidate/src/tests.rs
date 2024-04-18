@@ -1026,4 +1026,165 @@ mod tests {
             ],
         );
     }
+
+    #[test]
+    fn test_compile_fn_call() {
+        let t = "print(2, 3)";
+        test_comp(
+            t,
+            vec![
+                ByteCode::ld("print"),
+                LDC(Int(2)),
+                LDC(Int(3)),
+                CALL(2),
+                LDC(Unit),
+                DONE,
+            ],
+        );
+
+        let t = "print(2, 3);";
+        test_comp(
+            t,
+            vec![
+                ByteCode::ld("print"),
+                LDC(Int(2)),
+                LDC(Int(3)),
+                CALL(2),
+                LDC(Unit),
+                POP,
+                DONE,
+            ],
+        );
+    }
+
+    #[test]
+    fn test_compile_fn_decl() {
+        let t = r"
+        300;
+        fn f() {
+            2
+        }
+        ";
+        test_comp(
+            t,
+            vec![
+                ENTERSCOPE(vec!["f".to_string()]),
+                ByteCode::ldc(300),
+                POP,
+                LDF(5, vec![]),
+                GOTO(7),
+                ByteCode::ldc(2),
+                RESET(bytecode::FrameType::CallFrame),
+                ByteCode::assign("f"),
+                LDC(Unit),
+                POP,
+                EXITSCOPE,
+                DONE,
+            ],
+        );
+
+        // explicit return - doesn't skip rest of block yet
+        let t = r"
+        fn f() {
+            return 2;
+        }
+        ";
+        test_comp(
+            t,
+            vec![
+                ENTERSCOPE(vec!["f".to_string()]),
+                LDF(3, vec![]),
+                GOTO(8),
+                ByteCode::ldc(2),
+                RESET(bytecode::FrameType::CallFrame),
+                POP,
+                LDC(Unit),
+                RESET(bytecode::FrameType::CallFrame),
+                ByteCode::assign("f"),
+                LDC(Unit),
+                POP,
+                EXITSCOPE,
+                DONE,
+            ],
+        );
+    }
+
+    #[test]
+    fn test_compile_fn_decl_more() {
+        // fn with params
+        let t = r"
+        fn fac(n: int) {
+            2 + n
+        }
+        ";
+        test_comp(
+            t,
+            vec![
+                ENTERSCOPE(vec!["fac".to_string()]),
+                LDF(3, vec!["n".to_string()]),
+                GOTO(7),
+                ByteCode::ldc(2),
+                ByteCode::ld("n"),
+                ByteCode::binop("+"),
+                RESET(bytecode::FrameType::CallFrame),
+                ByteCode::assign("fac"),
+                LDC(Unit),
+                POP,
+                EXITSCOPE,
+                DONE,
+            ],
+        );
+    }
+
+    #[test]
+    fn test_compile_spawn() {
+        let t = r"
+        2;
+        spawn func(1);
+        3;
+        ";
+        test_comp(
+            t,
+            vec![
+                ByteCode::ldc(2),
+                POP,
+                SPAWN(4),
+                GOTO(9),
+                POP,
+                LD("func".to_string()),
+                ByteCode::ldc(1),
+                CALL(1),
+                DONE,
+                POP,
+                ByteCode::ldc(3),
+                POP,
+                DONE,
+            ],
+        );
+    }
+
+    #[test]
+    fn test_compile_wait_post() {
+        let t = r"
+        wait sem;
+        2;
+        post sem;
+        ";
+        test_comp(
+            t,
+            vec![
+                ByteCode::ld("sem"),
+                WAIT,
+                LDC(Unit),
+                POP,
+                ByteCode::ldc(2),
+                POP,
+                ByteCode::ld("sem"),
+                POST,
+                LDC(Unit),
+                POP,
+                DONE,
+            ],
+        );
+    }
 }

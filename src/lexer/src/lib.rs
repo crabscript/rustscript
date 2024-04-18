@@ -139,6 +139,12 @@ pub enum Token {
     #[token("break")]
     Break,
 
+    #[token("spawn")]
+    Spawn,
+
+    #[token("join")]
+    Join,
+
     #[token("false", |_| false)]
     #[token("true", |_| true)]
     Bool(bool),
@@ -214,6 +220,8 @@ impl Token {
             Self::Fn => "fn".to_string(),
             Self::Return => "return".to_string(),
             Self::FnDeclReturn => "->".to_string(),
+            Self::Spawn => "spawn".to_string(),
+            Self::Join => "join".to_string(),
         }
     }
 }
@@ -616,5 +624,16 @@ mod test {
         assert_eq!(lexer.next().unwrap().unwrap(), Token::Integer(3));
         assert_eq!(lexer.extras.0, 3);
         assert_eq!(lexer.next(), None);
+    }
+
+    #[test]
+    fn test_lex_spawn_join() {
+        let t = r"
+        spawn join
+        ";
+        let mut lexer = Token::lexer(t);
+
+        assert_eq!(lexer.next().unwrap().unwrap(), Token::Spawn);
+        assert_eq!(lexer.next().unwrap().unwrap(), Token::Join);
     }
 }

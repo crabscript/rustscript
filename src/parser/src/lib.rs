@@ -220,6 +220,16 @@ impl<'inp> Parser<'inp> {
             | Token::Bang
             | Token::OpenBrace
             | Token::If => self.parse_expr(0),
+            Token::Spawn => {
+                self.advance();
+                let fn_call = self.parse_expr(0)?.to_expr()?;
+                if let Expr::FnCallExpr(fn_data) = fn_call {
+                    let sp = Expr::SpawnExpr(fn_data);
+                    Ok(Decl::ExprStmt(sp))
+                } else {
+                    Err(ParseError::new("spawn expected function call"))
+                }
+            }
             // if not is_loop, error
             Token::Break => {
                 if !self.is_loop {
@@ -235,7 +245,6 @@ impl<'inp> Parser<'inp> {
 
                 // parse expr if not semicolon
                 let mut ret_expr: Option<Expr> = None;
-                dbg!("PEEK AT RETURN STMT:", &self.lexer.peek());
                 if !self.is_peek_token_type(Token::Semi) {
                     self.advance();
                     let expr = self.parse_expr(0)?.to_expr()?;
@@ -374,5 +383,20 @@ mod tests {
             "Expected '()' for unit type annotation",
             true,
         );
+    }
+
+    #[test]
+    fn test_parse_spawn() {
+        let t = r"
+        let t = spawn func();
+        spawn f2();
+        spawn f3()
+        ";
+        test_parse(t, "let t = spawn func();spawn f2();spawn f3()");
+
+        let t = r"
+        spawn 2+2;
+        ";
+        test_parse_err(t, "spawn expected function call", true);
     }
 }

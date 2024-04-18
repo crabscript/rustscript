@@ -380,6 +380,14 @@ impl<'prog> TypeChecker<'prog> {
             Expr::BlockExpr(blk) => return self.check_block(blk, vec![]),
             Expr::IfElseExpr(if_else) => return self.check_if_else(if_else),
             Expr::FnCallExpr(fn_call) => return self.check_fn_call(fn_call),
+            Expr::SpawnExpr(fn_call) => {
+                self.check_fn_call(fn_call)?;
+                CheckResult {
+                    ty: Type::ThreadId,
+                    must_break: false,
+                    must_return: false,
+                }
+            }
         };
 
         if local_errs.is_ok() {

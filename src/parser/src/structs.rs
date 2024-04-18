@@ -100,6 +100,7 @@ pub enum Expr {
     BlockExpr(BlockSeq), // expr can be a block
     IfElseExpr(Box<IfElseData>),
     FnCallExpr(FnCallData),
+    SpawnExpr(FnCallData),
 }
 
 impl Display for Expr {
@@ -119,6 +120,7 @@ impl Display for Expr {
             // Expr::BlockExpr(seq) => seq.to_string(),
             Expr::IfElseExpr(expr) => expr.to_string(),
             Expr::FnCallExpr(expr) => expr.to_string(),
+            Expr::SpawnExpr(expr) => format!("spawn {}", expr),
         };
 
         write!(f, "{}", string)
@@ -422,6 +424,7 @@ pub enum Type {
     String,
     UserFn(Box<FnTypeData>),
     BuiltInFn,   // type checking done separately since it can be polymorphic unlike user fn
+    ThreadId,    // result of spawn
     Unit,        // void type like Rust
     Unitialised, // Type for variables that exist in a block but not yet declared - only used for TyEnv
 }
@@ -471,6 +474,7 @@ impl Display for Type {
             Self::BuiltInFn => "builtin_fn".to_string(),
             Self::String => "string".to_string(),
             Self::UserFn(fn_ty) => fn_ty.to_string(),
+            Self::ThreadId => "tid".to_string(),
         };
 
         write!(f, "{}", string)

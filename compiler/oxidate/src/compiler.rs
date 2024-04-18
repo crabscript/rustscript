@@ -178,8 +178,18 @@ impl Compiler {
             }
             Expr::IfElseExpr(if_else) => self.compile_if_else(if_else, arr)?,
             Expr::FnCallExpr(fn_call) => self.compile_fn_call(fn_call, arr)?,
+            Expr::SpawnExpr(fn_call) => self.compile_spawn(fn_call, arr)?,
         }
 
+        Ok(())
+    }
+
+    fn compile_spawn(
+        &mut self,
+        _fn_call: &FnCallData,
+        _arr: &mut [ByteCode],
+    ) -> Result<(), CompileError> {
+        dbg!("SPAWN COMPILE:", _fn_call);
         Ok(())
     }
 

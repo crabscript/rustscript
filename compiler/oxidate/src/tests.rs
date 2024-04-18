@@ -1135,4 +1135,12 @@ mod tests {
             ],
         );
     }
+
+    #[test]
+    fn test_compile_spawn() {
+        // let t = r"
+        // spawn func();
+        // ";
+        // test_comp(t, vec![]);
+    }
 }

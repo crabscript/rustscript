@@ -1162,4 +1162,14 @@ mod tests {
             ],
         );
     }
+
+    #[test]
+    fn test_compile_wait_post() {
+        let t = r"
+        wait sem;
+        2;
+        post sem;
+        ";
+        // test_comp(t, vec![]);
+    }
 }

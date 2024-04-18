@@ -1,3 +1,5 @@
+// Expected: count = 3000 on each run
+
 let count = 0;
 let sem = sem_create();
 

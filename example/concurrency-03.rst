@@ -1,3 +1,5 @@
+// Expected: inconsistent count on each run due to race on count
+
 let count = 0;
 
 fn increment(times: int) {

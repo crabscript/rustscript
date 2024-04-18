@@ -326,8 +326,17 @@ impl Compiler {
                 // push RESET
                 arr.push(ByteCode::RESET(bytecode::FrameType::CallFrame))
             }
-            Decl::WaitStmt(_) => {}
-            Decl::PostStmt(_) => {}
+            // These don't return anything, so push unit after as well
+            Decl::WaitStmt(sem) => {
+                arr.push(ByteCode::ld(sem));
+                arr.push(ByteCode::WAIT);
+                arr.push(ByteCode::ldc(Value::Unit));
+            }
+            Decl::PostStmt(sem) => {
+                arr.push(ByteCode::ld(sem));
+                arr.push(ByteCode::POST);
+                arr.push(ByteCode::ldc(Value::Unit));
+            }
         };
 
         Ok(())

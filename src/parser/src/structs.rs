@@ -426,9 +426,19 @@ pub enum Type {
     Unitialised, // Type for variables that exist in a block but not yet declared - only used for TyEnv
 }
 
+impl Type {
+    // Cast to fn type
+    pub fn to_fn_type(&self) -> Option<Box<FnTypeData>> {
+        match self {
+            Self::UserFn(ty) => Some(ty.to_owned()),
+            _ => None,
+        }
+    }
+}
+
 #[test]
 fn hi() {
-    dbg!(Type::Int.eq(&Type::UserFn(Box::new(FnTypeData {
+    let ty1 = dbg!(Type::Int.eq(&Type::UserFn(Box::new(FnTypeData {
         params: vec![],
         ret_type: Type::Bool
     }))));

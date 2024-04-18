@@ -19,6 +19,7 @@ impl<'prog> TypeChecker<'prog> {
         // Before checking block, add this fn to env to support recursion
         self.assign_ident(&fn_decl.name, fn_ty.clone())?; // should work because of enterscope
 
+        dbg!("FN_PARAMS:", &fn_decl.params, &fn_decl.name);
         self.check_block(&fn_decl.body, fn_decl.params.clone())?;
         // If everything is ok, return the annotated types
         // Fn decl doesn't contribute to overall must_ret / must_break of the outer block
@@ -81,6 +82,13 @@ mod tests {
         }
         ";
         expect_err(t, "[TypeError]: Parameter 'y' has no type annotation", true);
+
+        let t = r"
+        fn fac(n) {
+
+        }
+        ";
+        expect_err(t, "Parameter 'n' has no type annotation", true);
     }
 
     #[test]

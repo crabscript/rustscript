@@ -17,7 +17,7 @@ impl<'prog> TypeChecker<'prog> {
 
         // if fn_params, add their type annotations
         // assert all args have ty ann
-        if fn_params.is_empty() {
+        if !fn_params.is_empty() {
             self.assign_param_types(fn_params)?;
         }
 

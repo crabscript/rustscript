@@ -373,8 +373,24 @@ impl<'prog> TypeChecker<'prog> {
             return self.check_builtin_fn_call(&fn_call.name, arg_types, check_res);
         }
 
+        // User fn
+
+        // Check arg and params match
+
         // TODO: lookup type of the user fn in env, cast to function type and use its return type
-        // let fn_ty = self.get_type(&fn_call.name)?;
+        let fn_ty = self.get_type(&fn_call.name)?.to_fn_type();
+        if let Some(ty) = fn_ty {
+            let param_types: Vec<Type> = ty
+                .params
+                .iter()
+                .map(|x| x.type_ann.clone().unwrap())
+                .collect();
+
+            TypeChecker::check_arg_params_match(&fn_call.name, &arg_types, &param_types)?;
+            check_res.ty = ty.ret_type;
+        } else {
+            panic!("Fn name not in env");
+        }
         // dbg!("fn_ty", fn_ty);
         // check_res.ty = fn_ty;
 
@@ -386,9 +402,54 @@ impl<'prog> TypeChecker<'prog> {
 mod tests {
     use parser::structs::Type;
 
-    use crate::type_checker::expect_pass;
+    use crate::type_checker::{expect_err, expect_pass};
 
     use super::BUILTINS;
+
+    #[test]
+    fn test_type_check_userfn_call() {
+        let t = r"
+        fn fac(n : int) -> int {
+            2
+        }
+        fac(2)
+        ";
+        expect_pass(t, Type::Int);
+
+        // no.of args
+        let t = r"
+        fn fac(n : int) -> int {
+            2
+        }
+        fac(2,3)
+        ";
+        expect_err(t, "takes 1 arguments but 2 were supplied", true);
+
+        let t = r"
+        fn fac(n : int) -> int {
+            2
+        }
+        fac()
+        ";
+        expect_err(t, "takes 1 arguments but 0 were supplied", true);
+
+        // types of args must match
+        let t = r"
+        fn fac(n : int) -> int {
+            2
+        }
+        fac(true)
+        ";
+        expect_err(t, "Mismatched types in function call:", true);
+
+        let t = r"
+        fn fac(n : int, x : bool) -> int {
+            2
+        }
+        fac(true, 2)
+        ";
+        expect_err(t, "Mismatched types in function call:", true);
+    }
 
     #[test]
     fn test_type_check_builtin_sym() {

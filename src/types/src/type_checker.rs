@@ -195,7 +195,7 @@ impl<'prog> TypeChecker<'prog> {
     ) -> Result<CheckResult, TypeErrors> {
         match op {
             BinOpType::Add | BinOpType::Sub | BinOpType::Div | BinOpType::Mul => {
-                match (left_ty.ty, right_ty.ty) {
+                match (&left_ty.ty, &right_ty.ty) {
                     (Type::Int, Type::Int) => {
                         let res = CheckResult {
                             ty: Type::Int,

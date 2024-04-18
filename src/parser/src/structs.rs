@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 
 use lexer::Token;
@@ -140,7 +140,7 @@ pub struct AssignStmtData {
 
 impl Display for LetStmtData {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let string = if let Some(ty) = self.type_ann {
+        let string = if let Some(ty) = &self.type_ann {
             format!("let {} : {} = {}", self.ident, ty, self.expr)
         } else {
             format!("let {} = {}", self.ident, self.expr)
@@ -193,7 +193,7 @@ impl Display for LoopData {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 // function parameter
 pub struct FnParam {
     pub name: String,
@@ -202,7 +202,7 @@ pub struct FnParam {
 
 impl Display for FnParam {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let param_str = if let Some(ty) = self.type_ann {
+        let param_str = if let Some(ty) = &self.type_ann {
             format!("{}:{}", self.name, ty)
         } else {
             self.name.to_string()
@@ -374,13 +374,53 @@ impl Display for ParseError {
 // automatic due to Display
 impl std::error::Error for ParseError {}
 
+// Type of a function value - subset of FnDeclData
+#[derive(Debug, Clone, PartialEq)]
+pub struct FnTypeData {
+    pub params: Vec<FnParam>,
+    pub ret_type: Type,
+}
+
+impl Display for FnTypeData {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        // Format parameters
+        let params_str = if self.params.is_empty() {
+            "()".to_string()
+        } else {
+            let params_display: Vec<String> = self
+                .params
+                .iter()
+                .map(|p| format!("{}", p.type_ann.clone().unwrap_or(Type::Unit)))
+                .map(|x| x.to_string())
+                .collect();
+            format!("({})", params_display.join(", "))
+        };
+
+        // Format return type
+        let ret_type_str = match &self.ret_type {
+            Type::Unit => "".to_string(),
+            _ => format!("{}", self.ret_type),
+        };
+
+        // Combine formatted parameters and return type
+        let display_str = if ret_type_str.is_empty() {
+            format!("fn{}", params_str)
+        } else {
+            format!("fn{} -> {}", params_str, ret_type_str)
+        };
+
+        write!(f, "{}", display_str)
+    }
+}
+
 // Type annotation corresponding to compile time types
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Type {
     Int,
     Float,
     Bool,
     String,
+    UserFn(Box<FnTypeData>),
     BuiltInFn,   // type checking done separately since it can be polymorphic unlike user fn
     Unit,        // void type like Rust
     Unitialised, // Type for variables that exist in a block but not yet declared - only used for TyEnv
@@ -403,14 +443,15 @@ impl Type {
 
 impl Display for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let string = match self {
-            Self::Int => "int",
-            Self::Bool => "bool",
-            Self::Float => "float",
-            Self::Unit => "()",
-            Self::Unitialised => "uninit",
-            Self::BuiltInFn => "builtin_fn",
-            Self::String => "string",
+        let string: String = match self {
+            Self::Int => "int".to_string(),
+            Self::Bool => "bool".to_string(),
+            Self::Float => "float".to_string(),
+            Self::Unit => "()".to_string(),
+            Self::Unitialised => "uninit".to_string(),
+            Self::BuiltInFn => "builtin_fn".to_string(),
+            Self::String => "string".to_string(),
+            Self::UserFn(fn_ty) => fn_ty.to_string(),
         };
 
         write!(f, "{}", string)

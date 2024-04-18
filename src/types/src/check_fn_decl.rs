@@ -1,4 +1,4 @@
-use parser::structs::{FnDeclData, Type};
+use parser::structs::{FnDeclData, FnTypeData, Type};
 
 use crate::type_checker::{CheckResult, TypeChecker, TypeErrors};
 
@@ -7,14 +7,19 @@ impl<'prog> TypeChecker<'prog> {
         &mut self,
         fn_decl: &FnDeclData,
     ) -> Result<CheckResult, TypeErrors> {
-        dbg!("Got decl:", fn_decl);
+        // If everything is ok, return the annotated types
         // Fn decl doesn't contribute to overall must_ret / must_break of the outer block
+
+        let fn_ty = FnTypeData {
+            params: fn_decl.params.clone(),
+            ret_type: fn_decl.ret_type.clone(),
+        };
+
         let res = CheckResult {
-            ty: Type::Unit,
+            ty: Type::UserFn(Box::new(fn_ty)),
             must_break: false,
             must_return: false,
         };
-
         Ok(res)
     }
 }

@@ -186,10 +186,35 @@ impl Compiler {
 
     fn compile_spawn(
         &mut self,
-        _fn_call: &FnCallData,
-        _arr: &mut [ByteCode],
+        fn_call: &FnCallData,
+        arr: &mut Vec<ByteCode>,
     ) -> Result<(), CompileError> {
-        dbg!("SPAWN COMPILE:", _fn_call);
+        // dbg!("SPAWN COMPILE:", _fn_call);
+        let spawn_idx = arr.len();
+        arr.push(ByteCode::SPAWN(0));
+
+        let goto_idx = arr.len();
+        arr.push(ByteCode::GOTO(0));
+
+        // spawn jumps to POP which is added after this
+        let spawn_jmp = arr.len();
+        if let Some(ByteCode::SPAWN(jmp)) = arr.get_mut(spawn_idx) {
+            *jmp = spawn_jmp;
+        }
+
+        // child pops value on its stack
+        arr.push(ByteCode::POP);
+
+        self.compile_fn_call(fn_call, arr)?;
+        arr.push(ByteCode::DONE); // child thread finishes
+
+        let goto_jmp = arr.len();
+
+        // parent jumps after DONE
+        if let Some(ByteCode::GOTO(jmp)) = arr.get_mut(goto_idx) {
+            *jmp = goto_jmp;
+        }
+
         Ok(())
     }
 

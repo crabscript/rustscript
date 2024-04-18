@@ -1138,9 +1138,28 @@ mod tests {
 
     #[test]
     fn test_compile_spawn() {
-        // let t = r"
-        // spawn func();
-        // ";
-        // test_comp(t, vec![]);
+        let t = r"
+        2;
+        spawn func(1);
+        3;
+        ";
+        test_comp(
+            t,
+            vec![
+                ByteCode::ldc(2),
+                POP,
+                SPAWN(4),
+                GOTO(9),
+                POP,
+                LD("func".to_string()),
+                ByteCode::ldc(1),
+                CALL(1),
+                DONE,
+                POP,
+                ByteCode::ldc(3),
+                POP,
+                DONE,
+            ],
+        );
     }
 }

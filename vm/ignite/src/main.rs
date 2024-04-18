@@ -89,19 +89,14 @@ fn main() -> Result<()> {
         rt.set_debug_mode();
     }
 
-    let mut rt = run(rt)?;
+    let rt = run(rt)?;
 
     // Print last value on op stack if there (result of program)
     let top = rt.current_thread.operand_stack.last();
 
     if let Some(val) = top {
         builtin::println_impl(val);
-        // So that mark and sweep ignores the value
-        rt.current_thread.operand_stack.pop();
     }
-
-    // Clean up potentially cyclic memory at the end of the program
-    rt.mark_and_weep();
 
     Ok(())
 }

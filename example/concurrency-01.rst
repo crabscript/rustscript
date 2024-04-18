@@ -2,17 +2,15 @@ fn loop_and_print(x: int) {
     let count = 0;
     
     loop {
-        if count >= 10 {
+        if count > 10 || count  == 10 {
             break;
         }
         
         println(x);
         
-        count += 1;
+        count = count + 1;
     }
 }
-
-println("Creating threads");
 
 let thread_id_1 = spawn loop_and_print(1);
 let thread_id_2 = spawn loop_and_print(2);
@@ -22,4 +20,4 @@ join thread_id_3;
 join thread_id_2;
 join thread_id_1;
 
-println("All threads finished");
+println(true);

@@ -230,6 +230,17 @@ impl<'inp> Parser<'inp> {
                     Err(ParseError::new("spawn expected function call"))
                 }
             }
+            // join t;
+            Token::Join => {
+                self.advance();
+                let join_id = self.parse_expr(0)?.to_expr()?;
+                if let Expr::Symbol(tid) = join_id {
+                    let j = Expr::JoinExpr(tid);
+                    Ok(Decl::ExprStmt(j))
+                } else {
+                    Err(ParseError::new("join expected variable for thread to join"))
+                }
+            }
             // if not is_loop, error
             Token::Break => {
                 if !self.is_loop {
@@ -386,7 +397,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_spawn() {
+    fn test_parse_spawn_join() {
         let t = r"
         let t = spawn func();
         spawn f2();
@@ -398,5 +409,12 @@ mod tests {
         spawn 2+2;
         ";
         test_parse_err(t, "spawn expected function call", true);
+
+        // join
+        let t = r"
+        let t = spawn func();
+        let res = join t;
+        ";
+        test_parse(t, "let t = spawn func();let res = join t;");
     }
 }

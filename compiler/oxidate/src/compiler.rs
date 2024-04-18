@@ -179,6 +179,10 @@ impl Compiler {
             Expr::IfElseExpr(if_else) => self.compile_if_else(if_else, arr)?,
             Expr::FnCallExpr(fn_call) => self.compile_fn_call(fn_call, arr)?,
             Expr::SpawnExpr(fn_call) => self.compile_spawn(fn_call, arr)?,
+            Expr::JoinExpr(id) => {
+                arr.push(ByteCode::ld(id));
+                arr.push(ByteCode::JOIN);
+            }
         }
 
         Ok(())

@@ -388,6 +388,13 @@ impl<'prog> TypeChecker<'prog> {
                     must_return: false,
                 }
             }
+            // TODO: return join type based on function that was called
+            // Need to track spawn / join calls at compile time
+            Expr::JoinExpr(_) => CheckResult {
+                ty: Type::Unit,
+                must_break: false,
+                must_return: false,
+            },
         };
 
         if local_errs.is_ok() {

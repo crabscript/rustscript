@@ -101,6 +101,9 @@ pub enum Expr {
     IfElseExpr(Box<IfElseData>),
     FnCallExpr(FnCallData),
     SpawnExpr(FnCallData),
+    // Because join can return something so must be able to assign to it
+    // String is the symbol of the thread id to join
+    JoinExpr(String),
 }
 
 impl Display for Expr {
@@ -121,6 +124,7 @@ impl Display for Expr {
             Expr::IfElseExpr(expr) => expr.to_string(),
             Expr::FnCallExpr(expr) => expr.to_string(),
             Expr::SpawnExpr(expr) => format!("spawn {}", expr),
+            Expr::JoinExpr(sym) => format!("join {}", sym),
         };
 
         write!(f, "{}", string)

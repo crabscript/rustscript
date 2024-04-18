@@ -1,3 +1,5 @@
+// Compile untyped: hof type annotation not added yet
+
 fn f(x) {
     let z = 3;
     fn g(y) {

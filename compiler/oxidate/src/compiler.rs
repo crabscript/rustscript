@@ -337,7 +337,10 @@ impl Compiler {
                 arr.push(ByteCode::POST);
                 arr.push(ByteCode::ldc(Value::Unit));
             }
-            Decl::YieldStmt => arr.push(ByteCode::YIELD),
+            Decl::YieldStmt => {
+                arr.push(ByteCode::YIELD);
+                arr.push(ByteCode::ldc(Value::Unit));
+            }
         };
 
         Ok(())

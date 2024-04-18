@@ -424,7 +424,18 @@ impl Default for TypeErrors {
 pub fn expect_pass(inp: &str, exp_type: Type) {
     let prog = Parser::new_from_string(inp).parse().expect("Should parse");
     let ty = TypeChecker::new(&prog).type_check();
+    dbg!(&ty);
     assert_eq!(Ok(exp_type), ty)
+}
+
+/// To expect type str
+pub fn expect_pass_str(inp: &str, exp_type_str: &str) {
+    let prog = Parser::new_from_string(inp).parse().expect("Should parse");
+    let ty = TypeChecker::new(&prog)
+        .type_check()
+        .expect("Type check should pass");
+    dbg!(&ty);
+    assert_eq!(ty.to_string(), exp_type_str)
 }
 
 // contains true means check if input contains exp_err. else check full equals

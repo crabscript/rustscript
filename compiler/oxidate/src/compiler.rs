@@ -351,8 +351,6 @@ impl Compiler {
         fn_decl: &FnDeclData,
         arr: &mut Vec<ByteCode>,
     ) -> Result<(), CompileError> {
-        dbg!("GOT to compile fn decl: ", fn_decl);
-
         // we are about to push LDF and GOTO before fn compile
         let fn_start_idx = arr.len() + 2;
 

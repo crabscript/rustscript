@@ -319,9 +319,11 @@ impl<'prog> TypeChecker<'prog> {
                     }
                 }
             }
+            // () -> semaphore
             SEM_CREATE => {
                 // Fill out this block
-                todo!()
+                TypeChecker::check_arg_params_len(name, arg_types.len(), 0)?;
+                Type::Semaphore
             }
             SEM_SET => {
                 // Fill out this block
@@ -503,5 +505,8 @@ mod tests {
 
         // Test int_to_float
         expect_pass("let x : float = int_to_float(3); x", Type::Float);
+
+        // Test sem
+        expect_pass("let x = sem_create(); x", Type::Semaphore);
     }
 }

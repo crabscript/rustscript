@@ -427,8 +427,9 @@ pub enum Type {
     Bool,
     String,
     UserFn(Box<FnTypeData>),
-    BuiltInFn,   // type checking done separately since it can be polymorphic unlike user fn
-    ThreadId,    // result of spawn
+    BuiltInFn, // type checking done separately since it can be polymorphic unlike user fn
+    ThreadId,  // result of spawn
+    Semaphore,
     Unit,        // void type like Rust
     Unitialised, // Type for variables that exist in a block but not yet declared - only used for TyEnv
 }
@@ -441,15 +442,6 @@ impl Type {
             _ => None,
         }
     }
-}
-
-#[test]
-fn hi() {
-    let ty1 = dbg!(Type::Int.eq(&Type::UserFn(Box::new(FnTypeData {
-        params: vec![],
-        ret_type: Type::Bool
-    }))));
-    // dbg!(Type::Int.eq(&Type::Int));
 }
 
 impl Type {
@@ -479,6 +471,7 @@ impl Display for Type {
             Self::String => "string".to_string(),
             Self::UserFn(fn_ty) => fn_ty.to_string(),
             Self::ThreadId => "tid".to_string(),
+            Self::Semaphore => "sem".to_string(),
         };
 
         write!(f, "{}", string)

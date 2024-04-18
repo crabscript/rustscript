@@ -145,6 +145,12 @@ pub enum Token {
     #[token("join")]
     Join,
 
+    #[token("wait")]
+    Wait,
+
+    #[token("post")]
+    Post,
+
     #[token("false", |_| false)]
     #[token("true", |_| true)]
     Bool(bool),
@@ -222,6 +228,8 @@ impl Token {
             Self::FnDeclReturn => "->".to_string(),
             Self::Spawn => "spawn".to_string(),
             Self::Join => "join".to_string(),
+            Self::Wait => "wait".to_string(),
+            Self::Post => "post".to_string(),
         }
     }
 }
@@ -635,5 +643,16 @@ mod test {
 
         assert_eq!(lexer.next().unwrap().unwrap(), Token::Spawn);
         assert_eq!(lexer.next().unwrap().unwrap(), Token::Join);
+    }
+
+    #[test]
+    fn test_lex_wait_post() {
+        let t = r"
+        wait post
+        ";
+        let mut lexer = Token::lexer(t);
+
+        assert_eq!(lexer.next().unwrap().unwrap(), Token::Wait);
+        assert_eq!(lexer.next().unwrap().unwrap(), Token::Post);
     }
 }

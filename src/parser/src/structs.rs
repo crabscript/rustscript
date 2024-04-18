@@ -261,6 +261,10 @@ pub enum Decl {
     BreakStmt,
     // only inside fn
     ReturnStmt(Option<Expr>),
+    // wait sem; - stmt only
+    WaitStmt(String),
+    // post sem; - stmt only
+    PostStmt(String),
 }
 
 impl Decl {
@@ -284,6 +288,8 @@ impl Decl {
             Self::LoopStmt(_) => Err(ParseError::new("loop is not an expression")),
             Self::BreakStmt => Err(ParseError::new("break is not an expression")),
             Self::ReturnStmt(_) => Err(ParseError::new("return is not an expression")),
+            Self::WaitStmt(_) => Err(ParseError::new("wait is not an expression")),
+            Self::PostStmt(_) => Err(ParseError::new("post is not an expression")),
             Self::ExprStmt(expr) => Ok(expr.clone()),
         }
     }
@@ -326,6 +332,8 @@ impl Display for Decl {
                 };
                 format!("{}{}", Token::Return, str)
             }
+            Decl::WaitStmt(sym) => format!("wait {}", sym),
+            Decl::PostStmt(sym) => format!("post {}", sym),
         };
 
         write!(f, "{}", string)

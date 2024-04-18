@@ -326,6 +326,8 @@ impl Compiler {
                 // push RESET
                 arr.push(ByteCode::RESET(bytecode::FrameType::CallFrame))
             }
+            Decl::WaitStmt(_) => {}
+            Decl::PostStmt(_) => {}
         };
 
         Ok(())

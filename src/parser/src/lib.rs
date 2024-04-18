@@ -241,6 +241,25 @@ impl<'inp> Parser<'inp> {
                     Err(ParseError::new("join expected variable for thread to join"))
                 }
             }
+            // wait sem;
+            Token::Wait => {
+                self.advance();
+                let sem = self.parse_expr(0)?.to_expr()?;
+                if let Expr::Symbol(sem_sym) = sem {
+                    Ok(Decl::WaitStmt(sem_sym))
+                } else {
+                    Err(ParseError::new("wait expected semaphore variable"))
+                }
+            }
+            Token::Post => {
+                self.advance();
+                let sem = self.parse_expr(0)?.to_expr()?;
+                if let Expr::Symbol(sem_sym) = sem {
+                    Ok(Decl::PostStmt(sem_sym))
+                } else {
+                    Err(ParseError::new("post expected semaphore variable"))
+                }
+            }
             // if not is_loop, error
             Token::Break => {
                 if !self.is_loop {
@@ -397,7 +416,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_spawn_join() {
+    fn test_parse_concurrency() {
         let t = r"
         let t = spawn func();
         spawn f2();
@@ -416,5 +435,46 @@ mod tests {
         let res = join t;
         ";
         test_parse(t, "let t = spawn func();let res = join t;");
+
+        // wait and post
+        let t = r"
+        let sem = sem_create();
+        wait sem;
+        post sem;
+        ";
+        test_parse(t, "let sem = sem_create();wait sem;post sem;");
+
+        let t = r"
+        wait 2+2;
+        ";
+        test_parse_err(t, "expected semaphore variable", true);
+
+        let t = r"
+        post 2+2;
+        ";
+        test_parse_err(t, "expected semaphore variable", true);
+
+        // can't assign wait/post
+        let t = r"
+        let x = wait sem;
+        ";
+        test_parse_err(t, "wait is not an expression", true);
+
+        // can't assign wait/post
+        let t = r"
+        let x = post sem;
+        ";
+        test_parse_err(t, "post is not an expression", true);
+
+        // must be stmt with semi
+        let t = r"
+         wait sem
+         ";
+        test_parse_err(t, "Expected semicolon", true);
+
+        let t = r"
+         post sem
+         ";
+        test_parse_err(t, "Expected semicolon", true);
     }
 }

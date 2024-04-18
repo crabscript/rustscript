@@ -1,15 +1,5 @@
-fn fac(n) {
-    if n == 0 {
-        println(0);
-        return 1;
-    }
-    
-    n * fac(n-1)
-}
-
-
-fn fac_tail(n) {
-    fn tail(n, acc) {
+fn fac_tail(n: int) -> int {
+    fn tail(n: int, acc: int) -> int {
         if n == 0 {
             return acc;
         } else {
@@ -20,9 +10,5 @@ fn fac_tail(n) {
     tail(n, 1)
 }
 
-let f = fac(5);
-let t = fac_tail(5);
-
-println(f);
-println(t);
-println(f == t);
+let res : int = fac_tail(4);
+res // 24

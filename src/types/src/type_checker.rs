@@ -428,7 +428,12 @@ impl<'prog> TypeChecker<'prog> {
                 })
             }
             Decl::FnDeclStmt(fn_decl) => self.check_fn_decl(fn_decl),
-            Decl::ReturnStmt(_) => todo!(),
+            // TODO: check nested returns with fn stack
+            Decl::ReturnStmt(_) => Ok(CheckResult {
+                ty: Type::Unit,
+                must_break: true,
+                must_return: true,
+            }),
         }
 
         // Ok(())

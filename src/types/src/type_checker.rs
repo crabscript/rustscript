@@ -401,7 +401,7 @@ impl<'prog> TypeChecker<'prog> {
                     must_return: false,
                 })
             }
-            Decl::FnDeclStmt(_) => todo!(),
+            Decl::FnDeclStmt(fn_decl) => self.check_fn_decl(fn_decl),
             Decl::ReturnStmt(_) => todo!(),
         }
 

@@ -124,5 +124,15 @@ mod tests {
         }
         f
         ";
+
+        // should fail bc n has type int but x has type bool
+        // need to add type assignments for params before going in
+        let t = r"
+        fn fac(n: int) {
+            let x :bool = n;
+            2 + n
+        } 
+        fac(1)
+        ";
     }
 }

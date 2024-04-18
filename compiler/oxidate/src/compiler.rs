@@ -302,7 +302,7 @@ impl Compiler {
         // we are about to push LDF and GOTO before fn compile
         let fn_start_idx = arr.len() + 2;
 
-        let param_strs: Vec<String> = fn_decl.params.iter().map(|x| x.to_string()).collect();
+        let param_strs: Vec<String> = fn_decl.params.iter().map(|x| x.name.to_string()).collect();
 
         arr.push(ByteCode::ldf(fn_start_idx, param_strs));
 
@@ -310,7 +310,15 @@ impl Compiler {
         let goto_idx = arr.len();
         arr.push(ByteCode::GOTO(0));
 
+        // add params to fn blk
+        // let mut fn_blk = fn_decl.body.clone();
+        // let mut param_names = fn_decl.params.iter().map(|x| x.name.clone()).collect::<Vec<_>>();
+        // fn_blk.symbols.append(&mut param_names);
+
+        // compile the augmented blk
+
         self.compile_block(&fn_decl.body, arr)?;
+        // self.compile_block(&fn_blk, arr)?;
 
         // push reset to return last value produced by blk, in case no return was there
         arr.push(ByteCode::RESET(bytecode::FrameType::CallFrame));

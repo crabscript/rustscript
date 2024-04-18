@@ -426,6 +426,15 @@ pub enum Type {
     Unitialised, // Type for variables that exist in a block but not yet declared - only used for TyEnv
 }
 
+#[test]
+fn hi() {
+    dbg!(Type::Int.eq(&Type::UserFn(Box::new(FnTypeData {
+        params: vec![],
+        ret_type: Type::Bool
+    }))));
+    // dbg!(Type::Int.eq(&Type::Int));
+}
+
 impl Type {
     /// Converts string to primitive type.
     pub fn from_string(input: &str) -> Result<Type, ParseError> {

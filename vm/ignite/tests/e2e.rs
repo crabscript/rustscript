@@ -553,3 +553,17 @@ fn test_e2e_fib() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_e2e_fn_decl() -> Result<()> {
+    let t = r"
+    fn fac(n: int) {
+        2 + n
+    }
+    
+    fac(2)
+    ";
+    test_pass(t, "4")?;
+
+    Ok(())
+}

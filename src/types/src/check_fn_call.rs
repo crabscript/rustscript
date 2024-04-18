@@ -373,6 +373,11 @@ impl<'prog> TypeChecker<'prog> {
             return self.check_builtin_fn_call(&fn_call.name, arg_types, check_res);
         }
 
+        // TODO: lookup type of the user fn in env, cast to function type and use its return type
+        // let fn_ty = self.get_type(&fn_call.name)?;
+        // dbg!("fn_ty", fn_ty);
+        // check_res.ty = fn_ty;
+
         Ok(check_res)
     }
 }

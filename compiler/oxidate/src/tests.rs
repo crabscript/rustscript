@@ -1108,4 +1108,31 @@ mod tests {
             ],
         );
     }
+
+    #[test]
+    fn test_compile_fn_decl_more() {
+        // fn with params
+        let t = r"
+        fn fac(n: int) {
+            2 + n
+        }
+        ";
+        test_comp(
+            t,
+            vec![
+                ENTERSCOPE(vec!["fac".to_string()]),
+                LDF(3, vec!["n".to_string()]),
+                GOTO(7),
+                ByteCode::ldc(2),
+                ByteCode::ld("n"),
+                ByteCode::binop("+"),
+                RESET(bytecode::FrameType::CallFrame),
+                ByteCode::assign("fac"),
+                LDC(Unit),
+                POP,
+                EXITSCOPE,
+                DONE,
+            ],
+        );
+    }
 }

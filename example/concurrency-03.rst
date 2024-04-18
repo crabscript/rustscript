@@ -8,9 +8,9 @@ fn increment(times: int) {
   }
 }
 
-let tid_1 = spawn increment(l00);
-let tid_2 = spawn increment(100);
-let tid_3 = spawn increment(100);
+let tid_1 = spawn increment(1000);
+let tid_2 = spawn increment(1000);
+let tid_3 = spawn increment(1000);
 
 join tid_3;
 join tid_2;

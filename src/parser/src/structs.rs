@@ -95,6 +95,7 @@ pub enum Expr {
     Integer(i64),
     Float(f64),
     Bool(bool),
+    StringLiteral(String),
     UnOpExpr(UnOpType, Box<Expr>),
     BinOpExpr(BinOpType, Box<Expr>, Box<Expr>),
     BlockExpr(BlockSeq), // expr can be a block
@@ -125,6 +126,7 @@ impl Display for Expr {
             Expr::FnCallExpr(expr) => expr.to_string(),
             Expr::SpawnExpr(expr) => format!("spawn {}", expr),
             Expr::JoinExpr(sym) => format!("join {}", sym),
+            Expr::StringLiteral(str) => str.to_string(),
         };
 
         write!(f, "{}", string)

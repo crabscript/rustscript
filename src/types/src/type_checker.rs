@@ -361,6 +361,11 @@ impl<'prog> TypeChecker<'prog> {
                 must_break: false,
                 must_return: false,
             },
+            Expr::StringLiteral(_) => CheckResult {
+                ty: Type::String,
+                must_break: false,
+                must_return: false,
+            },
             Expr::Symbol(ident) => {
                 // self.ty_env.borrow().get(ident)?
                 let sym_ty = self.get_type(ident)?;

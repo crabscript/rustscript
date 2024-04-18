@@ -163,6 +163,7 @@ impl Compiler {
             Expr::Integer(val) => arr.push(ByteCode::ldc(*val)),
             Expr::Float(val) => arr.push(ByteCode::ldc(*val)),
             Expr::Bool(val) => arr.push(ByteCode::ldc(*val)),
+            Expr::StringLiteral(str) => arr.push(ByteCode::LDC(Value::String(str.to_owned()))),
             Expr::BinOpExpr(op, lhs, rhs) => {
                 self.compile_binop(op, lhs, rhs, arr)?;
             }

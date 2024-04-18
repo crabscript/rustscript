@@ -22,6 +22,7 @@ impl<'inp> Parser<'inp> {
             Token::Integer(val) => Ok(ExprStmt(Expr::Integer(*val))),
             Token::Float(val) => Ok(ExprStmt(Expr::Float(*val))),
             Token::Bool(val) => Ok(ExprStmt(Expr::Bool(*val))),
+            Token::String(str) => Ok(ExprStmt(Expr::StringLiteral(str.to_owned()))),
             // Unary
             Token::Minus => {
                 let ((), r_bp) = Parser::get_prefix_bp(&UnOpType::Negate);

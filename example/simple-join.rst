@@ -1,12 +1,16 @@
 fn func() -> int {
-    println(100);
+    println("inside func");
     500
 }
 
-println(1);
+println("before spawn func");
 let t = spawn func();
-println(2);
+println("after spawn func");
 
 join t
 
-// Expected: 1 2 100 500
+// Expected: 
+// before spawn func
+// after spawn func
+// inside func
+// 500

@@ -219,7 +219,8 @@ impl<'inp> Parser<'inp> {
             | Token::OpenParen
             | Token::Bang
             | Token::OpenBrace
-            | Token::If => self.parse_expr(0),
+            | Token::If
+            | Token::String(_) => self.parse_expr(0),
             Token::Spawn => {
                 self.advance();
                 let fn_call = self.parse_expr(0)?.to_expr()?;
@@ -477,5 +478,14 @@ mod tests {
          post sem
          ";
         test_parse_err(t, "Expected semicolon", true);
+    }
+
+    #[test]
+    fn test_parse_string() {
+        let t = r#""hello" + "world""#;
+        test_parse(t, "(hello+world)");
+
+        let t = r#"let t = "hello world"; println(t);"#;
+        test_parse(t, "let t = hello world;println(t);");
     }
 }

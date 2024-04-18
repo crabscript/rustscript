@@ -141,6 +141,32 @@ impl<'prog> TypeChecker<'prog> {
         Ok(())
     }
 
+    /// Put param string and type into last env without checking if it's there
+    // For use in fn_decl
+    pub(crate) fn assign_param_types(&mut self, params: Vec<FnParam>) -> Result<(), TypeErrors> {
+        let mut ty_errs = TypeErrors::new();
+
+        for param in params.iter() {
+            if let Some(env) = self.envs.last_mut() {
+                match &param.type_ann {
+                    Some(ty) => {
+                        env.insert(param.name.clone(), ty.to_owned());
+                    }
+                    None => {
+                        let e = format!("Parameter '{}' has no type annotation", param.name);
+                        ty_errs.add(&e);
+                    }
+                };
+            }
+        }
+
+        if !ty_errs.is_ok() {
+            return Err(ty_errs);
+        }
+
+        Ok(())
+    }
+
     pub(crate) fn check_unop(
         &mut self,
         op: &UnOpType,

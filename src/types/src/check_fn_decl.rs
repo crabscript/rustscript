@@ -19,7 +19,7 @@ impl<'prog> TypeChecker<'prog> {
         // Before checking block, add this fn to env to support recursion
         self.assign_ident(&fn_decl.name, fn_ty.clone())?; // should work because of enterscope
 
-        // self.check_block(program)
+        self.check_block(&fn_decl.body, fn_decl.params.clone())?;
         // If everything is ok, return the annotated types
         // Fn decl doesn't contribute to overall must_ret / must_break of the outer block
         let res = CheckResult {
@@ -35,7 +35,7 @@ impl<'prog> TypeChecker<'prog> {
 mod tests {
     use parser::structs::{FnDeclData, Type};
 
-    use crate::type_checker::{expect_pass, expect_pass_str};
+    use crate::type_checker::{expect_err, expect_pass, expect_pass_str};
 
     #[test]
     fn test_type_check_fn_decl_simple() {
@@ -44,7 +44,7 @@ mod tests {
 
         }
         ";
-        // expect_pass(t, Type::Unit);
+        expect_pass(t, Type::Unit);
 
         let t = r"
         fn f() {
@@ -74,37 +74,24 @@ mod tests {
 
     #[test]
     fn test_type_check_fn_decl_fails() {
+        // param has no ty ann
         let t = r"
-        fn f() {
+        fn f(x : int, y) {
 
         }
         ";
-        // expect_pass(t, Type::Unit);
+        expect_err(t, "[TypeError]: Parameter 'y' has no type annotation", true);
+    }
 
+    #[test]
+    fn test_type_check_fn_rettype() {
+        // should fail because blk has unit
         let t = r"
-        fn f() {
-
-        }
-        f
-        ";
-        expect_pass_str(t, "fn()");
-
-        // with annotation
-        let t = r"
-        fn f(x: int) -> bool {
-            true
+        fn f(x: int) -> int {
+            f(x-1);
         }
         f
         ";
-        expect_pass_str(t, "fn(int) -> bool");
-
-        let t = r"
-        fn f(x: int) {
-            
-        }
-        f
-        ";
-        expect_pass_str(t, "fn(int)");
     }
 
     #[test]
@@ -116,15 +103,7 @@ mod tests {
         }
         f
         ";
-        // expect_pass_str(t, "fn(int) -> int");
-
-        // should fail because blk has unit
-        let t = r"
-        fn f(x: int) -> int {
-            f(x-1);
-        }
-        f
-        ";
+        expect_pass_str(t, "fn(int) -> int");
 
         // should fail bc n has type int but x has type bool
         // need to add type assignments for params before going in
@@ -135,5 +114,6 @@ mod tests {
         } 
         fac(1)
         ";
+        expect_err(t, "'x' has declared type bool but assigned type int", true);
     }
 }

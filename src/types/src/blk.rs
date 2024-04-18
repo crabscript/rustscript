@@ -2,10 +2,11 @@ use crate::type_checker::{new_env_with_syms, CheckResult, TypeChecker, TypeError
 use parser::structs::{BlockSeq, FnParam, Type};
 
 impl<'prog> TypeChecker<'prog> {
+    /// Takes optional vector of fn params to add as type annotations before checking blk
     pub(crate) fn check_block(
         &mut self,
         program: &BlockSeq,
-        _fn_params: Vec<FnParam>,
+        fn_params: Vec<FnParam>,
     ) -> Result<CheckResult, TypeErrors> {
         let mut errs = TypeErrors::new();
         // map bindings to types
@@ -14,21 +15,18 @@ impl<'prog> TypeChecker<'prog> {
         let env = new_env_with_syms(program.symbols.clone());
         self.envs.push(env);
 
+        // if fn_params, add their type annotations
+        // assert all args have ty ann
+        if fn_params.is_empty() {
+            self.assign_param_types(fn_params)?;
+        }
+
         // to check if the block has a decl that forces it to break or forces it to return
         // must_break can be used to accept inf loop with no cond that has no nested break in a function
         let mut must_break = false;
         let mut must_return = false;
 
         for decl in program.decls.iter() {
-            // if let Err(mut decl_errs) = self.check_decl(decl) {
-            //     errs.append(&mut decl_errs);
-
-            //     // if this err means we can't proceed, stop e.g let x = -true; let y = x + 3; - we don't know type of x since invalid
-            //     if !decl_errs.cont {
-            //         break;
-            //     }
-            // }
-
             match self.check_decl(decl) {
                 Ok(check_res) => {
                     // propagate must_break/must_return

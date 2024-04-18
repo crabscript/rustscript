@@ -459,6 +459,11 @@ impl<'prog> TypeChecker<'prog> {
                 must_break: false,
                 must_return: false,
             }),
+            Decl::YieldStmt => Ok(CheckResult {
+                ty: Type::Unit,
+                must_break: false,
+                must_return: false,
+            }),
         }
 
         // Ok(())

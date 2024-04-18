@@ -151,6 +151,9 @@ pub enum Token {
     #[token("post")]
     Post,
 
+    #[token("yield")]
+    Yield,
+
     #[token("false", |_| false)]
     #[token("true", |_| true)]
     Bool(bool),
@@ -230,6 +233,7 @@ impl Token {
             Self::Join => "join".to_string(),
             Self::Wait => "wait".to_string(),
             Self::Post => "post".to_string(),
+            Self::Yield => "yield".to_string(),
         }
     }
 }
@@ -648,11 +652,12 @@ mod test {
     #[test]
     fn test_lex_wait_post() {
         let t = r"
-        wait post
+        wait post yield
         ";
         let mut lexer = Token::lexer(t);
 
         assert_eq!(lexer.next().unwrap().unwrap(), Token::Wait);
         assert_eq!(lexer.next().unwrap().unwrap(), Token::Post);
+        assert_eq!(lexer.next().unwrap().unwrap(), Token::Yield);
     }
 }

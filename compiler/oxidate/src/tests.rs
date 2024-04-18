@@ -1170,6 +1170,21 @@ mod tests {
         2;
         post sem;
         ";
-        // test_comp(t, vec![]);
+        test_comp(
+            t,
+            vec![
+                ByteCode::ld("sem"),
+                WAIT,
+                LDC(Unit),
+                POP,
+                ByteCode::ldc(2),
+                POP,
+                ByteCode::ld("sem"),
+                POST,
+                LDC(Unit),
+                POP,
+                DONE,
+            ],
+        );
     }
 }

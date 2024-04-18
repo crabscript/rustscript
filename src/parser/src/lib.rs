@@ -267,6 +267,7 @@ impl<'inp> Parser<'inp> {
                 }
                 Ok(Decl::BreakStmt)
             }
+            Token::Yield => Ok(Decl::YieldStmt),
             // if not is_fn, err
             Token::Return => {
                 if !self.is_fn {

@@ -34,7 +34,7 @@ impl<'prog> TypeChecker<'prog> {
 
 #[cfg(test)]
 mod tests {
-    use parser::structs::{FnDeclData, Type};
+    use parser::structs::Type;
 
     use crate::type_checker::{expect_err, expect_pass, expect_pass_str};
 
@@ -94,12 +94,12 @@ mod tests {
     #[test]
     fn test_type_check_fn_rettype() {
         // should fail because blk has unit
-        let t = r"
-        fn f(x: int) -> int {
-            f(x-1);
-        }
-        f
-        ";
+        // let t = r"
+        // fn f(x: int) -> int {
+        //     f(x-1);
+        // }
+        // f
+        // ";
     }
 
     #[test]

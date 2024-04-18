@@ -265,6 +265,8 @@ pub enum Decl {
     WaitStmt(String),
     // post sem; - stmt only
     PostStmt(String),
+    // yield; - no args
+    YieldStmt,
 }
 
 impl Decl {
@@ -290,6 +292,7 @@ impl Decl {
             Self::ReturnStmt(_) => Err(ParseError::new("return is not an expression")),
             Self::WaitStmt(_) => Err(ParseError::new("wait is not an expression")),
             Self::PostStmt(_) => Err(ParseError::new("post is not an expression")),
+            Self::YieldStmt => Err(ParseError::new("yield is not an expression")),
             Self::ExprStmt(expr) => Ok(expr.clone()),
         }
     }
@@ -334,6 +337,7 @@ impl Display for Decl {
             }
             Decl::WaitStmt(sym) => format!("wait {}", sym),
             Decl::PostStmt(sym) => format!("post {}", sym),
+            Decl::YieldStmt => "yield".to_string(),
         };
 
         write!(f, "{}", string)

@@ -351,7 +351,7 @@ impl<'prog> TypeChecker<'prog> {
             Expr::BinOpExpr(op, lhs, rhs) => {
                 return self.check_binop(op, lhs, rhs);
             }
-            Expr::BlockExpr(blk) => return self.check_block(blk),
+            Expr::BlockExpr(blk) => return self.check_block(blk, vec![]),
             Expr::IfElseExpr(if_else) => return self.check_if_else(if_else),
             Expr::FnCallExpr(fn_call) => return self.check_fn_call(fn_call),
         };
@@ -409,7 +409,7 @@ impl<'prog> TypeChecker<'prog> {
     }
 
     pub fn type_check(mut self) -> Result<Type, TypeErrors> {
-        let ty = self.check_block(self.program)?;
+        let ty = self.check_block(self.program, vec![])?;
         // dbg!(&ty);
         Ok(ty.ty)
     }

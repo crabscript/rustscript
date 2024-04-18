@@ -1,8 +1,12 @@
 use crate::type_checker::{new_env_with_syms, CheckResult, TypeChecker, TypeErrors};
-use parser::structs::{BlockSeq, Type};
+use parser::structs::{BlockSeq, FnParam, Type};
 
 impl<'prog> TypeChecker<'prog> {
-    pub(crate) fn check_block(&mut self, program: &BlockSeq) -> Result<CheckResult, TypeErrors> {
+    pub(crate) fn check_block(
+        &mut self,
+        program: &BlockSeq,
+        fn_params: Vec<FnParam>,
+    ) -> Result<CheckResult, TypeErrors> {
         let mut errs = TypeErrors::new();
         // map bindings to types
         // let mut ty_env: HashMap<String, Type> = HashMap::new();

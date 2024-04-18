@@ -32,7 +32,7 @@ impl<'prog> TypeChecker<'prog> {
         }
 
         // add if blk errs
-        let mut check_if = self.check_block(&if_else.if_blk);
+        let mut check_if = self.check_block(&if_else.if_blk, vec![]);
         if let Err(ref mut errs) = check_if {
             ty_errs.append(errs);
         }
@@ -55,7 +55,7 @@ impl<'prog> TypeChecker<'prog> {
         let else_blk = if_else.else_blk.as_ref().unwrap();
 
         // Have else: check for errs and add. No errs, and if_blk also no errs: check for type mismatch
-        let mut check_else = self.check_block(else_blk);
+        let mut check_else = self.check_block(else_blk, vec![]);
         if let Err(ref mut errs) = check_else {
             ty_errs.append(errs);
         }

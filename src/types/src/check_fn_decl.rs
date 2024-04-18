@@ -19,6 +19,7 @@ impl<'prog> TypeChecker<'prog> {
         // Before checking block, add this fn to env to support recursion
         self.assign_ident(&fn_decl.name, fn_ty.clone())?; // should work because of enterscope
 
+        // self.check_block(program)
         // If everything is ok, return the annotated types
         // Fn decl doesn't contribute to overall must_ret / must_break of the outer block
         let res = CheckResult {

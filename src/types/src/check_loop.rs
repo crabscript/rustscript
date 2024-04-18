@@ -29,7 +29,7 @@ impl<'prog> TypeChecker<'prog> {
             }
         }
 
-        let mut check_blk = self.check_block(&loop_data.body);
+        let mut check_blk = self.check_block(&loop_data.body, vec![]);
         if let Err(ref mut errs) = check_blk {
             ty_errs.append(errs);
         }

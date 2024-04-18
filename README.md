@@ -27,17 +27,17 @@ git clone https://github.com/crabscript/rustscript.git
 
 ```bash
 cd rustscript
-./build.sh
+source ./build.sh
 ```
 
 4. The compiler binary is oxidate and the virtual machine is ignite. Both executables are located inside bin directory
-5. Run `./bin/oxidate --help` or `./bin/ignite --help` to see the available options
+5. Run `oxidate --help` or `ignite --help` to see the available options
 6. You can compile any .rst rustscript code into .o2 bytecode and run it with the ignite virtual machine
 
 ```bash
 # Assuming you are in the rustscript directory
-./bin/oxidate example/hello-world.rst # Should generate example.o2
-./bin/ignite hello-world.o2
+oxidate example/hello-world.rst # Should generate example.o2
+ignite hello-world.o2
 ```
 
 ## Project Deliverables

@@ -8,5 +8,6 @@ fn infinite_increment() {
    }
 }
 spawn infinite_increment();
-
 yield;
+
+println(count);

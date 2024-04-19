@@ -20,7 +20,7 @@ mod tests {
 
     fn test_comp(inp: &str, exp: Vec<ByteCode>) {
         let res = exp_compile_str(inp);
-        dbg!(&res[28]);
+        // dbg!(&res[28]);
         assert_eq!(res, exp);
     }
 

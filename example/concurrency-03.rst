@@ -6,7 +6,9 @@ let count = 0;
 fn increment(times: int) {
   let i = 0;
   loop i < times {
-    count = count + 1;
+    let tmp = count;
+    yield;
+    count = tmp + 1;
     i = i + 1;
   }
 }

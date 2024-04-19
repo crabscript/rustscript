@@ -20,7 +20,7 @@ mod tests {
 
     fn test_comp(inp: &str, exp: Vec<ByteCode>) {
         let res = exp_compile_str(inp);
-        dbg!(&res);
+        dbg!(&res[28]);
         assert_eq!(res, exp);
     }
 
@@ -1025,6 +1025,21 @@ mod tests {
                 DONE,
             ],
         );
+    }
+
+    #[test]
+    fn test_compile_loop2() {
+        let t = r"
+        let x = 0;
+        loop x < 5 {
+            let j = x + 1;
+            break;
+            x = x + 1;
+        }
+
+        x
+        ";
+        // test_comp(t, vec![]);
     }
 
     #[test]

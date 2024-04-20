@@ -319,4 +319,50 @@ mod tests {
         ";
         expect_err(t, "Can't apply '+' to types 'int' and 'bool'", true);
     }
+
+    #[test]
+    fn test_type_check_fn_hof() {
+        let t = r"
+        fn adder(x : int) -> fn(int) -> bool {
+            fn f(y:int) -> bool {
+                x+y > 0
+            }
+
+            adder
+        }
+        ";
+        expect_err(
+            t,
+            "has return type 'fn(int) -> bool' but found block type 'fn(int) -> fn(int) -> bool'",
+            true,
+        );
+
+        let t = r"
+        fn adder(x : int) -> fn(int) -> bool {
+            fn f(y:int) -> int {
+                x+y 
+            }
+
+            f
+        }
+        ";
+        expect_err(
+            t,
+            "has return type 'fn(int) -> bool' but found block type 'fn(int) -> int",
+            true,
+        );
+
+        // ok
+        let t = r"
+        fn adder(x : int) -> fn(int) -> int {
+            fn f(y:int) -> int {
+                x+y 
+            }
+
+            f
+        }
+        adder
+        ";
+        expect_pass_str(t, "fn(int) -> fn(int) -> int");
+    }
 }

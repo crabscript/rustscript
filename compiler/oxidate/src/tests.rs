@@ -1029,21 +1029,6 @@ mod tests {
     }
 
     #[test]
-    fn test_compile_loop2() {
-        let t = r"
-        let x = 0;
-        loop x < 5 {
-            let j = x + 1;
-            break;
-            x = x + 1;
-        }
-
-        x
-        ";
-        // test_comp(t, vec![]);
-    }
-
-    #[test]
     fn test_compile_fn_call() {
         let t = "print(2, 3)";
         test_comp(

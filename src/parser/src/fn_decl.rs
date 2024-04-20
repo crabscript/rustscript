@@ -426,4 +426,21 @@ mod tests {
             "fn fac (n:int) -> int { if (n==0) { return 1; };return (n*fac((n-1))); };",
         );
     }
+
+    #[test]
+    fn test_parse_fn_decl_hof_ret() {
+        let t = r"
+        fn adder(x : int) -> fn(int) -> bool {
+            fn f(y:int) -> bool {
+                x+y > 0
+            }
+
+            adder
+        }
+        ";
+        test_parse(
+            t,
+            "fn adder (x:int) -> fn(int) -> bool { fn f (y:int) -> bool { ((x+y)>0) };adder };",
+        );
+    }
 }

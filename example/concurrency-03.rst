@@ -1,5 +1,4 @@
-// Expected: inconsistent count on each run due to race on count
-// When running with a small quantum e.g 1
+// Expected: count != 3000 on each run, though we want 3000
 
 let count = 0;
 

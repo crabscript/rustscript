@@ -62,7 +62,7 @@ impl<'inp> Parser<'inp> {
                 param_ty.replace(ty);
 
                 // to go past last token of type_ann, so peek is at comma or close paren
-                self.advance();
+                // self.advance();
             }
 
             // Comma or CloseParen
@@ -98,7 +98,7 @@ impl<'inp> Parser<'inp> {
         if self.consume_opt_token_type(Token::FnDeclReturn) {
             // peek is now at type_ann first token
             let ret_ty_ann = self.parse_type_annotation()?;
-            self.advance(); // go past last token of ty_ann
+            // self.advance(); // go past last token of ty_ann
 
             ret_ty = ret_ty_ann;
         }
@@ -424,6 +424,23 @@ mod tests {
         test_parse(
             t,
             "fn fac (n:int) -> int { if (n==0) { return 1; };return (n*fac((n-1))); };",
+        );
+    }
+
+    #[test]
+    fn test_parse_fn_decl_hof_ret() {
+        let t = r"
+        fn adder(x : int) -> fn(int) -> bool {
+            fn f(y:int) -> bool {
+                x+y > 0
+            }
+
+            adder
+        }
+        ";
+        test_parse(
+            t,
+            "fn adder (x:int) -> fn(int) -> bool { fn f (y:int) -> bool { ((x+y)>0) };adder };",
         );
     }
 }

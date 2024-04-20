@@ -25,7 +25,7 @@ impl<'inp> Parser<'inp> {
             type_ann.replace(ty);
 
             // call advance so peek is at equals
-            self.advance();
+            // self.advance();
         }
 
         self.consume_token_type(Token::Eq, "Expected '='")?;

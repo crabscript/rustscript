@@ -13,6 +13,7 @@ mod tests {
     fn exp_compile_str(inp: &str) -> Vec<ByteCode> {
         let parser = Parser::new_from_string(inp);
         let parsed = parser.parse().expect("Should parse");
+        dbg!(inp);
         dbg!("parsed:", &parsed);
         let comp = Compiler::new(parsed);
         comp.compile().expect("Should compile")
@@ -20,7 +21,7 @@ mod tests {
 
     fn test_comp(inp: &str, exp: Vec<ByteCode>) {
         let res = exp_compile_str(inp);
-        dbg!(&res);
+        // dbg!(&res[28]);
         assert_eq!(res, exp);
     }
 

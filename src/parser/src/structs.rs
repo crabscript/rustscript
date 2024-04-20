@@ -395,9 +395,10 @@ impl Display for ParseError {
 impl std::error::Error for ParseError {}
 
 // Type of a function value - subset of FnDeclData
+// Params: care only about types not names
 #[derive(Debug, Clone, PartialEq)]
 pub struct FnTypeData {
-    pub params: Vec<FnParam>,
+    pub params: Vec<Type>,
     pub ret_type: Type,
 }
 
@@ -407,12 +408,7 @@ impl Display for FnTypeData {
         let params_str = if self.params.is_empty() {
             "()".to_string()
         } else {
-            let params_display: Vec<String> = self
-                .params
-                .iter()
-                .map(|p| format!("{}", p.type_ann.clone().unwrap_or(Type::Unit)))
-                .map(|x| x.to_string())
-                .collect();
+            let params_display: Vec<String> = self.params.iter().map(|x| x.to_string()).collect();
             format!("({})", params_display.join(", "))
         };
 
@@ -465,6 +461,8 @@ impl Type {
             "int" => Ok(Self::Int),
             "bool" => Ok(Self::Bool),
             "float" => Ok(Self::Float),
+            "str" => Ok(Self::String),
+            "sem" => Ok(Self::Semaphore),
             _ => Err(ParseError::new(&format!(
                 "Unknown primitive type: {}",
                 input
@@ -482,7 +480,7 @@ impl Display for Type {
             Self::Unit => "()".to_string(),
             Self::Unitialised => "uninit".to_string(),
             Self::BuiltInFn => "builtin_fn".to_string(),
-            Self::String => "string".to_string(),
+            Self::String => "str".to_string(),
             Self::UserFn(fn_ty) => fn_ty.to_string(),
             Self::ThreadId => "tid".to_string(),
             Self::Semaphore => "sem".to_string(),

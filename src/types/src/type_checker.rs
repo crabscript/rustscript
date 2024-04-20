@@ -91,6 +91,8 @@ impl CheckResult {
 pub struct TypeChecker<'prog> {
     program: &'prog BlockSeq,
     pub(crate) envs: Vec<Env>,
+    // stores type of function currently being checked at top (empty if not checking function)
+    pub(crate) fn_type_stack: Vec<Type>,
 }
 
 impl<'prog> TypeChecker<'prog> {
@@ -98,6 +100,7 @@ impl<'prog> TypeChecker<'prog> {
         TypeChecker {
             program,
             envs: vec![],
+            fn_type_stack: vec![],
         }
     }
 
@@ -449,11 +452,38 @@ impl<'prog> TypeChecker<'prog> {
             }
             Decl::FnDeclStmt(fn_decl) => self.check_fn_decl(fn_decl),
             // TODO: check nested returns with fn stack
-            Decl::ReturnStmt(_) => Ok(CheckResult {
-                ty: Type::Unit,
-                must_break: true,
-                must_return: true,
-            }),
+            Decl::ReturnStmt(ret_expr) => {
+                // dbg!("fn_stack at return:", &self.fn_type_stack);
+                let mut res = CheckResult {
+                    ty: Type::Unit,
+                    must_break: true,
+                    must_return: true,
+                };
+
+                if let Some(expr) = ret_expr {
+                    let expr_res = self.check_expr(expr)?;
+                    res = CheckResult::combine(&res, &expr_res);
+                    res.ty = expr_res.ty;
+                }
+
+                // now it's either unit or the type of the ret_expr
+                // return type must match fn annotated
+
+                // expect because parser rejects return outside function
+                let fn_ty = self
+                    .fn_type_stack
+                    .last()
+                    .expect("Should have type in fn_stack");
+                if !res.ty.eq(fn_ty) {
+                    let e = format!(
+                        "Expected function return type '{}' but return statement has type '{}'",
+                        fn_ty, res.ty
+                    );
+                    return Err(TypeErrors::new_err(&e));
+                }
+
+                Ok(res)
+            }
             Decl::WaitStmt(_) => Ok(CheckResult {
                 ty: Type::Unit,
                 must_break: false,
@@ -718,5 +748,14 @@ mod tests {
             "Can't apply '<' to types 'bool' and 'int'",
             true,
         );
+    }
+
+    #[test]
+    fn type_check_sem_string() {
+        let t = r#"let t = "hello world"; t"#;
+        expect_pass(t, Type::String);
+
+        let t = r"let t = sem_create(); t";
+        expect_pass(t, Type::Semaphore);
     }
 }

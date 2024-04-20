@@ -557,7 +557,7 @@ fn test_e2e_fib() -> Result<()> {
 #[test]
 fn test_e2e_fn_decl() -> Result<()> {
     let t = r"
-    fn fac(n: int) {
+    fn fac(n: int) -> int {
         2 + n
     }
     

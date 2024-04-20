@@ -382,16 +382,10 @@ impl<'prog> TypeChecker<'prog> {
         // TODO: lookup type of the user fn in env, cast to function type and use its return type
         let fn_ty = self.get_type(&fn_call.name)?.to_fn_type();
         if let Some(ty) = fn_ty {
-            let param_types: Vec<Type> = ty
-                .params
-                .iter()
-                .map(|x| x.type_ann.clone().unwrap())
-                .collect();
+            let param_types: Vec<Type> = ty.params.iter().map(|x| x.to_owned()).collect();
 
             TypeChecker::check_arg_params_match(&fn_call.name, &arg_types, &param_types)?;
             check_res.ty = ty.ret_type;
-        } else {
-            panic!("Fn name not in env");
         }
         // dbg!("fn_ty", fn_ty);
         // check_res.ty = fn_ty;
@@ -410,6 +404,11 @@ mod tests {
 
     #[test]
     fn test_type_check_userfn_call() {
+        let t = r"
+        f();
+        ";
+        expect_err(t, "Identifier 'f' not declared", true);
+
         let t = r"
         fn fac(n : int) -> int {
             2

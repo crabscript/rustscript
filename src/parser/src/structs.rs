@@ -395,9 +395,10 @@ impl Display for ParseError {
 impl std::error::Error for ParseError {}
 
 // Type of a function value - subset of FnDeclData
+// Params: care only about types not names
 #[derive(Debug, Clone, PartialEq)]
 pub struct FnTypeData {
-    pub params: Vec<FnParam>,
+    pub params: Vec<Type>,
     pub ret_type: Type,
 }
 
@@ -407,12 +408,7 @@ impl Display for FnTypeData {
         let params_str = if self.params.is_empty() {
             "()".to_string()
         } else {
-            let params_display: Vec<String> = self
-                .params
-                .iter()
-                .map(|p| format!("{}", p.type_ann.clone().unwrap_or(Type::Unit)))
-                .map(|x| x.to_string())
-                .collect();
+            let params_display: Vec<String> = self.params.iter().map(|x| x.to_string()).collect();
             format!("({})", params_display.join(", "))
         };
 

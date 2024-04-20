@@ -13,6 +13,7 @@ mod tests {
     fn exp_compile_str(inp: &str) -> Vec<ByteCode> {
         let parser = Parser::new_from_string(inp);
         let parsed = parser.parse().expect("Should parse");
+        dbg!(inp);
         dbg!("parsed:", &parsed);
         let comp = Compiler::new(parsed);
         comp.compile().expect("Should compile")

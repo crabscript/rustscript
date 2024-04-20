@@ -67,7 +67,7 @@ impl<'inp> Parser<'inp> {
                     }
                 }
 
-                dbg!("PEEK AFTER LOOP:", &self.lexer.peek());
+                // dbg!("PEEK AFTER LOOP:", &self.lexer.peek());
 
                 self.advance(); // skip past open paren, peek is at return arrow or equals
 
@@ -75,11 +75,9 @@ impl<'inp> Parser<'inp> {
                     // peek is now at type_ann first token
                     let ret_ty_ann = self.parse_type_annotation()?;
                     // self.advance(); // go past last token of ty_ann
-                    dbg!(&ret_ty_ann);
+                    // dbg!(&ret_ty_ann);
                     ret_ty = ret_ty_ann;
                 }
-
-                dbg!("PEEK AFTER:", &self.lexer.peek());
 
                 let fn_ty_data = FnTypeData {
                     params: param_types,

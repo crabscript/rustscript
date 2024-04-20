@@ -1,6 +1,3 @@
-// Doesn't do anything in particular, I asked ChatGPT to generate this and verified 
-// by converting to Rust 
-
 let count = 0;
 let x = 0;
 

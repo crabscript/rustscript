@@ -1,6 +1,5 @@
-// Compile untyped: hof type annotation not added yet
-fn higher_order(x) {
-    fn g(y) {
+fn higher_order(x: int) -> fn(int) -> int {
+    fn g(y:int) -> int {
       x + y
     }
 

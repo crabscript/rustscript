@@ -1,5 +1,5 @@
 // Expected: inconsistent count on each run due to race on count
-// When running with a small quantum e.g 1
+// When running with a small quantum e.g -q 1
 
 let count = 0;
 
@@ -7,7 +7,6 @@ fn increment(times: int) {
   let i = 0;
   loop i < times {
     let tmp = count;
-    yield;
     count = tmp + 1;
     i = i + 1;
   }

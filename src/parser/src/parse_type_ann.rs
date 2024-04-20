@@ -7,7 +7,7 @@ use lexer::Token;
 impl<'inp> Parser<'inp> {
     /// Parse and return type annotation. Expect lexer.peek() to be at Colon before call
     // Should only consume tokens belonging to the annotation, starting peek at first token and ending
-    // peek at the last token of the annotation
+    // peek at token AFTER the last token of type annotation
     pub(crate) fn parse_type_annotation(&mut self) -> Result<Type, ParseError> {
         // self.consume_token_type(Token::Colon, "Expected a colon")?;
         // expect_token_body!(self.lexer.peek(), Ident, "identifier")?;
@@ -22,10 +22,15 @@ impl<'inp> Parser<'inp> {
             .expect("Lexer should not fail"); // would have erred earlier
 
         let type_ann = match peek {
-            Token::Ident(id) => Type::from_string(&id),
+            Token::Ident(id) => {
+                let res = Type::from_string(&id);
+                self.advance();
+                res
+            }
             Token::OpenParen => {
                 self.advance();
                 if let Some(Ok(Token::CloseParen)) = self.lexer.peek() {
+                    self.advance();
                     Ok(Type::Unit)
                 } else {
                     Err(ParseError::new("Expected '()' for unit type annotation"))
@@ -51,7 +56,7 @@ impl<'inp> Parser<'inp> {
 
                     let param_ty = self.parse_type_annotation()?;
                     param_types.push(param_ty);
-                    self.advance(); // go past token of last ty_an
+                    // self.advance(); // go past token of last ty_an
 
                     // Comma or CloseParen
                     if !self.lexer.peek().eq(&Some(&Ok(Token::CloseParen))) {
@@ -64,7 +69,7 @@ impl<'inp> Parser<'inp> {
 
                 dbg!("PEEK AFTER LOOP:", &self.lexer.peek());
 
-                // self.advance(); // skip past open paren, peek is at return arrow or equals
+                self.advance(); // skip past open paren, peek is at return arrow or equals
 
                 if self.consume_opt_token_type(Token::FnDeclReturn) {
                     // peek is now at type_ann first token
@@ -148,7 +153,7 @@ mod tests {
         ";
         test_parse(t, "let g : fn(int, bool) = f;");
 
-        // // param is fn
+        // // // param is fn
         let t = r"
         let g : fn(int, fn(int)) = f;
         ";
@@ -158,6 +163,17 @@ mod tests {
         let t = r"
         let g : fn(int) -> bool = f;
         ";
-        // test_parse(t,  "let g : fn(int) -> bool = f;");
+        test_parse(t, "let g : fn(int) -> bool = f;");
+
+        let t = r"
+        let g : fn(int, float) -> bool = f;
+        ";
+        test_parse(t, "let g : fn(int, float) -> bool = f;");
+
+        // returns fn
+        let t = r"
+        let g : fn(int, bool) -> fn(int) -> int = f;
+        ";
+        test_parse(t, "let g : fn(int, bool) -> fn(int) -> int = f;");
     }
 }

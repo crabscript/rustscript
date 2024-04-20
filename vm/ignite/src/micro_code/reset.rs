@@ -14,6 +14,7 @@ use bytecode::FrameType;
 /// # Errors
 ///
 /// If the runtime stack underflows. i.e. there are no frames of the given type.
+#[inline]
 pub fn reset(mut rt: Runtime, ft: FrameType) -> Result<Runtime> {
     loop {
         let frame = rt

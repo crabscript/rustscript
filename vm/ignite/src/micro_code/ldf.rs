@@ -16,6 +16,7 @@ use crate::Runtime;
 /// # Errors
 ///
 /// Infallible.
+#[inline]
 pub fn ldf(mut rt: Runtime, addr: usize, prms: Vec<Symbol>) -> Result<Runtime> {
     let closure = Value::Closure {
         fn_type: FnType::User,

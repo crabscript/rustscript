@@ -11,6 +11,7 @@ use crate::{Runtime, VmError};
 /// # Errors
 ///
 /// If the runtime stack is empty.
+#[inline]
 pub fn exit_scope(mut rt: Runtime) -> Result<Runtime> {
     let prev_frame = rt
         .current_thread

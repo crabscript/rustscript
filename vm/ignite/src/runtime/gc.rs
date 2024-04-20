@@ -19,6 +19,7 @@ impl Runtime {
     ///   - Go through the runtime stack and mark all the environments and environment of closure values in
     ///     their respective environment, and the chain of parent environments
     ///   - Go through the operand stack and mark all the environments of closure values, and the chain of parent environments
+    #[inline]
     pub fn mark_and_weep(self) -> Self {
         let marked = mark(&self);
         sweep(self, marked)

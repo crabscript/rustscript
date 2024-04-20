@@ -21,6 +21,7 @@ use super::yield_;
 /// * If the thread with the given ID is not found in the thread state hashmap.
 /// * If the operand stack is empty.
 /// * If the value on the operand stack is not an integer.
+#[inline]
 pub fn join(mut rt: Runtime) -> Result<Runtime> {
     let tid: i64 = rt
         .current_thread

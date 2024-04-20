@@ -21,6 +21,7 @@ use crate::{Runtime, VmError};
 /// If the stack is empty.
 /// If the top value on stack is not a semaphore.
 /// If there are no threads in the ready queue when the current thread is blocked.
+#[inline]
 pub fn wait(mut rt: Runtime) -> Result<Runtime> {
     let sem: Semaphore = rt
         .current_thread

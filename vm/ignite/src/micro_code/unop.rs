@@ -16,6 +16,7 @@ use bytecode::{type_of, UnOp, Value};
 ///
 /// If the stack is empty or the operation is not supported for
 /// the type of the value on the stack.
+#[inline]
 pub fn unop(mut rt: Runtime, op: UnOp) -> Result<Runtime> {
     let val = rt
         .current_thread

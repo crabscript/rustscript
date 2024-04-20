@@ -12,6 +12,7 @@ use crate::Runtime;
 /// # Errors
 ///
 /// Infallible.
+#[inline]
 pub fn sem_create(mut rt: Runtime) -> Result<Runtime> {
     rt.current_thread
         .operand_stack

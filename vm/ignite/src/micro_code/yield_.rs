@@ -15,6 +15,7 @@ use crate::{Runtime, VmError};
 /// # Errors
 ///
 /// Returns an error if there are no threads in the ready queue.
+#[inline]
 pub fn yield_(mut rt: Runtime) -> Result<Runtime> {
     let current_thread = rt.current_thread;
     rt.ready_queue.push_back(current_thread);

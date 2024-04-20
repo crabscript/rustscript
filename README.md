@@ -40,6 +40,24 @@ oxidate example/hello-world.rst # Should generate example.o2
 ignite hello-world.o2
 ```
 
+## Testing
+
+- To run all tests:
+
+```bash
+# Ensure you are in the root directory of rustscript repository
+cargo test
+```
+
+- To run specific tests:
+
+```bash
+# Example, to run all tests on join micro code
+cargo test test_join
+#          ^       ^
+#          first few characters of the testing function
+```
+
 ## Project Deliverables
 
 - **Syntax**: RustScript's syntax is a harmonious blend of Rust and TypeScript, offering a familiar yet unique coding experience.

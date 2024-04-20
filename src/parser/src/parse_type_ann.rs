@@ -1,3 +1,4 @@
+use crate::FnTypeData;
 use crate::ParseError;
 use crate::Parser;
 use crate::Type;
@@ -29,6 +30,58 @@ impl<'inp> Parser<'inp> {
                 } else {
                     Err(ParseError::new("Expected '()' for unit type annotation"))
                 }
+            }
+            Token::Fn => {
+                self.advance(); // go past fn
+                self.consume_token_type(
+                    Token::OpenParen,
+                    "Expected '(' for function type annotation",
+                )?; // go past (
+
+                let mut param_types: Vec<Type> = vec![];
+                let mut ret_ty = Type::Unit;
+
+                // Parse param types
+                while let Some(tok) = self.lexer.peek() {
+                    let tok = tok.clone();
+                    // stop at )
+                    if tok.clone().unwrap().eq(&Token::CloseParen) {
+                        break;
+                    }
+
+                    let param_ty = self.parse_type_annotation()?;
+                    param_types.push(param_ty);
+                    self.advance(); // go past token of last ty_an
+
+                    // Comma or CloseParen
+                    if !self.lexer.peek().eq(&Some(&Ok(Token::CloseParen))) {
+                        self.consume_token_type(
+                            Token::Comma,
+                            "Expected ',' to separate function parameters",
+                        )?;
+                    }
+                }
+
+                dbg!("PEEK AFTER LOOP:", &self.lexer.peek());
+
+                // self.advance(); // skip past open paren, peek is at return arrow or equals
+
+                if self.consume_opt_token_type(Token::FnDeclReturn) {
+                    // peek is now at type_ann first token
+                    let ret_ty_ann = self.parse_type_annotation()?;
+                    // self.advance(); // go past last token of ty_ann
+                    dbg!(&ret_ty_ann);
+                    ret_ty = ret_ty_ann;
+                }
+
+                dbg!("PEEK AFTER:", &self.lexer.peek());
+
+                let fn_ty_data = FnTypeData {
+                    params: param_types,
+                    ret_type: ret_ty,
+                };
+
+                Ok(Type::UserFn(Box::new(fn_ty_data)))
             }
             _ => unreachable!(),
         }?;
@@ -72,5 +125,39 @@ mod tests {
             "Expected '()' for unit type annotation",
             true,
         );
+    }
+
+    #[test]
+    fn test_parse_type_annotations_more() {
+        // hof, semaphore, string
+
+        // // empty
+        let t = r"
+        let g : fn() = f;
+        ";
+        test_parse(t, "let g : fn() = f;");
+
+        // // has params
+        let t = r"
+        let g : fn(int) = f;
+        ";
+        test_parse(t, "let g : fn(int) = f;");
+
+        let t = r"
+        let g : fn(int, bool) = f;
+        ";
+        test_parse(t, "let g : fn(int, bool) = f;");
+
+        // // param is fn
+        let t = r"
+        let g : fn(int, fn(int)) = f;
+        ";
+        test_parse(t, "let g : fn(int, fn(int)) = f;");
+
+        // ret type
+        let t = r"
+        let g : fn(int) -> bool = f;
+        ";
+        // test_parse(t,  "let g : fn(int) -> bool = f;");
     }
 }

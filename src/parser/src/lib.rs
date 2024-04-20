@@ -136,7 +136,7 @@ impl<'inp> Parser<'inp> {
     fn expect_token_for_type_ann(token: Option<&Result<Token, ()>>) -> Result<(), ParseError> {
         if let Some(Ok(tok)) = token {
             match tok {
-                Token::Ident(_) | Token::OpenParen => Ok(()),
+                Token::Ident(_) | Token::OpenParen | Token::Fn => Ok(()),
                 _ => {
                     let e = format!(
                         "Expected identifier or '(' for type annotation, got '{}'",
@@ -422,12 +422,5 @@ mod tests {
 
         let t = r#"let t = "hello world"; println(t);"#;
         test_parse(t, "let t = hello world;println(t);");
-    }
-
-    #[test]
-    fn test_parse_type_annotations_more() {
-        let t = r"
-        let g : fn(int) -> int = f;
-        ";
     }
 }

@@ -15,6 +15,7 @@ use crate::{Runtime, VmError};
 ///
 /// If the stack is empty.
 /// If the symbol is not found in the environment chain.
+#[inline]
 pub fn assign(mut rt: Runtime, sym: Symbol) -> Result<Runtime> {
     let val = rt
         .current_thread

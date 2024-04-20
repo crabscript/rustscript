@@ -13,6 +13,7 @@ use anyhow::Result;
 /// # Errors
 ///
 /// Infallible.
+#[inline]
 pub fn goto(mut rt: Runtime, pc: usize) -> Result<Runtime> {
     rt.current_thread.pc = pc;
     Ok(rt)

@@ -14,6 +14,7 @@ use crate::Runtime;
 /// # Errors
 ///
 /// Infallible.
+#[inline]
 pub fn ldc(mut rt: Runtime, val: Value) -> Result<Runtime> {
     rt.current_thread.operand_stack.push(val);
     Ok(rt)

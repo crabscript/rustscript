@@ -3,6 +3,7 @@ use bytecode::{builtin, Value};
 
 use crate::{Runtime, VmError};
 
+#[inline]
 pub fn apply_builtin(mut rt: Runtime, sym: &str, args: Vec<Value>) -> Result<Runtime> {
     match sym {
         builtin::READ_LINE_SYM => {

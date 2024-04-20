@@ -17,6 +17,7 @@ use crate::{Runtime, VmError};
 ///
 /// If the stack is empty.
 /// If the top value on stack is not a semaphore.
+#[inline]
 pub fn post(mut rt: Runtime) -> Result<Runtime> {
     let sem: Semaphore = rt
         .current_thread

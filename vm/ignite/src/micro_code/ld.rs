@@ -14,6 +14,7 @@ use crate::{Runtime, VmError};
 /// # Errors
 ///
 /// If the symbol is not found.
+#[inline]
 pub fn ld(mut rt: Runtime, sym: Symbol) -> Result<Runtime> {
     let val = rt
         .current_thread

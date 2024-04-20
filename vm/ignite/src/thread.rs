@@ -40,6 +40,7 @@ impl Thread {
     }
 }
 
+#[inline]
 pub fn extend_environment<S, V>(
     mut rt: Runtime,
     env: Weak<RefCell<Environment>>,

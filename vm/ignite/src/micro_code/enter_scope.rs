@@ -15,6 +15,7 @@ use crate::{extend_environment, Runtime};
 /// # Errors
 ///
 /// Infallible.
+#[inline]
 pub fn enter_scope(mut rt: Runtime, syms: Vec<Symbol>) -> Result<Runtime> {
     let current_env = rt.current_thread.env.clone();
 

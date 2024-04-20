@@ -13,6 +13,7 @@ use crate::{Runtime, VmError};
 /// # Errors
 ///
 /// If the stack is empty or the top of the stack is not a boolean.
+#[inline]
 pub fn jof(mut rt: Runtime, pc: usize) -> Result<Runtime> {
     let cond = rt
         .current_thread

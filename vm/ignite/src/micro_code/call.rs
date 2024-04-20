@@ -26,6 +26,7 @@ use super::apply_builtin;
 ///
 /// If the operand stack does not contain enough values to pop (arity + 1).
 /// If the closure is not of type closure or the arity of the closure does not match the number of arguments.
+#[inline]
 pub fn call(mut rt: Runtime, arity: usize) -> Result<Runtime> {
     let mut args = Vec::new();
     args.reserve_exact(arity);

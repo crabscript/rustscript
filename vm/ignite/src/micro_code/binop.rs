@@ -20,6 +20,7 @@ use crate::{Runtime, VmError};
 ///
 /// If the stack has fewer than two values or the operation is not supported
 /// for the types of the values on the stack.
+#[inline]
 pub fn binop(mut rt: Runtime, op: BinOp) -> Result<Runtime> {
     let rhs_val = rt
         .current_thread

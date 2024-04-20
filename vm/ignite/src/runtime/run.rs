@@ -17,6 +17,7 @@ impl Runtime {
     /// # Errors
     ///
     /// If the program counter is out of bounds.
+    #[inline]
     pub fn fetch_instr(&mut self) -> Result<ByteCode> {
         let instr = self
             .instrs
@@ -28,14 +29,17 @@ impl Runtime {
     }
     /// Check if the time quantum has expired.
     /// The time quantum is the maximum amount of time a thread can run before it is preempted.
+    #[inline]
     pub fn time_quantum_expired(&self) -> bool {
         self.time.elapsed() >= self.time_quantum
     }
 
+    #[inline]
     pub fn should_garbage_collect(&self) -> bool {
         self.gc_timer.elapsed() >= self.gc_interval
     }
 
+    #[inline]
     pub fn garbage_collect(mut self) -> Self {
         self = self.mark_and_weep();
         self.gc_timer = Instant::now();
@@ -43,6 +47,7 @@ impl Runtime {
     }
 
     /// The program is done if the current thread is the main thread and the current thread is done.
+    #[inline]
     pub fn is_done(&self) -> bool {
         self.done
     }
@@ -75,6 +80,7 @@ impl Runtime {
 /// # Errors
 ///
 /// If an error occurs during execution.
+#[inline]
 pub fn run(mut rt: Runtime) -> Result<Runtime> {
     loop {
         if rt.is_done() {
@@ -117,6 +123,7 @@ pub fn run(mut rt: Runtime) -> Result<Runtime> {
 /// # Errors
 ///
 /// If an error occurs during execution.
+#[inline]
 pub fn execute(rt: Runtime, instr: ByteCode) -> Result<Runtime> {
     match instr {
         ByteCode::DONE => micro_code::done(rt),

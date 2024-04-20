@@ -17,6 +17,7 @@ use crate::Runtime;
 /// # Errors
 ///
 /// Infallible.
+#[inline]
 pub fn spawn(mut rt: Runtime, addr: usize) -> Result<Runtime> {
     rt.thread_count += 1;
 

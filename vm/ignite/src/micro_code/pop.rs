@@ -11,6 +11,7 @@ use crate::{Runtime, VmError};
 /// # Errors
 ///
 /// If the stack is empty.
+#[inline]
 pub fn pop(mut rt: Runtime) -> Result<Runtime> {
     rt.current_thread
         .operand_stack

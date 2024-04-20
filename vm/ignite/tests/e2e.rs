@@ -583,5 +583,33 @@ fn test_e2e_fn_decl() -> Result<()> {
     ";
     test_pass(hof, "24")?;
 
+    let hof = r"
+    fn adder(x: int) -> fn(int) -> int {
+        fn g(y: int) -> int {
+            x + y
+        }
+
+        return g;
+    }
+
+    let add5 : fn(int) -> int = adder(5);
+    add5(10)
+    ";
+    test_pass(hof, "15")?;
+
+    // apply fn passed in
+    let hof = r"
+    fn apply(f: fn(int) -> int, x: int) -> int {
+        f(x)
+    }
+
+    fn add(x: int) -> int {
+        return x + 5;
+    }
+
+    apply(add, 9)
+    ";
+    test_pass(hof, "14")?;
+
     Ok(())
 }

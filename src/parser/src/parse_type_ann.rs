@@ -103,6 +103,8 @@ mod tests {
         test_parse("let x : bool = true;", "let x : bool = true;");
         test_parse("let x : float = true;", "let x : float = true;");
         test_parse("let x : () = true;", "let x : () = true;");
+        test_parse(r"let x : str = 2;", "let x : str = 2;");
+        test_parse("let x : sem = 2;", "let x : sem = 2;");
     }
 
     #[test]
@@ -131,9 +133,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_type_annotations_more() {
-        // hof, semaphore, string
-
+    fn test_parse_type_annotations_fns() {
         // // empty
         let t = r"
         let g : fn() = f;

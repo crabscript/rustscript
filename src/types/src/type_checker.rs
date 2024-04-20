@@ -749,4 +749,13 @@ mod tests {
             true,
         );
     }
+
+    #[test]
+    fn type_check_sem_string() {
+        let t = r#"let t = "hello world"; t"#;
+        expect_pass(t, Type::String);
+
+        let t = r"let t = sem_create(); t";
+        expect_pass(t, Type::Semaphore);
+    }
 }

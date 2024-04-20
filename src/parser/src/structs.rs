@@ -461,6 +461,8 @@ impl Type {
             "int" => Ok(Self::Int),
             "bool" => Ok(Self::Bool),
             "float" => Ok(Self::Float),
+            "str" => Ok(Self::String),
+            "sem" => Ok(Self::Semaphore),
             _ => Err(ParseError::new(&format!(
                 "Unknown primitive type: {}",
                 input
@@ -478,7 +480,7 @@ impl Display for Type {
             Self::Unit => "()".to_string(),
             Self::Unitialised => "uninit".to_string(),
             Self::BuiltInFn => "builtin_fn".to_string(),
-            Self::String => "string".to_string(),
+            Self::String => "str".to_string(),
             Self::UserFn(fn_ty) => fn_ty.to_string(),
             Self::ThreadId => "tid".to_string(),
             Self::Semaphore => "sem".to_string(),

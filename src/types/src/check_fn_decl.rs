@@ -3,16 +3,24 @@ use parser::structs::{FnDeclData, FnTypeData, Type};
 use crate::type_checker::{CheckResult, TypeChecker, TypeErrors};
 
 impl<'prog> TypeChecker<'prog> {
-    // 1. all nested returns belonging to fn should have same type as annotated ret type: use fn_stack to track this
-    // 2. Last expr (if it exists) must have same type as annotated, unless there was must_return before
-    // 3. Fn decl well-typed iff - all nested return stmts belonging to the function return the same type as the ty_ann,
-    // AND (somewhere in the block we encounter a terminating decl/ last_expr OR the
-    // last expression of the block has the same type as the ty_ann)
-    // Everything after a must_return is ignored
     pub(crate) fn check_fn_decl(
         &mut self,
         fn_decl: &FnDeclData,
     ) -> Result<CheckResult, TypeErrors> {
+        self.fn_type_stack.push(fn_decl.ret_type.clone());
+        let res = self.check_fn_decl_inner(fn_decl);
+        self.fn_type_stack.pop();
+        res
+    }
+
+    // 1. all nested returns belonging to fn should have same type as annotated ret type: use fn_stack to track this
+    // 2. Last expr (if it exists) must have same type as annotated, unless there was must_return before
+
+    // 3. Fn decl well-typed iff - all nested return stmts belonging to the function return the same type as the ty_ann,
+    // AND (somewhere in the block we encounter a terminating decl/ last_expr OR the
+    // last expression of the block has the same type as the ty_ann)
+    // Everything after a must_return is ignored. function returns unit => don't need must_return, but nested ret cannot return anything else
+    fn check_fn_decl_inner(&mut self, fn_decl: &FnDeclData) -> Result<CheckResult, TypeErrors> {
         // Assert all params have type ann and add their types
         let mut param_types: Vec<Type> = vec![];
 
@@ -202,15 +210,15 @@ mod tests {
         ";
         expect_err(t, "might not return", true);
 
-        // unit
+        // unit - don't have to must_return
         let t = r"
         fn f() {
             if true {
-                return 20;
+                return;
             } 
 
             loop {
-                return 30;
+                return;
             }
 
             fn g() -> int {
@@ -254,9 +262,31 @@ mod tests {
             return 5;
         }
         ";
-        // expect_err(t, "", false);
+        expect_err(t, "[TypeError]: Expected function return type 'int' but return statement has type 'bool'\n[TypeError]: Expected function return type 'int' but return statement has type 'float'", false);
 
         // check that it ignores inner return for hof
+        let t = r"
+        fn f() -> int {
+            fn g() -> bool {
+                return true;
+            }
+
+            return 20;
+        }
+        f
+        ";
+        expect_pass_str(t, "fn() -> int");
+
+        // when return expr has error - keeps checking rest
+        let t = r"
+        fn f() -> int {
+            if true {
+                return 2+ !2;
+            }
+            return !true;
+        }
+        ";
+        expect_err(t, "[TypeError]: Can't apply logical NOT to type int\n[TypeError]: Expected function return type 'int' but return statement has type 'bool'", false);
     }
 
     #[test]
